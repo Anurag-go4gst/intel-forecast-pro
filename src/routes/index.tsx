@@ -121,7 +121,7 @@ function ExecutiveOverview() {
           icon={TrendingUp}
         />
         <KpiTile
-          label="Forecast accuracy (1 − MAPE)"
+          label="Forecast accuracy"
           value={(100 - weightedMape).toFixed(1)}
           unit="%"
           delta="+2.4 pts vs Q2"
@@ -136,14 +136,14 @@ function ExecutiveOverview() {
           icon={CircleGauge}
         />
         <KpiTile
-          label="Stockout risk combinations"
+          label="Stockout risk (SKUs)"
           value={String(stockoutCount)}
           delta="Cover below 15 days"
           deltaTone="risk"
           icon={PackageX}
         />
         <KpiTile
-          label="Excess inventory exposure"
+          label="Excess inventory (SKUs)"
           value={String(excessCount)}
           delta="Cover above 60 days"
           deltaTone="warning"
