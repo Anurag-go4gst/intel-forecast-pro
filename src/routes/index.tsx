@@ -4,7 +4,10 @@ import {
   ArrowUpRight,
   BadgeCheck,
   Boxes,
+  CalendarRange,
   CircleGauge,
+  Layers,
+  ShieldCheck,
   PackageX,
   Target,
   TrendingUp,
@@ -31,6 +34,16 @@ import {
   formatSigned,
   riskRows,
 } from "@/lib/demo-data";
+import {
+  accuracyByFamily,
+  approvedAdjustments,
+  confidenceSummary,
+  dataQualitySummary,
+  forecastExceptions,
+  riskDistribution,
+  seriesQuality,
+  seriesScaleFactor,
+} from "@/lib/forecast-domain";
 import { usePlatform } from "@/lib/platform-state";
 
 export const Route = createFileRoute("/")({
@@ -80,6 +93,11 @@ function ExecutiveOverview() {
   const excessCount = rows.filter((r) => r.stockCoverDays > 60).length;
   const pendingReview = reviewLines.filter((l) => l.status === "Pending").length;
   const openEvents = events.filter((e) => e.status !== "Accepted" && e.status !== "Rejected").length;
+
+  const confidence = confidenceSummary(seriesQuality);
+  const seriesTotal = seriesQuality.length * seriesScaleFactor;
+  const automatable =
+    (confidence["High confidence"] + confidence["Medium confidence"]) * seriesScaleFactor;
 
   const familyMix = rows.reduce<Record<string, number>>((acc, r) => {
     acc[r.family] = (acc[r.family] ?? 0) + r.baseVolume;
