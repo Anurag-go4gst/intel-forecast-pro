@@ -9,8 +9,62 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WhatIfRouteImport } from './routes/what-if'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as PerformanceRouteImport } from './routes/performance'
+import { Route as ModelComparisonRouteImport } from './routes/model-comparison'
+import { Route as ForecastWorkspaceRouteImport } from './routes/forecast-workspace'
+import { Route as ForecastReviewRouteImport } from './routes/forecast-review'
+import { Route as EventIntelligenceRouteImport } from './routes/event-intelligence'
+import { Route as DataReadinessRouteImport } from './routes/data-readiness'
+import { Route as AssistantRouteImport } from './routes/assistant'
 import { Route as IndexRouteImport } from './routes/index'
 
+const WhatIfRoute = WhatIfRouteImport.update({
+  id: '/what-if',
+  path: '/what-if',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PerformanceRoute = PerformanceRouteImport.update({
+  id: '/performance',
+  path: '/performance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ModelComparisonRoute = ModelComparisonRouteImport.update({
+  id: '/model-comparison',
+  path: '/model-comparison',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForecastWorkspaceRoute = ForecastWorkspaceRouteImport.update({
+  id: '/forecast-workspace',
+  path: '/forecast-workspace',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForecastReviewRoute = ForecastReviewRouteImport.update({
+  id: '/forecast-review',
+  path: '/forecast-review',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EventIntelligenceRoute = EventIntelligenceRouteImport.update({
+  id: '/event-intelligence',
+  path: '/event-intelligence',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DataReadinessRoute = DataReadinessRouteImport.update({
+  id: '/data-readiness',
+  path: '/data-readiness',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AssistantRoute = AssistantRouteImport.update({
+  id: '/assistant',
+  path: '/assistant',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +73,158 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/assistant': typeof AssistantRoute
+  '/data-readiness': typeof DataReadinessRoute
+  '/event-intelligence': typeof EventIntelligenceRoute
+  '/forecast-review': typeof ForecastReviewRoute
+  '/forecast-workspace': typeof ForecastWorkspaceRoute
+  '/model-comparison': typeof ModelComparisonRoute
+  '/performance': typeof PerformanceRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/what-if': typeof WhatIfRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/assistant': typeof AssistantRoute
+  '/data-readiness': typeof DataReadinessRoute
+  '/event-intelligence': typeof EventIntelligenceRoute
+  '/forecast-review': typeof ForecastReviewRoute
+  '/forecast-workspace': typeof ForecastWorkspaceRoute
+  '/model-comparison': typeof ModelComparisonRoute
+  '/performance': typeof PerformanceRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/what-if': typeof WhatIfRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/assistant': typeof AssistantRoute
+  '/data-readiness': typeof DataReadinessRoute
+  '/event-intelligence': typeof EventIntelligenceRoute
+  '/forecast-review': typeof ForecastReviewRoute
+  '/forecast-workspace': typeof ForecastWorkspaceRoute
+  '/model-comparison': typeof ModelComparisonRoute
+  '/performance': typeof PerformanceRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/what-if': typeof WhatIfRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/assistant'
+    | '/data-readiness'
+    | '/event-intelligence'
+    | '/forecast-review'
+    | '/forecast-workspace'
+    | '/model-comparison'
+    | '/performance'
+    | '/sitemap.xml'
+    | '/what-if'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/assistant'
+    | '/data-readiness'
+    | '/event-intelligence'
+    | '/forecast-review'
+    | '/forecast-workspace'
+    | '/model-comparison'
+    | '/performance'
+    | '/sitemap.xml'
+    | '/what-if'
+  id:
+    | '__root__'
+    | '/'
+    | '/assistant'
+    | '/data-readiness'
+    | '/event-intelligence'
+    | '/forecast-review'
+    | '/forecast-workspace'
+    | '/model-comparison'
+    | '/performance'
+    | '/sitemap.xml'
+    | '/what-if'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AssistantRoute: typeof AssistantRoute
+  DataReadinessRoute: typeof DataReadinessRoute
+  EventIntelligenceRoute: typeof EventIntelligenceRoute
+  ForecastReviewRoute: typeof ForecastReviewRoute
+  ForecastWorkspaceRoute: typeof ForecastWorkspaceRoute
+  ModelComparisonRoute: typeof ModelComparisonRoute
+  PerformanceRoute: typeof PerformanceRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  WhatIfRoute: typeof WhatIfRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/what-if': {
+      id: '/what-if'
+      path: '/what-if'
+      fullPath: '/what-if'
+      preLoaderRoute: typeof WhatIfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/performance': {
+      id: '/performance'
+      path: '/performance'
+      fullPath: '/performance'
+      preLoaderRoute: typeof PerformanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/model-comparison': {
+      id: '/model-comparison'
+      path: '/model-comparison'
+      fullPath: '/model-comparison'
+      preLoaderRoute: typeof ModelComparisonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forecast-workspace': {
+      id: '/forecast-workspace'
+      path: '/forecast-workspace'
+      fullPath: '/forecast-workspace'
+      preLoaderRoute: typeof ForecastWorkspaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forecast-review': {
+      id: '/forecast-review'
+      path: '/forecast-review'
+      fullPath: '/forecast-review'
+      preLoaderRoute: typeof ForecastReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/event-intelligence': {
+      id: '/event-intelligence'
+      path: '/event-intelligence'
+      fullPath: '/event-intelligence'
+      preLoaderRoute: typeof EventIntelligenceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/data-readiness': {
+      id: '/data-readiness'
+      path: '/data-readiness'
+      fullPath: '/data-readiness'
+      preLoaderRoute: typeof DataReadinessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/assistant': {
+      id: '/assistant'
+      path: '/assistant'
+      fullPath: '/assistant'
+      preLoaderRoute: typeof AssistantRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,17 +237,16 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AssistantRoute: AssistantRoute,
+  DataReadinessRoute: DataReadinessRoute,
+  EventIntelligenceRoute: EventIntelligenceRoute,
+  ForecastReviewRoute: ForecastReviewRoute,
+  ForecastWorkspaceRoute: ForecastWorkspaceRoute,
+  ModelComparisonRoute: ModelComparisonRoute,
+  PerformanceRoute: PerformanceRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
+  WhatIfRoute: WhatIfRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
