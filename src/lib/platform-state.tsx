@@ -18,6 +18,18 @@ import {
   type SavedScenario,
   type ScenarioDriver,
 } from "@/lib/demo-data";
+import {
+  autoMapping,
+  seedTransformations,
+  type TransformationEntry,
+} from "@/lib/forecast-domain";
+
+export type UploadedFile = {
+  name: string;
+  sizeLabel: string;
+  rows: number;
+  uploadedAt: string;
+};
 
 export type ForecastRunState = "idle" | "running" | "complete";
 
