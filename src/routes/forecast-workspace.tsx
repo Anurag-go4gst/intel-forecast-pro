@@ -180,7 +180,6 @@ function ForecastWorkspace() {
               />
               <ReferenceLine x="Jul 26" stroke="var(--color-neutral-line)" strokeDasharray="3 3" label={{ value: "Horizon start", fontSize: 10, fill: "var(--color-muted-foreground)", position: "insideTopLeft" }} />
               <Area type="monotone" dataKey="upper" stroke="none" fill="var(--color-accent-blue)" fillOpacity={0.12} name="Upper bound" />
-              <Area type="monotone" dataKey="lower" stroke="none" fill="var(--color-surface)" fillOpacity={1} name="Lower bound" />
               <Line type="monotone" dataKey="actual" stroke="var(--color-primary)" strokeWidth={2.2} dot={false} name="Actual" />
               <Line type="monotone" dataKey="baseline" stroke="var(--color-accent-blue)" strokeWidth={2} strokeDasharray="5 4" dot={false} name="Baseline" />
               <Line type="monotone" dataKey="adjusted" stroke="var(--color-positive)" strokeWidth={2.2} dot={false} name="Event-adjusted" />

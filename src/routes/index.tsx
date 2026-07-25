@@ -197,14 +197,6 @@ function ExecutiveOverview() {
                   fillOpacity={0.12}
                   name="Upper bound"
                 />
-                <Area
-                  type="monotone"
-                  dataKey="lower"
-                  stroke="none"
-                  fill="var(--color-surface)"
-                  fillOpacity={1}
-                  name="Lower bound"
-                />
                 <Line
                   type="monotone"
                   dataKey="actual"
