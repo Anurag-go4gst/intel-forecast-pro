@@ -370,12 +370,12 @@ function ForecastWorkspace() {
                   />
                   <Tooltip
                     contentStyle={{ borderRadius: 6, border: "1px solid var(--color-border)", background: "var(--color-surface)", fontSize: 12 }}
-                    formatter={(value: number | string | (number | null)[]) =>
+                    formatter={(value) =>
                       Array.isArray(value)
                         ? `${formatNumber(Number(value[0]))} – ${formatNumber(Number(value[1]))}`
                         : typeof value === "number"
                           ? formatNumber(value)
-                          : value
+                          : String(value)
                     }
                   />
                   <ReferenceLine x="Jul 26" stroke="var(--color-neutral-line)" strokeDasharray="3 3" label={{ value: "Horizon start", fontSize: 10, fill: "var(--color-muted-foreground)", position: "insideTopLeft" }} />
@@ -502,13 +502,13 @@ function ForecastWorkspace() {
           <Panel className="xl:col-span-2" title="Why this model was selected" description="Selection is based on rolling-origin backtest error and bias stability, not a single accuracy metric.">
             <ul className="space-y-2 text-xs text-muted-foreground">
               <li>
-                <span className="font-medium text-foreground">Demand behaviour:</span> {behaviour.name} — {behaviour.description}
+                <span className="font-medium text-foreground">Demand behaviour:</span> {behaviour.name} — {behaviour.signature}
               </li>
               <li>
                 <span className="font-medium text-foreground">Selected model:</span> {activeSku.bestModel}; portfolio champion is {champion.name} (WAPE {champion.wape}%, MASE {champion.mase}).
               </li>
               <li>
-                <span className="font-medium text-foreground">Runner-up:</span> {behaviour.recommended.join(", ")} evaluated on the same folds.
+                <span className="font-medium text-foreground">Runner-up:</span> {behaviour.recommended} evaluated on the same folds.
               </li>
               <li>
                 <span className="font-medium text-foreground">Guardrails:</span> models with bias outside ±3% or unstable fold variance are rejected even when average error is lowest.
@@ -523,7 +523,7 @@ function ForecastWorkspace() {
               <MetricRow label="Readiness score" value={`${quality.score} / 100`} tone={quality.score >= 80 ? "positive" : "warning"} />
               <MetricRow label="History available" value={`${quality.historyMonths} months`} />
               <MetricRow label="Completeness" value={`${quality.completeness}%`} />
-              <MetricRow label="Outliers detected" value={String(quality.outliers)} tone={quality.outliers > 3 ? "warning" : "neutral"} />
+              <MetricRow label="Outliers detected" value={String(quality.outliers)} tone={quality.outliers > 3 ? "warning" : "positive"} />
               <MetricRow label="Censored periods" value={String(quality.stockoutPeriods)} />
               <MetricRow label="Baseline MAPE" value={`${activeSku.mape}%`} />
               <MetricRow label="Baseline bias" value={`${formatSigned(activeSku.bias)}`} tone={Math.abs(activeSku.bias) > 3 ? "warning" : "positive"} />
