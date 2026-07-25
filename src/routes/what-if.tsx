@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { FlaskConical, RotateCcw, Save, ShieldAlert } from "lucide-react";
+import { Copy, FlaskConical, RotateCcw, Save, Send } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
   CartesianGrid,
@@ -12,14 +12,18 @@ import {
   YAxis,
 } from "recharts";
 import { KpiTile, MetricRow, Panel, PageHeading, PrototypeNote, StatusPill } from "@/components/primitives";
+import { aggregateSeries, filterSkus, formatNumber, formatSigned } from "@/lib/demo-data";
 import {
-  aggregateSeries,
-  filterSkus,
-  formatNumber,
-  formatSigned,
-  type ScenarioDriver,
-} from "@/lib/demo-data";
+  horizonMonths,
+  patternCurve,
+  residualImpact,
+  routeEvent,
+  scenarioTypes,
+  type ScenarioSpec,
+  type ScenarioType,
+} from "@/lib/event-domain";
 import { usePlatform } from "@/lib/platform-state";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/what-if")({
   head: () => ({
@@ -28,260 +32,457 @@ export const Route = createFileRoute("/what-if")({
       {
         name: "description",
         content:
-          "Simulate demand shifts, price changes, OEM schedule changes, lead-time and capacity constraints without altering the official forecast.",
+          "Build best/worst case, delayed-event, ramp and supply-constrained scenarios with monthly impacts, inventory and service implications, and promote them for approval.",
       },
       { property: "og:title", content: "What-if Scenarios — Demand Intelligence Platform" },
       {
         property: "og:description",
-        content: "Sandbox simulation of demand drivers against the official baseline forecast.",
+        content: "Sandbox scenarios compared against the baseline and approved forecast. Nothing changes the official forecast automatically.",
       },
     ],
   }),
   component: WhatIfScenarios,
 });
 
-type SliderConfig = {
-  key: keyof ScenarioDriver;
-  label: string;
-  min: number;
-  max: number;
-  step: number;
-  suffix: string;
-  help: string;
+const typePresets: Record<ScenarioType, { curve: number[]; cap: number; assumptions: string[] }> = {
+  "Best case": { curve: [2, 4, 6, 8, 9, 10], cap: 110, assumptions: ["Market demand +6%", "All approved events land on plan", "No capacity constraint"] },
+  "Base case": { curve: [0, 0, 0, 0, 0, 0], cap: 100, assumptions: ["Approved events at residual impact only", "No further market movement"] },
+  "Worst case": { curve: [-2, -5, -8, -10, -11, -12], cap: 92, assumptions: ["Market demand -8%", "Two OEM schedule cuts", "Capacity at 92%"] },
+  "Event delayed": { curve: patternCurve("Delayed impact", 14), cap: 100, assumptions: ["Key event shifts two months later", "Peak impact unchanged"] },
+  "Event cancelled": { curve: [0, 0, 0, 0, 0, 0], cap: 100, assumptions: ["Event removed from the plan", "Baseline restored for affected scope"] },
+  "Higher ramp-up": { curve: patternCurve("Gradual ramp-up", 24), cap: 105, assumptions: ["Ramp accelerated by one month", "Peak impact raised to 24%"] },
+  "Lower ramp-up": { curve: patternCurve("Gradual ramp-up", 9), cap: 100, assumptions: ["Ramp slower than nominated volume", "Peak impact reduced to 9%"] },
+  "Demand shock": { curve: patternCurve("One-time spike", 26), cap: 100, assumptions: ["Single-period surge of 26%", "No lasting baseline change"] },
+  "Supply-constrained case": { curve: [0, -2, -5, -6, -4, -2], cap: 82, assumptions: ["Capacity capped at 82%", "Lead time +12 days"] },
+  "Custom scenario": { curve: [0, 1, 2, 3, 3, 3], cap: 100, assumptions: ["Analyst-defined assumptions"] },
 };
 
-const sliders: SliderConfig[] = [
-  { key: "demandShiftPct", label: "Market demand shift", min: -30, max: 30, step: 1, suffix: "%", help: "Underlying market movement independent of price." },
-  { key: "priceChangePct", label: "Price change", min: -15, max: 15, step: 0.5, suffix: "%", help: "Elasticity of -0.7 applied to aftermarket volume." },
-  { key: "oemScheduleChangePct", label: "OEM schedule change", min: -25, max: 25, step: 1, suffix: "%", help: "Customer release quantity revision." },
-  { key: "leadTimeDeltaDays", label: "Supply lead-time change", min: -15, max: 30, step: 1, suffix: " days", help: "Affects cover days and stockout exposure." },
-  { key: "capacityCapPct", label: "Capacity availability", min: 60, max: 120, step: 1, suffix: "%", help: "Constrains achievable supply against demand." },
+const scenarioColors = [
+  "var(--color-accent-blue)",
+  "var(--color-warning)",
+  "var(--color-risk)",
+  "oklch(0.62 0.11 300)",
+  "oklch(0.60 0.10 180)",
 ];
 
 function WhatIfScenarios() {
-  const { filters, drivers, setDriver, resetDrivers, scenarios, saveScenario, loadScenario, events } =
-    usePlatform();
+  const {
+    filters,
+    scenarioSpecs,
+    addScenarioSpec,
+    updateScenarioSpec,
+    cloneScenarioSpec,
+    compareIds,
+    toggleCompare,
+    promoteToReview,
+    adjustmentRequests,
+    intelEvents,
+  } = usePlatform();
+
   const rows = filterSkus(filters);
-  const [name, setName] = useState("");
-  const [note, setNote] = useState("");
+  const [selectedId, setSelectedId] = useState(scenarioSpecs[0]?.id ?? "");
+  const selected = scenarioSpecs.find((s) => s.id === selectedId) ?? scenarioSpecs[0];
+  const [newName, setNewName] = useState("");
+  const [newType, setNewType] = useState<ScenarioType>("Worst case");
 
-  const acceptedUplift = drivers.includeAcceptedEvents
-    ? events.filter((e) => e.status === "Accepted").reduce((sum, e) => sum + e.expectedImpactPct, 0) / 100
-    : 0;
+  const base = useMemo(() => aggregateSeries(rows), [rows]);
+  const horizon = base.filter((p) => p.baseline !== null).slice(0, horizonMonths.length);
 
-  const scenarioMultiplier =
-    1 +
-    drivers.demandShiftPct / 100 +
-    drivers.oemScheduleChangePct / 100 +
-    (-0.7 * drivers.priceChangePct) / 100 +
-    acceptedUplift * 0.35;
+  // Approved event impact per month → the approved (official) forecast.
+  const approvedCurve = useMemo(() => {
+    const total = new Array(horizonMonths.length).fill(0);
+    intelEvents
+      .filter((e) => e.status === "Approved" && routeEvent(e).outcome !== "Explanation only — no additional adjustment")
+      .forEach((e) => {
+        const applied = residualImpact(e).applied;
+        const curve = patternCurve(e.pattern, applied);
+        curve.forEach((v, i) => {
+          if (i < total.length) total[i] += v;
+        });
+      });
+    return total.map((v) => Number(v.toFixed(1)));
+  }, [intelEvents]);
 
-  const baseline = useMemo(() => aggregateSeries(rows), [rows]);
+  const compared = scenarioSpecs.filter((s) => compareIds.includes(s.id));
 
-  const comparison = baseline
-    .filter((p) => p.baseline !== null)
-    .map((p) => {
-      const scenarioDemand = Math.round((p.baseline ?? 0) * scenarioMultiplier);
-      const supplyCap = Math.round((p.baseline ?? 0) * (drivers.capacityCapPct / 100) * 1.05);
-      return {
-        period: p.period,
-        official: p.baseline,
-        scenario: scenarioDemand,
-        constrained: Math.min(scenarioDemand, supplyCap),
-      };
+  const chartData = horizon.map((p, i) => {
+    const baseline = p.baseline ?? 0;
+    const approved = Math.round(baseline * (1 + (approvedCurve[i] ?? 0) / 100));
+    const row: Record<string, string | number> = {
+      period: horizonMonths[i] ?? p.period,
+      baseline,
+      approved,
+    };
+    compared.forEach((s) => {
+      row[s.id] = Math.round(approved * (1 + (s.monthlyImpactPct[i] ?? 0) / 100));
     });
+    return row;
+  });
 
-  const officialTotal = comparison.reduce((sum, p) => sum + (p.official ?? 0), 0);
-  const scenarioTotal = comparison.reduce((sum, p) => sum + p.scenario, 0);
-  const constrainedTotal = comparison.reduce((sum, p) => sum + p.constrained, 0);
-  const unmetDemand = scenarioTotal - constrainedTotal;
-  const deltaPct = ((scenarioTotal - officialTotal) / (officialTotal || 1)) * 100;
-  const coverImpact = Math.max(0, Math.round(drivers.leadTimeDeltaDays * 0.8));
-  const stockoutRiskCount =
-    rows.filter((r) => r.stockCoverDays - coverImpact < 15).length + (unmetDemand > 0 ? 6 : 0);
+  const approvedTotal = chartData.reduce((sum, r) => sum + Number(r.approved), 0);
+  const baselineTotal = chartData.reduce((sum, r) => sum + Number(r.baseline), 0);
+
+  const implications = (spec: ScenarioSpec) => {
+    const total = chartData.reduce((sum, r, i) => sum + Number(r[spec.id] ?? Number(r.approved) * (1 + (spec.monthlyImpactPct[i] ?? 0) / 100)), 0);
+    const servable = chartData.reduce(
+      (sum, r, i) =>
+        sum +
+        Math.min(
+          Number(r[spec.id] ?? Number(r.approved) * (1 + (spec.monthlyImpactPct[i] ?? 0) / 100)),
+          Number(r.approved) * (spec.capacityCapPct / 100) * 1.05,
+        ),
+      0,
+    );
+    const deltaPct = ((total - approvedTotal) / (approvedTotal || 1)) * 100;
+    const stockoutUnits = Math.max(0, Math.round(total - servable));
+    const excessUnits = Math.max(0, Math.round(approvedTotal - total));
+    const serviceLevel = Math.max(84, Math.min(99.2, 97.5 - stockoutUnits / (approvedTotal || 1) * 220));
+    return {
+      total: Math.round(total),
+      deltaPct,
+      stockoutUnits,
+      excessUnits,
+      serviceLevel,
+      skusAtRisk: stockoutUnits > 0 ? Math.max(1, Math.round(rows.length * 0.18)) : 0,
+      skusExcess: excessUnits > 0 ? Math.max(1, Math.round(rows.length * 0.12)) : 0,
+    };
+  };
+
+  const selectedImplications = selected ? implications(selected) : null;
+  const alreadyPromoted = selected ? adjustmentRequests.some((r) => r.originId === selected.id) : false;
+
+  const setMonth = (index: number, value: number) => {
+    if (!selected) return;
+    const next = [...selected.monthlyImpactPct];
+    next[index] = value;
+    updateScenarioSpec(selected.id, { monthlyImpactPct: next });
+  };
+
+  const createScenario = () => {
+    if (!newName.trim()) return;
+    const preset = typePresets[newType];
+    addScenarioSpec({
+      name: newName.trim(),
+      type: newType,
+      owner: "You · Demand planning",
+      notes: `${newType} created in the what-if sandbox. Not part of the official forecast.`,
+      assumptions: preset.assumptions,
+      linkedEventIds: [],
+      monthlyImpactPct: [...preset.curve].slice(0, horizonMonths.length),
+      capacityCapPct: preset.cap,
+    });
+    setNewName("");
+  };
 
   return (
     <div className="space-y-5">
       <PageHeading
         title="What-if Scenarios"
-        subtitle="Adjust drivers and see the effect on demand, supply feasibility and inventory risk. Scenarios are a sandbox: the official forecast version is never modified until a scenario is promoted through Forecast Review."
+        subtitle="Scenarios are a sandbox held separately from the official forecast. Compare them against the baseline and the approved event-aware forecast, then promote a scenario to raise a forecast-adjustment request for approval."
         actions={
           <StatusPill tone="info">
-            <FlaskConical className="h-3 w-3" aria-hidden /> Sandbox — official forecast unchanged
+            <FlaskConical className="h-3 w-3" aria-hidden /> Sandbox — official forecast never changes automatically
           </StatusPill>
         }
       />
 
+      <PrototypeNote>Illustrative prototype data. Scenario impacts, capacity ceilings and service-level effects are simulated locally.</PrototypeNote>
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiTile label="Official forecast" value={formatNumber(officialTotal)} unit="units" delta="Current published baseline" deltaTone="neutral" />
-        <KpiTile label="Scenario demand" value={formatNumber(scenarioTotal)} unit="units" delta={formatSigned(deltaPct)} deltaTone={deltaPct >= 0 ? "positive" : "warning"} />
-        <KpiTile label="Unmet demand at capacity" value={formatNumber(unmetDemand)} unit="units" delta={unmetDemand > 0 ? "Capacity constrained" : "Fully servable"} deltaTone={unmetDemand > 0 ? "risk" : "positive"} />
-        <KpiTile label="Combinations at stockout risk" value={String(stockoutRiskCount)} delta={`Cover reduced by ${coverImpact} days`} deltaTone={stockoutRiskCount > 4 ? "risk" : "warning"} />
+        <KpiTile label="Statistical baseline" value={formatNumber(baselineTotal)} unit="units" delta="Before events" deltaTone="neutral" />
+        <KpiTile label="Approved forecast" value={formatNumber(approvedTotal)} unit="units" delta={formatSigned(((approvedTotal - baselineTotal) / (baselineTotal || 1)) * 100)} deltaTone="positive" />
+        <KpiTile label="Scenarios saved" value={String(scenarioSpecs.length)} delta={`${compared.length} on chart`} deltaTone="info" />
+        <KpiTile
+          label="Selected scenario delta"
+          value={selectedImplications ? formatSigned(selectedImplications.deltaPct) : "—"}
+          delta={selected ? selected.type : "No scenario"}
+          deltaTone={(selectedImplications?.deltaPct ?? 0) >= 0 ? "positive" : "warning"}
+        />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
-        <Panel
-          title="Scenario drivers"
-          description="Changes apply only to this sandbox."
-          actions={
-            <button
-              type="button"
-              onClick={resetDrivers}
-              className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 text-[11px] font-medium hover:bg-accent"
-            >
-              <RotateCcw className="h-3 w-3" aria-hidden /> Reset
-            </button>
-          }
-        >
-          <div className="space-y-4">
-            {sliders.map((slider) => {
-              const value = drivers[slider.key] as number;
-              return (
-                <div key={slider.key}>
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-xs font-medium">{slider.label}</span>
-                    <span className="num text-xs font-semibold">
-                      {value > 0 && slider.key !== "capacityCapPct" ? "+" : ""}
-                      {value}
-                      {slider.suffix}
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min={slider.min}
-                    max={slider.max}
-                    step={slider.step}
-                    value={value}
-                    onChange={(e) => setDriver(slider.key, Number(e.target.value))}
-                    className="mt-1.5 h-1.5 w-full cursor-pointer appearance-none rounded-full bg-muted accent-[var(--color-accent-blue)]"
-                  />
-                  <p className="mt-1 text-[11px] text-muted-foreground">{slider.help}</p>
-                </div>
-              );
-            })}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+        <div className="space-y-4">
+          <Panel title="Create a scenario" description="Pick a scenario type to start from a preset monthly impact curve.">
+            <div className="space-y-3">
+              <label className="block">
+                <span className="label-caps">Scenario name</span>
+                <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Worst case — Q4 OEM cuts" className="mt-1 h-8 w-full rounded-md border border-input bg-surface px-2.5 text-xs" />
+              </label>
+              <label className="block">
+                <span className="label-caps">Scenario type</span>
+                <select value={newType} onChange={(e) => setNewType(e.target.value as ScenarioType)} className="mt-1 h-8 w-full rounded-md border border-input bg-surface px-2 text-xs">
+                  {scenarioTypes.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </label>
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                Preset assumptions: {typePresets[newType].assumptions.join("; ")}.
+              </p>
+              <button type="button" onClick={createScenario} disabled={!newName.trim()} className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+                <Save className="h-3.5 w-3.5" aria-hidden /> Save scenario
+              </button>
+            </div>
+          </Panel>
 
-            <label className="flex items-start gap-2 rounded-md border border-border bg-surface-muted px-3 py-2">
-              <input
-                type="checkbox"
-                checked={drivers.includeAcceptedEvents}
-                onChange={(e) => setDriver("includeAcceptedEvents", e.target.checked)}
-                className="mt-0.5 h-3.5 w-3.5 accent-[var(--color-primary)]"
-              />
-              <span className="text-xs">
-                Include accepted business events
-                <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                  Programme ramps, promotions and changeovers already approved in Event Intelligence.
-                </span>
-              </span>
-            </label>
-          </div>
-        </Panel>
+          <Panel title="Scenario library" description="Tick a scenario to compare it on the chart." bodyClassName="p-0">
+            <ul className="divide-y divide-border">
+              {scenarioSpecs.map((spec, index) => (
+                <li key={spec.id} className={cn("px-4 py-3", spec.id === selected?.id && "bg-accent")}>
+                  <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2">
+                    <input
+                      type="checkbox"
+                      checked={compareIds.includes(spec.id)}
+                      onChange={() => toggleCompare(spec.id)}
+                      aria-label={`Compare ${spec.name}`}
+                      className="mt-1 h-3.5 w-3.5"
+                      style={{ accentColor: scenarioColors[index % scenarioColors.length] }}
+                    />
+                    <button type="button" onClick={() => setSelectedId(spec.id)} className="min-w-0 text-left">
+                      <p className="truncate text-sm font-medium">{spec.name}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {spec.type} · {spec.owner} · {spec.createdAt}
+                      </p>
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        {spec.promoted && <StatusPill tone="warning">Promoted for review</StatusPill>}
+                        <StatusPill tone="neutral">Capacity {spec.capacityCapPct}%</StatusPill>
+                      </div>
+                    </button>
+                    <button type="button" onClick={() => cloneScenarioSpec(spec.id)} className="shrink-0 rounded-md border border-input px-2 py-1 text-[11px] hover:bg-accent" title="Clone scenario">
+                      <Copy className="h-3 w-3" aria-hidden />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Panel>
+        </div>
 
         <div className="space-y-4">
-          <Panel
-            title="Scenario versus official forecast"
-            description="Constrained line reflects the capacity ceiling applied to scenario demand."
-          >
+          <Panel title="Baseline, approved forecast and selected scenarios" description="Scenario lines are derived from the approved forecast and the scenario's monthly impact curve.">
             <div className="h-72 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={comparison} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+                <LineChart data={chartData} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
                   <CartesianGrid stroke="var(--color-border)" vertical={false} />
                   <XAxis dataKey="period" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} stroke="var(--color-neutral-line)" />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
-                    stroke="var(--color-neutral-line)"
-                    tickFormatter={(v: number) => `${Math.round(v / 1000)}k`}
-                    width={44}
-                  />
-                  <Tooltip
-                    contentStyle={{ borderRadius: 6, border: "1px solid var(--color-border)", background: "var(--color-surface)", fontSize: 12 }}
-                    formatter={(v: number | string) => (typeof v === "number" ? formatNumber(v) : v)}
-                  />
+                  <YAxis tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} stroke="var(--color-neutral-line)" tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} width={44} />
+                  <Tooltip contentStyle={{ borderRadius: 6, border: "1px solid var(--color-border)", background: "var(--color-surface)", fontSize: 12 }} formatter={(v: number | string) => (typeof v === "number" ? formatNumber(v) : v)} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Line type="monotone" dataKey="official" name="Official forecast" stroke="var(--color-primary)" strokeWidth={2.2} dot={false} />
-                  <Line type="monotone" dataKey="scenario" name="Scenario demand" stroke="var(--color-accent-blue)" strokeWidth={2.2} strokeDasharray="5 4" dot={false} />
-                  <Line type="monotone" dataKey="constrained" name="Servable at capacity" stroke="var(--color-warning)" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="baseline" name="Statistical baseline" stroke="var(--color-neutral-line)" strokeWidth={1.8} strokeDasharray="4 4" dot={false} />
+                  <Line type="monotone" dataKey="approved" name="Approved forecast" stroke="var(--color-primary)" strokeWidth={2.4} dot={false} />
+                  {compared.map((spec, i) => (
+                    <Line
+                      key={spec.id}
+                      type="monotone"
+                      dataKey={spec.id}
+                      name={spec.name}
+                      stroke={scenarioColors[scenarioSpecs.findIndex((s) => s.id === spec.id) % scenarioColors.length]}
+                      strokeWidth={2}
+                      strokeDasharray={i % 2 === 0 ? "6 3" : "2 3"}
+                      dot={false}
+                    />
+                  ))}
                 </LineChart>
               </ResponsiveContainer>
             </div>
           </Panel>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <Panel title="Scenario outcome summary">
-              <div className="space-y-1">
-                <MetricRow label="Demand delta versus official" value={formatSigned(deltaPct)} tone={deltaPct >= 0 ? "positive" : "warning"} />
-                <MetricRow label="Servable volume" value={formatNumber(constrainedTotal)} />
-                <MetricRow label="Unmet demand" value={formatNumber(unmetDemand)} tone={unmetDemand > 0 ? "risk" : "positive"} />
-                <MetricRow label="Revenue exposure at risk" value={`₹${(unmetDemand / 42000).toFixed(1)} Cr`} tone={unmetDemand > 0 ? "risk" : undefined} />
-                <MetricRow label="Cover day impact" value={`-${coverImpact} days`} tone={coverImpact > 5 ? "warning" : undefined} />
-                <MetricRow label="Capacity utilisation" value={`${Math.min(140, Math.round((scenarioTotal / (officialTotal || 1)) * (100 / (drivers.capacityCapPct / 100))))}%`} tone="warning" />
-              </div>
-              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Scenario name"
-                  className="h-8 flex-1 rounded-md border border-input bg-surface px-2.5 text-xs focus:border-ring focus:ring-1 focus:ring-ring focus:outline-none"
-                />
-                <button
-                  type="button"
-                  disabled={!name.trim()}
-                  onClick={() => {
-                    saveScenario(name.trim(), note.trim() || "Saved from what-if sandbox.");
-                    setName("");
-                    setNote("");
-                  }}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-                >
-                  <Save className="h-3.5 w-3.5" aria-hidden /> Save scenario
-                </button>
-              </div>
-              <input
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Assumption note (optional)"
-                className="mt-2 h-8 w-full rounded-md border border-input bg-surface px-2.5 text-xs focus:border-ring focus:ring-1 focus:ring-ring focus:outline-none"
-              />
-            </Panel>
+          {selected && selectedImplications && (
+            <>
+              <Panel
+                title={`Scenario detail — ${selected.name}`}
+                description="Assumptions and monthly impact are editable. Editing a scenario never changes the approved forecast."
+                actions={<StatusPill tone="info">{selected.type}</StatusPill>}
+              >
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <div>
+                    <span className="label-caps">Scenario assumptions</span>
+                    <ul className="mt-1.5 space-y-1">
+                      {selected.assumptions.map((a) => (
+                        <li key={a} className="rounded-md border border-border bg-surface-muted px-2.5 py-1.5 text-xs">{a}</li>
+                      ))}
+                    </ul>
+                    <label className="mt-3 block">
+                      <span className="label-caps">Notes</span>
+                      <textarea
+                        value={selected.notes}
+                        onChange={(e) => updateScenarioSpec(selected.id, { notes: e.target.value })}
+                        rows={3}
+                        className="mt-1 w-full rounded-md border border-input bg-surface px-2.5 py-1.5 text-xs"
+                      />
+                    </label>
+                    <label className="mt-2 block">
+                      <span className="label-caps">Owner</span>
+                      <input
+                        value={selected.owner}
+                        onChange={(e) => updateScenarioSpec(selected.id, { owner: e.target.value })}
+                        className="mt-1 h-8 w-full rounded-md border border-input bg-surface px-2.5 text-xs"
+                      />
+                    </label>
+                  </div>
 
-            <Panel title="Saved scenarios" description="Load a saved scenario to restore its driver settings." bodyClassName="p-0">
-              <ul className="divide-y divide-border">
-                {scenarios.map((scenario) => (
-                  <li key={scenario.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 px-4 py-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{scenario.name}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {scenario.createdBy} · {scenario.createdAt}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">{scenario.note}</p>
+                  <div>
+                    <span className="label-caps">Monthly impact versus approved forecast</span>
+                    <div className="mt-1.5 grid grid-cols-3 gap-2">
+                      {horizonMonths.map((month, i) => (
+                        <label key={month} className="block">
+                          <span className="text-[11px] text-muted-foreground">{month}</span>
+                          <div className="mt-0.5 flex items-center gap-1">
+                            <input
+                              type="number"
+                              step={0.5}
+                              value={selected.monthlyImpactPct[i] ?? 0}
+                              onChange={(e) => setMonth(i, Number(e.target.value))}
+                              className="num h-7 w-full rounded-md border border-input bg-surface px-2 text-right text-xs"
+                            />
+                            <span className="text-[11px] text-muted-foreground">%</span>
+                          </div>
+                        </label>
+                      ))}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => loadScenario(scenario.id)}
-                      className="shrink-0 rounded-md border border-input px-2.5 py-1 text-[11px] font-medium hover:bg-accent"
-                    >
-                      Load
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </Panel>
-          </div>
+                    <label className="mt-3 block">
+                      <span className="label-caps">Capacity availability</span>
+                      <div className="mt-1 flex items-center gap-2">
+                        <input
+                          type="range"
+                          min={60}
+                          max={120}
+                          value={selected.capacityCapPct}
+                          onChange={(e) => updateScenarioSpec(selected.id, { capacityCapPct: Number(e.target.value) })}
+                          className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-muted accent-[var(--color-accent-blue)]"
+                        />
+                        <span className="num text-xs font-semibold">{selected.capacityCapPct}%</span>
+                      </div>
+                    </label>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button type="button" onClick={() => cloneScenarioSpec(selected.id)} className="inline-flex items-center gap-1.5 rounded-md border border-input px-2.5 py-1.5 text-[11px] font-medium hover:bg-accent">
+                        <Copy className="h-3 w-3" aria-hidden /> Clone
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateScenarioSpec(selected.id, { monthlyImpactPct: [...typePresets[selected.type].curve], capacityCapPct: typePresets[selected.type].cap })}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-input px-2.5 py-1.5 text-[11px] font-medium hover:bg-accent"
+                      >
+                        <RotateCcw className="h-3 w-3" aria-hidden /> Reset to preset
+                      </button>
+                      <button
+                        type="button"
+                        disabled={alreadyPromoted}
+                        onClick={() =>
+                          promoteToReview({
+                            title: `${selected.name} — scenario promoted for review`,
+                            origin: "Scenario",
+                            originId: selected.id,
+                            scope: "Current filter scope",
+                            requestedImpactPct: Number(
+                              (selected.monthlyImpactPct.reduce((a, b) => a + b, 0) / selected.monthlyImpactPct.length).toFixed(1),
+                            ),
+                            monthlyImpactPct: selected.monthlyImpactPct,
+                            owner: selected.owner,
+                            note: `${selected.type}. ${selected.notes}`,
+                          })
+                        }
+                        className="inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                      >
+                        <Send className="h-3 w-3" aria-hidden /> {alreadyPromoted ? "Promoted for review" : "Promote for review"}
+                      </button>
+                    </div>
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                      Promotion creates a forecast-adjustment request that requires approval. The approved forecast is unchanged until then.
+                    </p>
+                  </div>
+                </div>
+              </Panel>
+
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <Panel title="Scenario implications" description="Compared with the approved forecast over the six-month horizon.">
+                  <div className="space-y-1">
+                    <MetricRow label="Scenario demand" value={`${formatNumber(selectedImplications.total)} units`} />
+                    <MetricRow label="Delta versus approved forecast" value={formatSigned(selectedImplications.deltaPct)} tone={selectedImplications.deltaPct >= 0 ? "positive" : "warning"} />
+                    <MetricRow label="Stockout implication (unmet demand)" value={`${formatNumber(selectedImplications.stockoutUnits)} units`} tone={selectedImplications.stockoutUnits > 0 ? "risk" : "positive"} />
+                    <MetricRow label="SKU-locations at stockout risk" value={String(selectedImplications.skusAtRisk)} tone={selectedImplications.skusAtRisk > 0 ? "risk" : undefined} />
+                    <MetricRow label="Excess-inventory implication" value={`${formatNumber(selectedImplications.excessUnits)} units`} tone={selectedImplications.excessUnits > 0 ? "warning" : "positive"} />
+                    <MetricRow label="SKU-locations at excess risk" value={String(selectedImplications.skusExcess)} tone={selectedImplications.skusExcess > 0 ? "warning" : undefined} />
+                    <MetricRow label="Service-level implication" value={`${selectedImplications.serviceLevel.toFixed(1)}%`} tone={selectedImplications.serviceLevel < 95 ? "warning" : "positive"} />
+                  </div>
+                </Panel>
+
+                <Panel title="Scenario comparison" description="All scenarios ticked in the library." bodyClassName="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[520px] text-left text-xs">
+                      <thead className="bg-surface-muted text-[11px] text-muted-foreground">
+                        <tr>
+                          <th className="px-4 py-2 font-medium">Scenario</th>
+                          <th className="px-4 py-2 font-medium">Type</th>
+                          <th className="px-4 py-2 text-right font-medium">Delta</th>
+                          <th className="px-4 py-2 text-right font-medium">Unmet</th>
+                          <th className="px-4 py-2 text-right font-medium">Service</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {compared.map((spec) => {
+                          const imp = implications(spec);
+                          return (
+                            <tr key={spec.id} className="border-b border-border last:border-0">
+                              <td className="px-4 py-2">{spec.name}</td>
+                              <td className="px-4 py-2">{spec.type}</td>
+                              <td className={cn("num px-4 py-2 text-right", imp.deltaPct >= 0 ? "text-positive" : "text-risk")}>{formatSigned(imp.deltaPct)}</td>
+                              <td className="num px-4 py-2 text-right">{formatNumber(imp.stockoutUnits)}</td>
+                              <td className="num px-4 py-2 text-right">{imp.serviceLevel.toFixed(1)}%</td>
+                            </tr>
+                          );
+                        })}
+                        {compared.length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">Tick scenarios in the library to compare them.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </Panel>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning-soft px-3 py-2.5">
-        <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning-foreground" aria-hidden />
-        <p className="text-xs leading-relaxed text-warning-foreground">
-          Scenario results are indicative only. Promoting a scenario into the operational forecast
-          requires consensus approval and a documented assumption set in Forecast Review.
-        </p>
-      </div>
-
-      <PrototypeNote>
-        Driver responses use simple seeded elasticity and capacity rules held in application state.
-        No optimisation or simulation engine is executed.
-      </PrototypeNote>
+      <Panel title="Promoted scenarios and event adjustments awaiting approval" description="Promotion raises a request only; the approved forecast changes after sign-off in Forecast Review." bodyClassName="p-0">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-left text-xs">
+            <thead className="bg-surface-muted text-[11px] text-muted-foreground">
+              <tr>
+                <th className="px-4 py-2 font-medium">Request</th>
+                <th className="px-4 py-2 font-medium">Origin</th>
+                <th className="px-4 py-2 text-right font-medium">Average impact</th>
+                <th className="px-4 py-2 font-medium">Owner</th>
+                <th className="px-4 py-2 font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {adjustmentRequests.map((r) => (
+                <tr key={r.id} className="border-b border-border last:border-0">
+                  <td className="px-4 py-2">
+                    <p className="font-medium">{r.title}</p>
+                    <p className="text-[11px] text-muted-foreground">{r.note}</p>
+                  </td>
+                  <td className="px-4 py-2">{r.origin}</td>
+                  <td className="num px-4 py-2 text-right">{r.requestedImpactPct > 0 ? "+" : ""}{r.requestedImpactPct}%</td>
+                  <td className="px-4 py-2">{r.owner}</td>
+                  <td className="px-4 py-2">
+                    <StatusPill tone={r.status === "Approved" ? "positive" : r.status === "Rejected" ? "risk" : "warning"}>{r.status}</StatusPill>
+                  </td>
+                </tr>
+              ))}
+              {adjustmentRequests.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">No requests raised yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
     </div>
   );
 }

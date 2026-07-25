@@ -19,6 +19,14 @@ import {
   type ScenarioDriver,
 } from "@/lib/demo-data";
 import {
+  seedAdjustmentRequests,
+  seedIntelEvents,
+  seedScenarioSpecs,
+  type AdjustmentRequest,
+  type IntelEvent,
+  type ScenarioSpec,
+} from "@/lib/event-domain";
+import {
   autoMapping,
   seedTransformations,
   type TransformationEntry,
@@ -80,6 +88,22 @@ type PlatformContextValue = {
   runValidation: () => void;
   transformations: TransformationEntry[];
   setTransformationStatus: (id: string, status: TransformationEntry["status"]) => void;
+
+  intelEvents: IntelEvent[];
+  addIntelEvent: (event: Omit<IntelEvent, "id" | "createdAt" | "modifiedAt">) => void;
+  updateIntelEvent: (id: string, patch: Partial<IntelEvent>) => void;
+  setIntelEventStatus: (id: string, status: IntelEvent["status"]) => void;
+
+  scenarioSpecs: ScenarioSpec[];
+  addScenarioSpec: (spec: Omit<ScenarioSpec, "id" | "createdAt" | "promoted">) => void;
+  updateScenarioSpec: (id: string, patch: Partial<ScenarioSpec>) => void;
+  cloneScenarioSpec: (id: string) => void;
+  compareIds: string[];
+  toggleCompare: (id: string) => void;
+
+  adjustmentRequests: AdjustmentRequest[];
+  promoteToReview: (request: Omit<AdjustmentRequest, "id" | "submittedAt" | "status">) => void;
+  setRequestStatus: (id: string, status: AdjustmentRequest["status"]) => void;
 };
 
 const PlatformContext = createContext<PlatformContextValue | null>(null);
@@ -207,6 +231,86 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   );
 
 
+  const [intelEvents, setIntelEvents] = useState<IntelEvent[]>(seedIntelEvents);
+  const [scenarioSpecs, setScenarioSpecs] = useState<ScenarioSpec[]>(seedScenarioSpecs);
+  const [compareIds, setCompareIds] = useState<string[]>(["ss-1", "ss-2"]);
+  const [adjustmentRequests, setAdjustmentRequests] =
+    useState<AdjustmentRequest[]>(seedAdjustmentRequests);
+
+  const stamp = () => "Today (prototype session)";
+
+  const addIntelEvent = useCallback(
+    (event: Omit<IntelEvent, "id" | "createdAt" | "modifiedAt">) => {
+      setIntelEvents((prev) => [
+        { ...event, id: nextId("ie"), createdAt: stamp(), modifiedAt: stamp() },
+        ...prev,
+      ]);
+    },
+    [],
+  );
+
+  const updateIntelEvent = useCallback((id: string, patch: Partial<IntelEvent>) => {
+    setIntelEvents((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, ...patch, modifiedAt: stamp() } : e)),
+    );
+  }, []);
+
+  const setIntelEventStatus = useCallback(
+    (id: string, status: IntelEvent["status"]) => {
+      setIntelEvents((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, status, modifiedAt: stamp() } : e)),
+      );
+    },
+    [],
+  );
+
+  const addScenarioSpec = useCallback(
+    (spec: Omit<ScenarioSpec, "id" | "createdAt" | "promoted">) => {
+      setScenarioSpecs((prev) => [
+        { ...spec, id: nextId("ss"), createdAt: "Today", promoted: false },
+        ...prev,
+      ]);
+    },
+    [],
+  );
+
+  const updateScenarioSpec = useCallback((id: string, patch: Partial<ScenarioSpec>) => {
+    setScenarioSpecs((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  }, []);
+
+  const cloneScenarioSpec = useCallback((id: string) => {
+    setScenarioSpecs((prev) => {
+      const found = prev.find((s) => s.id === id);
+      if (!found) return prev;
+      return [
+        { ...found, id: nextId("ss"), name: `${found.name} (copy)`, promoted: false, createdAt: "Today" },
+        ...prev,
+      ];
+    });
+  }, []);
+
+  const toggleCompare = useCallback((id: string) => {
+    setCompareIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }, []);
+
+  const promoteToReview = useCallback(
+    (request: Omit<AdjustmentRequest, "id" | "submittedAt" | "status">) => {
+      setAdjustmentRequests((prev) => [
+        { ...request, id: nextId("ar"), submittedAt: "Today (prototype session)", status: "Awaiting approval" },
+        ...prev,
+      ]);
+      if (request.origin === "Scenario") {
+        setScenarioSpecs((prev) =>
+          prev.map((s) => (s.id === request.originId ? { ...s, promoted: true } : s)),
+        );
+      }
+    },
+    [],
+  );
+
+  const setRequestStatus = useCallback((id: string, status: AdjustmentRequest["status"]) => {
+    setAdjustmentRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+  }, []);
 
   const value = useMemo<PlatformContextValue>(
     () => ({
@@ -244,6 +348,19 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       runValidation,
       transformations,
       setTransformationStatus,
+      intelEvents,
+      addIntelEvent,
+      updateIntelEvent,
+      setIntelEventStatus,
+      scenarioSpecs,
+      addScenarioSpec,
+      updateScenarioSpec,
+      cloneScenarioSpec,
+      compareIds,
+      toggleCompare,
+      adjustmentRequests,
+      promoteToReview,
+      setRequestStatus,
     }),
     [
       filters,
@@ -280,6 +397,19 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       runValidation,
       transformations,
       setTransformationStatus,
+      intelEvents,
+      addIntelEvent,
+      updateIntelEvent,
+      setIntelEventStatus,
+      scenarioSpecs,
+      addScenarioSpec,
+      updateScenarioSpec,
+      cloneScenarioSpec,
+      compareIds,
+      toggleCompare,
+      adjustmentRequests,
+      promoteToReview,
+      setRequestStatus,
     ],
   );
 
