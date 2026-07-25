@@ -3,7 +3,7 @@ import { CalendarRange, Layers, Play, RotateCcw, Save, Sparkles } from "lucide-r
 import { useMemo, useState } from "react";
 import {
   Area,
-  AreaChart,
+  ComposedChart,
   CartesianGrid,
   Line,
   ReferenceLine,
@@ -165,7 +165,7 @@ function ForecastWorkspace() {
       >
         <div className="h-80 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={series} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+            <ComposedChart data={series} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
               <CartesianGrid stroke="var(--color-border)" vertical={false} />
               <XAxis dataKey="period" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} stroke="var(--color-neutral-line)" interval={1} />
               <YAxis
@@ -184,7 +184,7 @@ function ForecastWorkspace() {
               <Line type="monotone" dataKey="actual" stroke="var(--color-primary)" strokeWidth={2.2} dot={false} name="Actual" />
               <Line type="monotone" dataKey="baseline" stroke="var(--color-accent-blue)" strokeWidth={2} strokeDasharray="5 4" dot={false} name="Baseline" />
               <Line type="monotone" dataKey="adjusted" stroke="var(--color-positive)" strokeWidth={2.2} dot={false} name="Event-adjusted" />
-            </AreaChart>
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       </Panel>

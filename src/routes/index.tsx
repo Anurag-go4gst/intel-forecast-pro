@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import {
   Area,
-  AreaChart,
+  ComposedChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -169,7 +169,7 @@ function ExecutiveOverview() {
         >
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={series} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+              <ComposedChart data={series} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
                 <CartesianGrid stroke="var(--color-border)" vertical={false} />
                 <XAxis
                   dataKey="period"
@@ -222,7 +222,7 @@ function ExecutiveOverview() {
                   dot={false}
                   name="Baseline forecast"
                 />
-              </AreaChart>
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
         </Panel>
