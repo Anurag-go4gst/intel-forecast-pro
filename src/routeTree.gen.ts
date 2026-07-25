@@ -10,17 +10,24 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WhatIfRouteImport } from './routes/what-if'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as PerformanceRouteImport } from './routes/performance'
 import { Route as ModelComparisonRouteImport } from './routes/model-comparison'
 import { Route as ForecastWorkspaceRouteImport } from './routes/forecast-workspace'
 import { Route as ForecastReviewRouteImport } from './routes/forecast-review'
 import { Route as EventIntelligenceRouteImport } from './routes/event-intelligence'
 import { Route as DataReadinessRouteImport } from './routes/data-readiness'
+import { Route as AssistantRouteImport } from './routes/assistant'
 import { Route as IndexRouteImport } from './routes/index'
 
 const WhatIfRoute = WhatIfRouteImport.update({
   id: '/what-if',
   path: '/what-if',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PerformanceRoute = PerformanceRouteImport.update({
@@ -53,6 +60,11 @@ const DataReadinessRoute = DataReadinessRouteImport.update({
   path: '/data-readiness',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AssistantRoute = AssistantRouteImport.update({
+  id: '/assistant',
+  path: '/assistant',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -61,76 +73,90 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/assistant': typeof AssistantRoute
   '/data-readiness': typeof DataReadinessRoute
   '/event-intelligence': typeof EventIntelligenceRoute
   '/forecast-review': typeof ForecastReviewRoute
   '/forecast-workspace': typeof ForecastWorkspaceRoute
   '/model-comparison': typeof ModelComparisonRoute
   '/performance': typeof PerformanceRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/what-if': typeof WhatIfRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/assistant': typeof AssistantRoute
   '/data-readiness': typeof DataReadinessRoute
   '/event-intelligence': typeof EventIntelligenceRoute
   '/forecast-review': typeof ForecastReviewRoute
   '/forecast-workspace': typeof ForecastWorkspaceRoute
   '/model-comparison': typeof ModelComparisonRoute
   '/performance': typeof PerformanceRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/what-if': typeof WhatIfRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/assistant': typeof AssistantRoute
   '/data-readiness': typeof DataReadinessRoute
   '/event-intelligence': typeof EventIntelligenceRoute
   '/forecast-review': typeof ForecastReviewRoute
   '/forecast-workspace': typeof ForecastWorkspaceRoute
   '/model-comparison': typeof ModelComparisonRoute
   '/performance': typeof PerformanceRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/what-if': typeof WhatIfRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/assistant'
     | '/data-readiness'
     | '/event-intelligence'
     | '/forecast-review'
     | '/forecast-workspace'
     | '/model-comparison'
     | '/performance'
+    | '/sitemap.xml'
     | '/what-if'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/assistant'
     | '/data-readiness'
     | '/event-intelligence'
     | '/forecast-review'
     | '/forecast-workspace'
     | '/model-comparison'
     | '/performance'
+    | '/sitemap.xml'
     | '/what-if'
   id:
     | '__root__'
     | '/'
+    | '/assistant'
     | '/data-readiness'
     | '/event-intelligence'
     | '/forecast-review'
     | '/forecast-workspace'
     | '/model-comparison'
     | '/performance'
+    | '/sitemap.xml'
     | '/what-if'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AssistantRoute: typeof AssistantRoute
   DataReadinessRoute: typeof DataReadinessRoute
   EventIntelligenceRoute: typeof EventIntelligenceRoute
   ForecastReviewRoute: typeof ForecastReviewRoute
   ForecastWorkspaceRoute: typeof ForecastWorkspaceRoute
   ModelComparisonRoute: typeof ModelComparisonRoute
   PerformanceRoute: typeof PerformanceRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   WhatIfRoute: typeof WhatIfRoute
 }
 
@@ -141,6 +167,13 @@ declare module '@tanstack/react-router' {
       path: '/what-if'
       fullPath: '/what-if'
       preLoaderRoute: typeof WhatIfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/performance': {
@@ -185,6 +218,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DataReadinessRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/assistant': {
+      id: '/assistant'
+      path: '/assistant'
+      fullPath: '/assistant'
+      preLoaderRoute: typeof AssistantRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -197,12 +237,14 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AssistantRoute: AssistantRoute,
   DataReadinessRoute: DataReadinessRoute,
   EventIntelligenceRoute: EventIntelligenceRoute,
   ForecastReviewRoute: ForecastReviewRoute,
   ForecastWorkspaceRoute: ForecastWorkspaceRoute,
   ModelComparisonRoute: ModelComparisonRoute,
   PerformanceRoute: PerformanceRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   WhatIfRoute: WhatIfRoute,
 }
 export const routeTree = rootRouteImport
