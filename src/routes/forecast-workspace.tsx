@@ -117,7 +117,6 @@ function ForecastWorkspace() {
       fullSeries
         .map((p) => ({
           ...p,
-          band: p.upper !== null && p.lower !== null ? [p.lower, p.upper] : null,
           scenario: p.baseline !== null ? Math.round(p.baseline * (1 + scenarioUplift)) : null,
         }))
         .filter((_, index) => index <= 11 + horizon),
@@ -346,7 +345,7 @@ function ForecastWorkspace() {
         <>
           <Panel
             title={`Forecast view — ${activeSku.sku}`}
-            description="Shaded band is the statistical confidence interval. Approved line includes accepted business events; scenario line reflects the active what-if drivers."
+            description="Dotted lines are the statistical confidence interval. Approved line includes accepted business events; scenario line reflects the active what-if drivers."
             actions={
               <div className="hidden flex-wrap items-center gap-3 text-[11px] text-muted-foreground sm:flex">
                 <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-primary" /> Actual</span>
@@ -370,11 +369,7 @@ function ForecastWorkspace() {
                   <Tooltip
                     contentStyle={{ borderRadius: 6, border: "1px solid var(--color-border)", background: "var(--color-surface)", fontSize: 12 }}
                     formatter={(value) =>
-                      Array.isArray(value)
-                        ? `${formatNumber(Number(value[0]))} – ${formatNumber(Number(value[1]))}`
-                        : typeof value === "number"
-                          ? formatNumber(value)
-                          : String(value)
+                      typeof value === "number" ? formatNumber(value) : String(value)
                     }
                   />
                   <ReferenceLine x="Jul 26" stroke="var(--color-neutral-line)" strokeDasharray="3 3" label={{ value: "Horizon start", fontSize: 10, fill: "var(--color-muted-foreground)", position: "insideTopLeft" }} />
