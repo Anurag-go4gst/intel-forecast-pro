@@ -10,8 +10,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import {
-  Area,
-  ComposedChart,
+  LineChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -169,7 +168,7 @@ function ExecutiveOverview() {
         >
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={series} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+              <LineChart data={series} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
                 <CartesianGrid stroke="var(--color-border)" vertical={false} />
                 <XAxis
                   dataKey="period"
@@ -189,14 +188,6 @@ function ExecutiveOverview() {
                     typeof value === "number" ? formatNumber(value) : value
                   }
                 />
-                <Area
-                  type="monotone"
-                  dataKey="upper"
-                  stroke="none"
-                  fill="var(--color-accent-blue)"
-                  fillOpacity={0.12}
-                  name="Upper bound"
-                />
                 <Line
                   type="monotone"
                   dataKey="actual"
@@ -214,7 +205,7 @@ function ExecutiveOverview() {
                   dot={false}
                   name="Baseline forecast"
                 />
-              </ComposedChart>
+              </LineChart>
             </ResponsiveContainer>
           </div>
         </Panel>

@@ -2,8 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CalendarRange, Layers, Play, RotateCcw, Save, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
-  Area,
-  ComposedChart,
+  LineChart,
   CartesianGrid,
   Line,
   ReferenceLine,
@@ -165,7 +164,7 @@ function ForecastWorkspace() {
       >
         <div className="h-80 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={series} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+            <LineChart data={series} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
               <CartesianGrid stroke="var(--color-border)" vertical={false} />
               <XAxis dataKey="period" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} stroke="var(--color-neutral-line)" interval={1} />
               <YAxis
@@ -179,11 +178,10 @@ function ForecastWorkspace() {
                 formatter={(value: number | string) => (typeof value === "number" ? formatNumber(value) : value)}
               />
               <ReferenceLine x="Jul 26" stroke="var(--color-neutral-line)" strokeDasharray="3 3" label={{ value: "Horizon start", fontSize: 10, fill: "var(--color-muted-foreground)", position: "insideTopLeft" }} />
-              <Area type="monotone" dataKey="upper" stroke="none" fill="var(--color-accent-blue)" fillOpacity={0.12} name="Upper bound" />
               <Line type="monotone" dataKey="actual" stroke="var(--color-primary)" strokeWidth={2.2} dot={false} name="Actual" />
               <Line type="monotone" dataKey="baseline" stroke="var(--color-accent-blue)" strokeWidth={2} strokeDasharray="5 4" dot={false} name="Baseline" />
               <Line type="monotone" dataKey="adjusted" stroke="var(--color-positive)" strokeWidth={2.2} dot={false} name="Event-adjusted" />
-            </ComposedChart>
+            </LineChart>
           </ResponsiveContainer>
         </div>
       </Panel>
