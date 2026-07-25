@@ -9,9 +9,21 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ModelComparisonRouteImport } from './routes/model-comparison'
+import { Route as ForecastWorkspaceRouteImport } from './routes/forecast-workspace'
 import { Route as DataReadinessRouteImport } from './routes/data-readiness'
 import { Route as IndexRouteImport } from './routes/index'
 
+const ModelComparisonRoute = ModelComparisonRouteImport.update({
+  id: '/model-comparison',
+  path: '/model-comparison',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForecastWorkspaceRoute = ForecastWorkspaceRouteImport.update({
+  id: '/forecast-workspace',
+  path: '/forecast-workspace',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DataReadinessRoute = DataReadinessRouteImport.update({
   id: '/data-readiness',
   path: '/data-readiness',
@@ -26,31 +38,62 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/data-readiness': typeof DataReadinessRoute
+  '/forecast-workspace': typeof ForecastWorkspaceRoute
+  '/model-comparison': typeof ModelComparisonRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/data-readiness': typeof DataReadinessRoute
+  '/forecast-workspace': typeof ForecastWorkspaceRoute
+  '/model-comparison': typeof ModelComparisonRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/data-readiness': typeof DataReadinessRoute
+  '/forecast-workspace': typeof ForecastWorkspaceRoute
+  '/model-comparison': typeof ModelComparisonRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/data-readiness'
+  fullPaths:
+    | '/'
+    | '/data-readiness'
+    | '/forecast-workspace'
+    | '/model-comparison'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/data-readiness'
-  id: '__root__' | '/' | '/data-readiness'
+  to: '/' | '/data-readiness' | '/forecast-workspace' | '/model-comparison'
+  id:
+    | '__root__'
+    | '/'
+    | '/data-readiness'
+    | '/forecast-workspace'
+    | '/model-comparison'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DataReadinessRoute: typeof DataReadinessRoute
+  ForecastWorkspaceRoute: typeof ForecastWorkspaceRoute
+  ModelComparisonRoute: typeof ModelComparisonRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/model-comparison': {
+      id: '/model-comparison'
+      path: '/model-comparison'
+      fullPath: '/model-comparison'
+      preLoaderRoute: typeof ModelComparisonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forecast-workspace': {
+      id: '/forecast-workspace'
+      path: '/forecast-workspace'
+      fullPath: '/forecast-workspace'
+      preLoaderRoute: typeof ForecastWorkspaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/data-readiness': {
       id: '/data-readiness'
       path: '/data-readiness'
@@ -71,6 +114,8 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DataReadinessRoute: DataReadinessRoute,
+  ForecastWorkspaceRoute: ForecastWorkspaceRoute,
+  ModelComparisonRoute: ModelComparisonRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
