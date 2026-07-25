@@ -69,6 +69,17 @@ type PlatformContextValue = {
 
   messages: ChatMessage[];
   pushMessage: (message: ChatMessage) => void;
+
+  upload: UploadedFile | null;
+  setUpload: (file: UploadedFile | null) => void;
+  mapping: Record<string, string>;
+  setMapping: (fieldId: string, column: string) => void;
+  autoMap: () => void;
+  clearMapping: () => void;
+  validationRun: boolean;
+  runValidation: () => void;
+  transformations: TransformationEntry[];
+  setTransformationStatus: (id: string, status: TransformationEntry["status"]) => void;
 };
 
 const PlatformContext = createContext<PlatformContextValue | null>(null);
