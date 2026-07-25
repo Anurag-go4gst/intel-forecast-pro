@@ -9,10 +9,9 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
-  Area,
   CartesianGrid,
-  ComposedChart,
   Line,
+  LineChart,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -359,7 +358,7 @@ function ForecastWorkspace() {
           >
             <div className="h-80 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={series} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+                <LineChart data={series} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
                   <CartesianGrid stroke="var(--color-border)" vertical={false} />
                   <XAxis dataKey="period" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} stroke="var(--color-neutral-line)" />
                   <YAxis
@@ -379,20 +378,13 @@ function ForecastWorkspace() {
                     }
                   />
                   <ReferenceLine x="Jul 26" stroke="var(--color-neutral-line)" strokeDasharray="3 3" label={{ value: "Horizon start", fontSize: 10, fill: "var(--color-muted-foreground)", position: "insideTopLeft" }} />
-                  <Area
-                    dataKey="band"
-                    name="Confidence interval"
-                    stroke="none"
-                    fill="var(--color-accent-blue)"
-                    fillOpacity={0.14}
-                    isAnimationActive={false}
-                    connectNulls
-                  />
+                  <Line type="monotone" dataKey="upper" stroke="var(--color-accent-blue)" strokeWidth={1} strokeOpacity={0.5} strokeDasharray="1 3" dot={false} name="Upper confidence" />
+                  <Line type="monotone" dataKey="lower" stroke="var(--color-accent-blue)" strokeWidth={1} strokeOpacity={0.5} strokeDasharray="1 3" dot={false} name="Lower confidence" />
                   <Line type="monotone" dataKey="actual" stroke="var(--color-primary)" strokeWidth={2.2} dot={false} name="Actual" />
                   <Line type="monotone" dataKey="baseline" stroke="var(--color-accent-blue)" strokeWidth={2} strokeDasharray="5 4" dot={false} name="Baseline" />
                   <Line type="monotone" dataKey="adjusted" stroke="var(--color-positive)" strokeWidth={2.2} dot={false} name="Approved (event-aware)" />
                   <Line type="monotone" dataKey="scenario" stroke="var(--color-warning)" strokeWidth={1.8} strokeDasharray="2 3" dot={false} name="What-if scenario" />
-                </ComposedChart>
+                </LineChart>
               </ResponsiveContainer>
             </div>
           </Panel>
