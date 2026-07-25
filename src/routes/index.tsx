@@ -110,45 +110,87 @@ function ExecutiveOverview() {
         }
       />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <KpiTile
-          label="Forecast volume (horizon)"
-          value={formatNumber(horizonTotal)}
-          unit="units"
-          delta="+6.2% vs prior version"
-          deltaTone="info"
-          icon={TrendingUp}
+          label="Demand series analysed"
+          value={formatNumber(seriesTotal)}
+          delta="SKU × customer × location"
+          deltaTone="neutral"
+          icon={Layers}
         />
         <KpiTile
-          label="Forecast accuracy"
+          label="Suitable for automated forecasting"
+          value={formatNumber(automatable)}
+          unit={`${Math.round((automatable / seriesTotal) * 100)}%`}
+          delta="High and medium confidence"
+          deltaTone="positive"
+          icon={ShieldCheck}
+        />
+        <KpiTile
+          label="Forecast horizon"
+          value={String(series.filter((p) => p.baseline !== null).length)}
+          unit="months"
+          delta={`${formatNumber(horizonTotal)} units planned`}
+          deltaTone="info"
+          icon={CalendarRange}
+        />
+        <KpiTile
+          label="Baseline forecast accuracy"
           value={(100 - weightedMape).toFixed(1)}
           unit="%"
-          delta="+2.4 pts vs Q2"
-          deltaTone="positive"
+          delta="Statistical, pre-override"
+          deltaTone="neutral"
           icon={Target}
+        />
+        <KpiTile
+          label="Approved forecast accuracy"
+          value={(100 - weightedMape + 3.4).toFixed(1)}
+          unit="%"
+          delta="+3.4 pts from event intelligence"
+          deltaTone="positive"
+          icon={TrendingUp}
         />
         <KpiTile
           label="Forecast bias"
           value={formatSigned(weightedBias)}
+          unit="%"
           delta={weightedBias > 2 ? "Over-forecast trend" : weightedBias < -2 ? "Under-forecast trend" : "Within tolerance"}
           deltaTone={Math.abs(weightedBias) > 2 ? "warning" : "positive"}
           icon={CircleGauge}
         />
         <KpiTile
-          label="Stockout risk (SKUs)"
+          label="Items at stockout risk"
           value={String(stockoutCount)}
           delta="Cover below 15 days"
           deltaTone="risk"
           icon={PackageX}
         />
         <KpiTile
-          label="Excess inventory (SKUs)"
+          label="Items at excess-inventory risk"
           value={String(excessCount)}
           delta="Cover above 60 days"
           deltaTone="warning"
           icon={Boxes}
         />
+        <KpiTile
+          label="Forecasts awaiting approval"
+          value={String(pendingReview)}
+          delta="Planner review queue"
+          deltaTone={pendingReview ? "warning" : "positive"}
+          icon={BadgeCheck}
+        />
+        <KpiTile
+          label="Open business events"
+          value={String(openEvents)}
+          delta="Awaiting assessment or approval"
+          deltaTone={openEvents ? "warning" : "positive"}
+          icon={AlertTriangle}
+        />
       </div>
+      <p className="text-xs text-muted-foreground">
+        Illustrative prototype data — all metrics above are simulated for demonstration.
+      </p>
+
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Panel
