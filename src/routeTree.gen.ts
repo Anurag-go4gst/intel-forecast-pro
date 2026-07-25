@@ -10,8 +10,10 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WhatIfRouteImport } from './routes/what-if'
+import { Route as PerformanceRouteImport } from './routes/performance'
 import { Route as ModelComparisonRouteImport } from './routes/model-comparison'
 import { Route as ForecastWorkspaceRouteImport } from './routes/forecast-workspace'
+import { Route as ForecastReviewRouteImport } from './routes/forecast-review'
 import { Route as EventIntelligenceRouteImport } from './routes/event-intelligence'
 import { Route as DataReadinessRouteImport } from './routes/data-readiness'
 import { Route as IndexRouteImport } from './routes/index'
@@ -19,6 +21,11 @@ import { Route as IndexRouteImport } from './routes/index'
 const WhatIfRoute = WhatIfRouteImport.update({
   id: '/what-if',
   path: '/what-if',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PerformanceRoute = PerformanceRouteImport.update({
+  id: '/performance',
+  path: '/performance',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ModelComparisonRoute = ModelComparisonRouteImport.update({
@@ -29,6 +36,11 @@ const ModelComparisonRoute = ModelComparisonRouteImport.update({
 const ForecastWorkspaceRoute = ForecastWorkspaceRouteImport.update({
   id: '/forecast-workspace',
   path: '/forecast-workspace',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForecastReviewRoute = ForecastReviewRouteImport.update({
+  id: '/forecast-review',
+  path: '/forecast-review',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EventIntelligenceRoute = EventIntelligenceRouteImport.update({
@@ -51,16 +63,20 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/data-readiness': typeof DataReadinessRoute
   '/event-intelligence': typeof EventIntelligenceRoute
+  '/forecast-review': typeof ForecastReviewRoute
   '/forecast-workspace': typeof ForecastWorkspaceRoute
   '/model-comparison': typeof ModelComparisonRoute
+  '/performance': typeof PerformanceRoute
   '/what-if': typeof WhatIfRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/data-readiness': typeof DataReadinessRoute
   '/event-intelligence': typeof EventIntelligenceRoute
+  '/forecast-review': typeof ForecastReviewRoute
   '/forecast-workspace': typeof ForecastWorkspaceRoute
   '/model-comparison': typeof ModelComparisonRoute
+  '/performance': typeof PerformanceRoute
   '/what-if': typeof WhatIfRoute
 }
 export interface FileRoutesById {
@@ -68,8 +84,10 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/data-readiness': typeof DataReadinessRoute
   '/event-intelligence': typeof EventIntelligenceRoute
+  '/forecast-review': typeof ForecastReviewRoute
   '/forecast-workspace': typeof ForecastWorkspaceRoute
   '/model-comparison': typeof ModelComparisonRoute
+  '/performance': typeof PerformanceRoute
   '/what-if': typeof WhatIfRoute
 }
 export interface FileRouteTypes {
@@ -78,24 +96,30 @@ export interface FileRouteTypes {
     | '/'
     | '/data-readiness'
     | '/event-intelligence'
+    | '/forecast-review'
     | '/forecast-workspace'
     | '/model-comparison'
+    | '/performance'
     | '/what-if'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/data-readiness'
     | '/event-intelligence'
+    | '/forecast-review'
     | '/forecast-workspace'
     | '/model-comparison'
+    | '/performance'
     | '/what-if'
   id:
     | '__root__'
     | '/'
     | '/data-readiness'
     | '/event-intelligence'
+    | '/forecast-review'
     | '/forecast-workspace'
     | '/model-comparison'
+    | '/performance'
     | '/what-if'
   fileRoutesById: FileRoutesById
 }
@@ -103,8 +127,10 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DataReadinessRoute: typeof DataReadinessRoute
   EventIntelligenceRoute: typeof EventIntelligenceRoute
+  ForecastReviewRoute: typeof ForecastReviewRoute
   ForecastWorkspaceRoute: typeof ForecastWorkspaceRoute
   ModelComparisonRoute: typeof ModelComparisonRoute
+  PerformanceRoute: typeof PerformanceRoute
   WhatIfRoute: typeof WhatIfRoute
 }
 
@@ -115,6 +141,13 @@ declare module '@tanstack/react-router' {
       path: '/what-if'
       fullPath: '/what-if'
       preLoaderRoute: typeof WhatIfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/performance': {
+      id: '/performance'
+      path: '/performance'
+      fullPath: '/performance'
+      preLoaderRoute: typeof PerformanceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/model-comparison': {
@@ -129,6 +162,13 @@ declare module '@tanstack/react-router' {
       path: '/forecast-workspace'
       fullPath: '/forecast-workspace'
       preLoaderRoute: typeof ForecastWorkspaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forecast-review': {
+      id: '/forecast-review'
+      path: '/forecast-review'
+      fullPath: '/forecast-review'
+      preLoaderRoute: typeof ForecastReviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/event-intelligence': {
@@ -159,8 +199,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DataReadinessRoute: DataReadinessRoute,
   EventIntelligenceRoute: EventIntelligenceRoute,
+  ForecastReviewRoute: ForecastReviewRoute,
   ForecastWorkspaceRoute: ForecastWorkspaceRoute,
   ModelComparisonRoute: ModelComparisonRoute,
+  PerformanceRoute: PerformanceRoute,
   WhatIfRoute: WhatIfRoute,
 }
 export const routeTree = rootRouteImport
