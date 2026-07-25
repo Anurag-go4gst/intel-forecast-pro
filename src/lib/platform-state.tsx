@@ -18,6 +18,18 @@ import {
   type SavedScenario,
   type ScenarioDriver,
 } from "@/lib/demo-data";
+import {
+  autoMapping,
+  seedTransformations,
+  type TransformationEntry,
+} from "@/lib/forecast-domain";
+
+export type UploadedFile = {
+  name: string;
+  sizeLabel: string;
+  rows: number;
+  uploadedAt: string;
+};
 
 export type ForecastRunState = "idle" | "running" | "complete";
 
@@ -57,6 +69,17 @@ type PlatformContextValue = {
 
   messages: ChatMessage[];
   pushMessage: (message: ChatMessage) => void;
+
+  upload: UploadedFile | null;
+  setUpload: (file: UploadedFile | null) => void;
+  mapping: Record<string, string>;
+  setMapping: (fieldId: string, column: string) => void;
+  autoMap: () => void;
+  clearMapping: () => void;
+  validationRun: boolean;
+  runValidation: () => void;
+  transformations: TransformationEntry[];
+  setTransformationStatus: (id: string, status: TransformationEntry["status"]) => void;
 };
 
 const PlatformContext = createContext<PlatformContextValue | null>(null);
@@ -162,6 +185,29 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     setMessages((prev) => [...prev, message]);
   }, []);
 
+  const [upload, setUpload] = useState<UploadedFile | null>(null);
+  const [mapping, setMappingState] = useState<Record<string, string>>({});
+  const [validationRun, setValidationRun] = useState(false);
+  const [transformations, setTransformations] =
+    useState<TransformationEntry[]>(seedTransformations);
+
+  const setMapping = useCallback((fieldId: string, column: string) => {
+    setMappingState((prev) => ({ ...prev, [fieldId]: column }));
+  }, []);
+
+  const autoMap = useCallback(() => setMappingState({ ...autoMapping }), []);
+  const clearMapping = useCallback(() => setMappingState({}), []);
+  const runValidation = useCallback(() => setValidationRun(true), []);
+
+  const setTransformationStatus = useCallback(
+    (id: string, status: TransformationEntry["status"]) => {
+      setTransformations((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
+    },
+    [],
+  );
+
+
+
   const value = useMemo<PlatformContextValue>(
     () => ({
       filters,
@@ -188,6 +234,16 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       setSelectedModel,
       messages,
       pushMessage,
+      upload,
+      setUpload,
+      mapping,
+      setMapping,
+      autoMap,
+      clearMapping,
+      validationRun,
+      runValidation,
+      transformations,
+      setTransformationStatus,
     }),
     [
       filters,
@@ -214,6 +270,16 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       setSelectedModel,
       messages,
       pushMessage,
+      upload,
+      setUpload,
+      mapping,
+      setMapping,
+      autoMap,
+      clearMapping,
+      validationRun,
+      runValidation,
+      transformations,
+      setTransformationStatus,
     ],
   );
 
