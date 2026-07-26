@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import { KpiTile, Panel, PageHeading, PrototypeNote, StatusPill } from "@/components/primitives";
 import { accuracyTrend, biasByFamily, filterSkus, formatNumber, riskBuckets, riskRows } from "@/lib/demo-data";
+import { championChallenger, fvaAgainst } from "@/lib/governance-domain";
 import { usePlatform } from "@/lib/platform-state";
 import { cn } from "@/lib/utils";
 
@@ -187,8 +188,99 @@ function PerformanceMonitoring() {
         </Panel>
       </div>
 
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <Panel
+          title="Forecast value add"
+          description="Each layer is measured against the naïve reference. A layer that does not reduce error is not worth its cost."
+          bodyClassName="p-0"
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] text-sm">
+              <thead>
+                <tr className="border-b border-border bg-surface-muted text-left">
+                  <th className="label-caps px-4 py-2.5">Forecast layer</th>
+                  <th className="label-caps px-4 py-2.5 text-right">WAPE</th>
+                  <th className="label-caps px-4 py-2.5 text-right">Bias</th>
+                  <th className="label-caps px-4 py-2.5 text-right">Value add</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fvaAgainst("fva-naive").map((layer) => (
+                  <tr key={layer.id} className="border-b border-border align-top last:border-0">
+                    <td className="px-4 py-3">
+                      <p className="text-xs font-medium">{layer.layer}</p>
+                      <p className="text-[11px] text-muted-foreground">{layer.description}</p>
+                    </td>
+                    <td className="num px-4 py-3 text-right text-xs">{layer.wape}%</td>
+                    <td className="num px-4 py-3 text-right text-xs">
+                      {layer.bias > 0 ? "+" : ""}
+                      {layer.bias}%
+                    </td>
+                    <td
+                      className={cn(
+                        "num px-4 py-3 text-right text-xs font-semibold",
+                        layer.valueAdd > 0 ? "text-positive" : layer.valueAdd < 0 ? "text-risk" : "text-muted-foreground",
+                      )}
+                    >
+                      {layer.valueAdd > 0 ? "+" : ""}
+                      {layer.valueAdd} pts
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground">
+            Planner overrides currently destroy 0.8 points of accuracy relative to the event-aware
+            forecast; the review process recovers most of it by rejecting low-evidence changes.
+          </p>
+        </Panel>
+
+        <Panel
+          title="Champion versus challenger"
+          description="Model changes require a majority of backtest folds, not a single headline metric."
+          bodyClassName="p-0"
+        >
+          <ul className="divide-y divide-border">
+            {championChallenger.map((row) => (
+              <li key={row.segment} className="px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-semibold">{row.segment}</p>
+                  <StatusPill
+                    tone={
+                      row.verdict === "Promote challenger"
+                        ? "positive"
+                        : row.verdict === "Hold champion"
+                          ? "info"
+                          : "warning"
+                    }
+                  >
+                    {row.verdict}
+                  </StatusPill>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <div className="rounded-md border border-border bg-surface-muted px-3 py-2">
+                    <p className="label-caps">Champion</p>
+                    <p className="mt-0.5 text-xs font-medium">{row.champion}</p>
+                    <p className="num text-[11px] text-muted-foreground">WAPE {row.championWape}%</p>
+                  </div>
+                  <div className="rounded-md border border-border px-3 py-2">
+                    <p className="label-caps">Challenger</p>
+                    <p className="mt-0.5 text-xs font-medium">{row.challenger}</p>
+                    <p className="num text-[11px] text-muted-foreground">WAPE {row.challengerWape}%</p>
+                  </div>
+                </div>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  {row.folds} rolling folds · {row.note}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      </div>
+
       <PrototypeNote>
-        Accuracy, bias and risk values are seeded demonstration data. A production deployment would
+        Illustrative prototype data. Accuracy, bias, value-add and risk values are seeded. A production deployment would
         compute these from published forecast snapshots against actual dispatches and stock ledgers.
       </PrototypeNote>
     </div>

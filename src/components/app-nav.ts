@@ -5,6 +5,7 @@ import {
   DatabaseZap,
   GitCompareArrows,
   Gauge,
+  ScrollText,
   LayoutDashboard,
   LineChart,
   SlidersHorizontal,
@@ -75,6 +76,13 @@ export const navItems: NavItem[] = [
     icon: Gauge,
     group: "Govern",
     description: "Accuracy, bias, stockout and excess risk",
+  },
+  {
+    to: "/audit-log",
+    label: "Audit Log",
+    icon: ScrollText,
+    group: "Govern",
+    description: "Traceable record of every planning action",
   },
   {
     to: "/assistant",

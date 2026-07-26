@@ -17,6 +17,7 @@ import { Route as ForecastWorkspaceRouteImport } from './routes/forecast-workspa
 import { Route as ForecastReviewRouteImport } from './routes/forecast-review'
 import { Route as EventIntelligenceRouteImport } from './routes/event-intelligence'
 import { Route as DataReadinessRouteImport } from './routes/data-readiness'
+import { Route as AuditLogRouteImport } from './routes/audit-log'
 import { Route as AssistantRouteImport } from './routes/assistant'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -60,6 +61,11 @@ const DataReadinessRoute = DataReadinessRouteImport.update({
   path: '/data-readiness',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuditLogRoute = AuditLogRouteImport.update({
+  id: '/audit-log',
+  path: '/audit-log',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AssistantRoute = AssistantRouteImport.update({
   id: '/assistant',
   path: '/assistant',
@@ -74,6 +80,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/assistant': typeof AssistantRoute
+  '/audit-log': typeof AuditLogRoute
   '/data-readiness': typeof DataReadinessRoute
   '/event-intelligence': typeof EventIntelligenceRoute
   '/forecast-review': typeof ForecastReviewRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/assistant': typeof AssistantRoute
+  '/audit-log': typeof AuditLogRoute
   '/data-readiness': typeof DataReadinessRoute
   '/event-intelligence': typeof EventIntelligenceRoute
   '/forecast-review': typeof ForecastReviewRoute
@@ -99,6 +107,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/assistant': typeof AssistantRoute
+  '/audit-log': typeof AuditLogRoute
   '/data-readiness': typeof DataReadinessRoute
   '/event-intelligence': typeof EventIntelligenceRoute
   '/forecast-review': typeof ForecastReviewRoute
@@ -113,6 +122,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/assistant'
+    | '/audit-log'
     | '/data-readiness'
     | '/event-intelligence'
     | '/forecast-review'
@@ -125,6 +135,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/assistant'
+    | '/audit-log'
     | '/data-readiness'
     | '/event-intelligence'
     | '/forecast-review'
@@ -137,6 +148,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/assistant'
+    | '/audit-log'
     | '/data-readiness'
     | '/event-intelligence'
     | '/forecast-review'
@@ -150,6 +162,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AssistantRoute: typeof AssistantRoute
+  AuditLogRoute: typeof AuditLogRoute
   DataReadinessRoute: typeof DataReadinessRoute
   EventIntelligenceRoute: typeof EventIntelligenceRoute
   ForecastReviewRoute: typeof ForecastReviewRoute
@@ -218,6 +231,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DataReadinessRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/audit-log': {
+      id: '/audit-log'
+      path: '/audit-log'
+      fullPath: '/audit-log'
+      preLoaderRoute: typeof AuditLogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/assistant': {
       id: '/assistant'
       path: '/assistant'
@@ -238,6 +258,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AssistantRoute: AssistantRoute,
+  AuditLogRoute: AuditLogRoute,
   DataReadinessRoute: DataReadinessRoute,
   EventIntelligenceRoute: EventIntelligenceRoute,
   ForecastReviewRoute: ForecastReviewRoute,
@@ -250,13 +271,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
