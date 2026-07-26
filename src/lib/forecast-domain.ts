@@ -186,10 +186,20 @@ export const confidenceTone: Record<ConfidenceClass, "positive" | "info" | "warn
 
 function qualityFor(row: SkuRow): SeriesQuality {
   const r = rng(`quality-${row.sku}-${row.customerId}`);
-  const historyMonths = Math.round(6 + r() * 42);
-  const completeness = Math.round((88 + r() * 12) * 10) / 10;
-  const outliers = Math.round(r() * 9);
-  const stockoutPeriods = Math.round(r() * 6);
+  const historyMonths =
+    row.behaviour === "New item"
+      ? Math.round(4 + r() * 7)
+      : row.quality === "Low"
+        ? Math.round(10 + r() * 16)
+        : row.quality === "Medium"
+          ? Math.round(24 + r() * 22)
+          : 54;
+  const completeness =
+    Math.round(
+      (row.quality === "High" ? 97.5 + r() * 2.5 : row.quality === "Medium" ? 92 + r() * 5 : 78 + r() * 12) * 10,
+    ) / 10;
+  const outliers = Math.round(r() * (row.quality === "Low" ? 11 : row.quality === "Medium" ? 6 : 2));
+  const stockoutPeriods = Math.round(r() * (row.quality === "Low" ? 7 : row.quality === "Medium" ? 3 : 1));
   const raw =
     completeness * 0.5 +
     Math.min(historyMonths, 36) * 1.05 +
@@ -197,6 +207,7 @@ function qualityFor(row: SkuRow): SeriesQuality {
     stockoutPeriods * 2.4 -
     (row.volatility === "High" ? 9 : row.volatility === "Medium" ? 4 : 0);
   const score = Math.max(28, Math.min(97, Math.round(raw)));
+
   const confidence = classifyConfidence(score);
   const reason =
     historyMonths < 12
