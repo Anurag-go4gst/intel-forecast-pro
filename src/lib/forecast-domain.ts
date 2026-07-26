@@ -255,7 +255,7 @@ export function confidenceSummary(rows: SeriesQuality[]) {
 }
 
 /** Scaled-up portfolio counts so the executive view reads like a real estate. */
-export const seriesScaleFactor = 82;
+export const seriesScaleFactor = 1;
 
 // ------------------------------------------------------------------ transformations
 export type TransformationEntry = {
