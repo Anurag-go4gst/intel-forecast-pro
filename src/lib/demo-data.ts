@@ -888,6 +888,31 @@ export type SavedScenario = {
 
 export const seedScenarios: SavedScenario[] = [
   {
+    id: "sc-0",
+    name: "Apex upside recovery (CLT-1048)",
+    createdBy: "R. Iyer · Demand planning",
+    createdAt: "24 Jul 2026",
+    drivers: { ...defaultDrivers, demandShiftPct: 6, oemScheduleChangePct: 4 },
+    note: "Tests a faster November–December catch-up at Apex. Scenario only — never the official forecast.",
+  },
+  {
+    id: "sc-4",
+    name: "Worst case — shutdown extends into November",
+    createdBy: "A. Fernandes · Supply planning",
+    createdAt: "24 Jul 2026",
+    drivers: { ...defaultDrivers, oemScheduleChangePct: -12, capacityCapPct: 92 },
+    note: "Apex shutdown slips by two weeks; November recovery does not materialise.",
+  },
+  {
+    id: "sc-5",
+    name: "Demand shock — festive offtake +15%",
+    createdBy: "N. Bose · Aftermarket",
+    createdAt: "20 Jul 2026",
+    drivers: { ...defaultDrivers, demandShiftPct: 15 },
+    note: "Stress-tests DC replenishment and safety stock across the aftermarket network.",
+  },
+
+  {
     id: "sc-1",
     name: "OEM schedule uplift +8%",
     createdBy: "R. Iyer · Demand planning",
