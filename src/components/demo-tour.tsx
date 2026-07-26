@@ -1,6 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, PlayCircle, X } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { demoSteps } from "@/lib/demo-tour";
 import { usePlatform } from "@/lib/platform-state";
 import { DEMO_SKU, demoCaseMeta } from "@/lib/demo-data";
@@ -31,6 +32,9 @@ export function DemoTour() {
     void navigate({ to: demoSteps[0].route });
   }, [navigate, setFilter]);
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const step = demoSteps[index];
 
   return (
@@ -44,7 +48,7 @@ export function DemoTour() {
         <span className="hidden sm:inline">Run demo</span>
       </button>
 
-      {open && (
+      {open && mounted && createPortal(
         <div className="fixed inset-x-0 bottom-0 z-50 px-3 pb-3 sm:inset-x-auto sm:right-4 sm:bottom-4 sm:w-[430px] sm:px-0">
           <div className="rounded-lg border border-border bg-surface shadow-lg">
             <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
@@ -129,7 +133,8 @@ export function DemoTour() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
