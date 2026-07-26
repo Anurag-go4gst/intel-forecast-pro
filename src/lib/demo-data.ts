@@ -952,13 +952,20 @@ export type ReviewLine = {
 };
 
 export const seedReviewLines: ReviewLine[] = [
+  { id: "rl-0", scope: "CLT-1048 Clutch Friction Assembly · Apex Motors · North Plant", planner: "R. Iyer", statistical: 141600, plannerOverride: 132400, consensus: 132400, variancePct: -6.5, status: "Pending", comment: "Shutdown moved to October: September restored, residual October dip, November catch-up." },
   { id: "rl-1", scope: "Braking assemblies · Northvale Motors", planner: "R. Iyer", statistical: 54200, plannerOverride: 56800, consensus: 56800, variancePct: 4.8, status: "Pending", comment: "Adds confirmed spare capacity order." },
   { id: "rl-2", scope: "Wiring harnesses · Sanand", planner: "P. Rao", statistical: 18600, plannerOverride: 22700, consensus: 22700, variancePct: 22.0, status: "Pending", comment: "EV platform ramp event applied." },
   { id: "rl-3", scope: "Filtration · Aftermarket DCs", planner: "N. Bose", statistical: 121400, plannerOverride: 132300, consensus: 132300, variancePct: 9.0, status: "Pending", comment: "Monsoon campaign, pending pricing sign-off." },
   { id: "rl-4", scope: "Transmission · Chennai", planner: "A. Fernandes", statistical: 38900, plannerOverride: 35400, consensus: 35400, variancePct: -9.0, status: "Approved", comment: "Line requalification shutdown reflected." },
   { id: "rl-5", scope: "Suspension · Delta Bus Works", planner: "K. Shah", statistical: 19300, plannerOverride: 19300, consensus: 19300, variancePct: 0, status: "Approved", comment: "Statistical forecast accepted without change." },
   { id: "rl-6", scope: "Braking assemblies · Kestrel", planner: "R. Iyer", statistical: 44100, plannerOverride: 36200, consensus: 36200, variancePct: -17.9, status: "Returned", comment: "Return: attach customer schedule evidence for the pause." },
+  { id: "rl-7", scope: "Clutch systems · Apex Motors · North Plant (spares)", planner: "D. Rao", statistical: 26400, plannerOverride: 28900, consensus: 28900, variancePct: 9.5, status: "Pending", comment: "Service demand rises while the OEM line is down." },
+  { id: "rl-8", scope: "Filtration · DC North", planner: "N. Bose", statistical: 88700, plannerOverride: 95300, consensus: 95300, variancePct: 7.4, status: "Pending", comment: "Festive restocking event, residual impact only." },
+  { id: "rl-9", scope: "Suspension modules · Pune", planner: "K. Shah", statistical: 31200, plannerOverride: 36500, consensus: 36500, variancePct: 17.0, status: "Returned", comment: "Return: tender award not confirmed, keep in scenario." },
+  { id: "rl-10", scope: "Wiring harnesses · Meridian Vehicles", planner: "P. Rao", statistical: 47800, plannerOverride: 41300, consensus: 41300, variancePct: -13.6, status: "Pending", comment: "Platform phase-out curve applied from January." },
+  { id: "rl-11", scope: "Transmission · Kestrel Automotive", planner: "A. Fernandes", statistical: 22900, plannerOverride: 22900, consensus: 22900, variancePct: 0, status: "Approved", comment: "Baseline accepted; challenger model gap not material." },
 ];
+
 
 export const approvalTrail = [
   { id: "at-1", actor: "System", action: "Baseline forecast generated across 1,284 SKU-customer-location combinations", at: "24 Jul 2026, 06:10" },
