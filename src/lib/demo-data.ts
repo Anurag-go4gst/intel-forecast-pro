@@ -1002,6 +1002,21 @@ export type RiskRow = {
 };
 
 export const riskRows: RiskRow[] = [
+  { sku: "CLT-1048", description: "Clutch Friction Assembly", scope: "North Plant · Apex Motors", risk: "Excess", severity: "High", coverDays: 88, exposureValue: 3.9, driver: "Baseline still plans the September dip that will not happen" },
+  { sku: "CLT-1052-B", description: "Clutch pressure plate, 240mm", scope: "North Plant · Apex Motors", risk: "Stockout", severity: "Medium", coverDays: 13, exposureValue: 1.7, driver: "November catch-up build not yet covered by supply" },
+  { sku: "CLT-1090-C", description: "Clutch slave cylinder", scope: "Chennai · Northvale", risk: "Excess", severity: "Low", coverDays: 62, exposureValue: 0.7, driver: "Service demand softer than the statistical baseline" },
+  { sku: "TRN-3311-A", description: "Gear shift fork, 6-speed", scope: "Chennai · Northvale", risk: "Stockout", severity: "Medium", coverDays: 12, exposureValue: 2.1, driver: "Casting vendor disruption under review" },
+  { sku: "TRN-3480-D", description: "Clutch release bearing", scope: "Chennai · Meridian", risk: "Excess", severity: "Medium", coverDays: 71, exposureValue: 1.6, driver: "Platform phase-out not yet reflected in supply plan" },
+  { sku: "HRN-5102-A", description: "Main body wiring harness", scope: "Sanand · Northvale", risk: "Stockout", severity: "Medium", coverDays: 16, exposureValue: 2.4, driver: "EV ramp residual impact approved late in the cycle" },
+  { sku: "HRN-5240-C", description: "Door harness, LH", scope: "Sanand · Meridian", risk: "Excess", severity: "Low", coverDays: 58, exposureValue: 0.9, driver: "Stockout-censored history inflates the baseline" },
+  { sku: "SUS-7001-A", description: "Front strut module", scope: "Pune · Meridian", risk: "Stockout", severity: "Low", coverDays: 19, exposureValue: 1.2, driver: "Tender scenario volume not in the official forecast" },
+  { sku: "SUS-7420-C", description: "Coil spring, heavy duty", scope: "Chennai · Delta Bus Works", risk: "Excess", severity: "Low", coverDays: 64, exposureValue: 0.8, driver: "Slow mover with intermittent order pattern" },
+  { sku: "FLT-8214-B", description: "Cabin air filter, activated", scope: "DC North · Aftermarket", risk: "Stockout", severity: "Medium", coverDays: 11, exposureValue: 1.5, driver: "Festive restocking event approved this cycle" },
+  { sku: "FLT-8355-C", description: "Fuel filter assembly", scope: "DC South · Aftermarket", risk: "Excess", severity: "Low", coverDays: 79, exposureValue: 0.6, driver: "Prior campaign pulled demand forward" },
+  { sku: "BRK-1450-D", description: "Brake master cylinder", scope: "Chennai · Delta Bus Works", risk: "Stockout", severity: "Low", coverDays: 18, exposureValue: 0.9, driver: "Lead time extended by 12 days" },
+  { sku: "BRK-1204-C", description: "Rear brake disc, ventilated", scope: "Pune · Kestrel", risk: "Excess", severity: "High", coverDays: 104, exposureValue: 2.2, driver: "End-of-life variant with open supply commitments" },
+  { sku: "TRN-3390-B", description: "Gear selector housing", scope: "Nashik · Vantage", risk: "Excess", severity: "Medium", coverDays: 69, exposureValue: 1.3, driver: "December customer shutdown reduces consumption" },
+
   { sku: "HRN-6015-E", description: "Battery cable set, EV pack", scope: "Sanand · Northvale", risk: "Stockout", severity: "High", coverDays: 7, exposureValue: 4.2, driver: "EV ramp event not yet covered by supplier capacity" },
   { sku: "BRK-1180-A", description: "Front brake caliper assembly", scope: "Pune · Northvale", risk: "Stockout", severity: "High", coverDays: 9, exposureValue: 3.6, driver: "Forecast under-bias of 6.1% over last 3 cycles" },
   { sku: "FLT-8100-A", description: "Oil filter cartridge", scope: "DC South · Aftermarket", risk: "Stockout", severity: "Medium", coverDays: 14, exposureValue: 1.9, driver: "Monsoon campaign uplift pending approval" },
