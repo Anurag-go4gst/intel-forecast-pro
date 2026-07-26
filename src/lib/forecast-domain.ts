@@ -334,18 +334,28 @@ export type BehaviourClass = {
   signature: string;
 };
 
-export const behaviourClasses: BehaviourClass[] = [
-  { id: "bc-smooth", name: "Smooth", seriesShare: 21, seriesCount: 276, recommended: "ETS / XGBoost", signature: "Low CV², stable inter-demand interval." },
-  { id: "bc-seasonal", name: "Seasonal", seriesShare: 18, seriesCount: 236, recommended: "SARIMA / Prophet", signature: "Significant 12-month autocorrelation peak." },
-  { id: "bc-trending", name: "Trending", seriesShare: 11, seriesCount: 144, recommended: "ETS with damped trend", signature: "Monotonic drift over 18+ months." },
-  { id: "bc-intermittent", name: "Intermittent", seriesShare: 14, seriesCount: 184, recommended: "Croston / SBA", signature: "Zero demand in more than 35% of buckets." },
-  { id: "bc-erratic", name: "Erratic", seriesShare: 9, seriesCount: 118, recommended: "TSB / regression", signature: "High CV² with regular demand occurrence." },
-  { id: "bc-lumpy", name: "Lumpy", seriesShare: 7, seriesCount: 92, recommended: "TSB with review", signature: "Sparse occurrence and high size variability." },
-  { id: "bc-new", name: "New item", seriesShare: 6, seriesCount: 79, recommended: "Analogue / foundation model", signature: "Fewer than 12 observations." },
-  { id: "bc-eol", name: "End-of-life", seriesShare: 4, seriesCount: 52, recommended: "Managed run-down curve", signature: "Declining trend with phase-out date set." },
-  { id: "bc-sched", name: "Customer-schedule-driven", seriesShare: 7, seriesCount: 92, recommended: "Regression on EDI schedule", signature: "Demand explained by 830/862 releases." },
-  { id: "bc-event", name: "Event-driven", seriesShare: 3, seriesCount: 39, recommended: "Baseline + event uplift", signature: "Variance concentrated around campaign windows." },
+const behaviourClassBase: Array<Omit<BehaviourClass, "seriesShare" | "seriesCount">> = [
+  { id: "bc-smooth", name: "Smooth", recommended: "ETS / XGBoost", signature: "Low CV², stable inter-demand interval." },
+  { id: "bc-seasonal", name: "Seasonal", recommended: "SARIMA / Prophet", signature: "Significant 12-month autocorrelation peak." },
+  { id: "bc-trending", name: "Trending", recommended: "ETS with damped trend", signature: "Monotonic drift over 18+ months." },
+  { id: "bc-intermittent", name: "Intermittent", recommended: "Croston / SBA", signature: "Zero demand in more than 35% of buckets." },
+  { id: "bc-erratic", name: "Erratic", recommended: "TSB / regression", signature: "High CV² with regular demand occurrence." },
+  { id: "bc-lumpy", name: "Lumpy", recommended: "TSB with review", signature: "Sparse occurrence and high size variability." },
+  { id: "bc-new", name: "New item", recommended: "Analogue / foundation model", signature: "Fewer than 12 observations." },
+  { id: "bc-eol", name: "End-of-life", recommended: "Managed run-down curve", signature: "Declining trend with phase-out date set." },
+  { id: "bc-sched", name: "Customer-schedule-driven", recommended: "Regression on EDI schedule", signature: "Demand explained by 830/862 releases." },
+  { id: "bc-event", name: "Event-driven", recommended: "Baseline + event uplift", signature: "Variance concentrated around campaign windows." },
 ];
+
+export const behaviourClasses: BehaviourClass[] = behaviourClassBase.map((base) => {
+  const seriesCount = skus.filter((s) => s.behaviour === base.name).length;
+  return {
+    ...base,
+    seriesCount,
+    seriesShare: Math.round((seriesCount / skus.length) * 1000) / 10,
+  };
+});
+
 
 export function behaviourForSku(sku: string) {
   const row = skus.find((s) => s.sku === sku);
