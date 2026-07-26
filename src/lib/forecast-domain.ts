@@ -348,9 +348,24 @@ export const behaviourClasses: BehaviourClass[] = [
 ];
 
 export function behaviourForSku(sku: string) {
-  const r = rng(`behaviour-${sku}`);
-  return behaviourClasses[Math.floor(r() * behaviourClasses.length)];
+  const row = skus.find((s) => s.sku === sku);
+  return behaviourClasses.find((b) => b.name === row?.behaviour) ?? behaviourClasses[0];
 }
+
+/** Live counts of the 500 generated series by demand-behaviour class. */
+export const behaviourCounts: Record<string, number> = skus.reduce<Record<string, number>>((acc, row) => {
+  acc[row.behaviour] = (acc[row.behaviour] ?? 0) + 1;
+  return acc;
+}, {});
+
+export const qualityTierCounts = skus.reduce(
+  (acc, row) => {
+    acc[row.quality] += 1;
+    return acc;
+  },
+  { High: 0, Medium: 0, Low: 0 } as Record<"High" | "Medium" | "Low", number>,
+);
+
 
 export const rollingBacktest = [
   { fold: "Fold 1", xgboost: 7.2, lightgbm: 7.6, sarima: 10.1, croston: 16.9, foundation: 8.4 },
