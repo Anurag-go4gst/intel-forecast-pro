@@ -36,6 +36,7 @@ export const businessUnits = [
 
 export const customers = [
   { id: "all", label: "All customers / OEMs" },
+  { id: "cus-ap", label: "Apex Motors (OEM)" },
   { id: "cus-nv", label: "Northvale Motors (OEM)" },
   { id: "cus-ka", label: "Kestrel Automotive (OEM)" },
   { id: "cus-mv", label: "Meridian Vehicles (OEM)" },
@@ -45,6 +46,7 @@ export const customers = [
 
 export const productFamilies = [
   { id: "all", label: "All product families" },
+  { id: "pf-clt", label: "Clutch systems" },
   { id: "pf-brk", label: "Braking assemblies" },
   { id: "pf-trn", label: "Transmission components" },
   { id: "pf-hrn", label: "Wiring harnesses" },
@@ -54,6 +56,7 @@ export const productFamilies = [
 
 export const plants = [
   { id: "all", label: "All plants / locations" },
+  { id: "pl-nor", label: "North Plant — Coimbatore" },
   { id: "pl-pun", label: "Plant 01 — Pune" },
   { id: "pl-che", label: "Plant 02 — Chennai" },
   { id: "pl-guj", label: "Plant 03 — Sanand" },
@@ -74,6 +77,22 @@ export const forecastVersions = [
   { id: "v-2026-05-pub", label: "V2026.05 — Published", status: "published" as const },
 ];
 
+export const demandBehaviours = [
+  "Smooth",
+  "Seasonal",
+  "Trending",
+  "Intermittent",
+  "Erratic",
+  "Lumpy",
+  "New item",
+  "End-of-life",
+  "Customer-schedule-driven",
+  "Event-driven",
+] as const;
+export type DemandBehaviour = (typeof demandBehaviours)[number];
+
+export type DataQualityTier = "High" | "Medium" | "Low";
+
 export type SkuRow = {
   sku: string;
   description: string;
@@ -93,9 +112,28 @@ export type SkuRow = {
   onHand: number;
   leadTimeDays: number;
   volatility: "Low" | "Medium" | "High";
+  behaviour: DemandBehaviour;
+  quality: DataQualityTier;
+  isDemoCase?: boolean;
+};
+
+/** The prominent guided demonstration case. */
+export const DEMO_SKU = "CLT-1048";
+export const demoCaseMeta = {
+  sku: DEMO_SKU,
+  description: "Clutch Friction Assembly",
+  customerId: "cus-ap",
+  customer: "Apex Motors (OEM)",
+  plantId: "pl-nor",
+  plant: "North Plant — Coimbatore",
+  familyId: "pf-clt",
+  baseVolume: 12_400,
 };
 
 const skuSeeds: Array<[string, string, string, string, string, string, "A" | "B" | "C", number]> = [
+  ["CLT-1048", "Clutch Friction Assembly", "pf-clt", "cus-ap", "pl-nor", "bu-pt", "A", 12400],
+  ["CLT-1052-B", "Clutch pressure plate, 240mm", "pf-clt", "cus-ap", "pl-nor", "bu-pt", "A", 9800],
+  ["CLT-1090-C", "Clutch slave cylinder", "pf-clt", "cus-nv", "pl-che", "bu-pt", "B", 7600],
   ["BRK-1180-A", "Front brake caliper assembly", "pf-brk", "cus-nv", "pl-pun", "bu-bd", "A", 18400],
   ["BRK-1204-C", "Rear brake disc, ventilated", "pf-brk", "cus-ka", "pl-pun", "bu-bd", "A", 15250],
   ["BRK-2290-B", "Brake pad set, ceramic", "pf-brk", "cus-ad", "dc-del", "bu-as", "B", 42800],
@@ -123,33 +161,164 @@ const modelNames = [
   "Holt-Winters",
 ];
 
-export const skus: SkuRow[] = skuSeeds.map(
-  ([sku, description, familyId, customerId, plantId, buId, abc, baseVolume]) => {
-    const rand = mulberry32(hashString(sku));
-    const mape = Math.round((4 + rand() * 16) * 10) / 10;
-    const bias = Math.round((rand() * 14 - 7) * 10) / 10;
-    return {
+function buildRow(
+  sku: string,
+  description: string,
+  familyId: string,
+  customerId: string,
+  plantId: string,
+  buId: string,
+  abc: "A" | "B" | "C",
+  baseVolume: number,
+  behaviour: DemandBehaviour,
+  quality: DataQualityTier,
+): SkuRow {
+  const rand = mulberry32(hashString(sku));
+  const qualityPenalty = quality === "Low" ? 8 : quality === "Medium" ? 3 : 0;
+  const behaviourPenalty =
+    behaviour === "Intermittent" || behaviour === "Lumpy"
+      ? 9
+      : behaviour === "Erratic" || behaviour === "New item"
+        ? 7
+        : behaviour === "Seasonal" || behaviour === "Event-driven"
+          ? 2
+          : 0;
+  const mape = Math.round((4 + rand() * 8 + qualityPenalty + behaviourPenalty) * 10) / 10;
+  const bias = Math.round((rand() * 14 - 7) * 10) / 10;
+  return {
+    sku,
+    description,
+    familyId,
+    family: productFamilies.find((f) => f.id === familyId)!.label,
+    customerId,
+    customer: customers.find((c) => c.id === customerId)!.label,
+    plantId,
+    plant: plants.find((p) => p.id === plantId)!.label,
+    buId,
+    abc,
+    baseVolume,
+    bestModel: modelNames[Math.floor(rand() * modelNames.length)],
+    mape,
+    bias,
+    stockCoverDays: Math.round(6 + rand() * 92),
+    onHand: Math.round(baseVolume * (0.15 + rand() * 0.5)),
+    leadTimeDays: Math.round(12 + rand() * 45),
+    volatility: mape > 14 ? "High" : mape > 9 ? "Medium" : "Low",
+    behaviour,
+    quality,
+    isDemoCase: sku === DEMO_SKU,
+  };
+}
+
+// ------------------------------------------- generated portfolio (500 series)
+const familyCatalog: Array<{ id: string; code: string; bu: string; parts: string[] }> = [
+  { id: "pf-clt", code: "CLT", bu: "bu-pt", parts: ["Clutch friction disc", "Clutch cover assembly", "Clutch master cylinder", "Dual-mass flywheel", "Clutch fork lever", "Clutch damper spring set"] },
+  { id: "pf-brk", code: "BRK", bu: "bu-bd", parts: ["Brake caliper, front", "Brake disc rotor 280mm", "Brake pad set, organic", "Brake booster assembly", "Wheel cylinder", "ABS sensor ring", "Handbrake cable set"] },
+  { id: "pf-trn", code: "TRN", bu: "bu-pt", parts: ["Gear selector housing", "Synchroniser hub", "Transmission input shaft", "Differential side gear", "Shift rail assembly", "Transfer case bearing"] },
+  { id: "pf-hrn", code: "HRN", bu: "bu-el", parts: ["Engine bay harness", "Instrument panel harness", "Tailgate harness", "Battery cable set", "Sensor pigtail loom", "Roof module harness"] },
+  { id: "pf-sus", code: "SUS", bu: "bu-bd", parts: ["Rear suspension bush kit", "Front strut assembly", "Leaf spring, 5-leaf", "Anti-roll bar link", "Shock absorber, gas", "Control arm, lower"] },
+  { id: "pf-flt", code: "FLT", bu: "bu-as", parts: ["Oil filter cartridge", "Air filter element", "Cabin filter, carbon", "Fuel filter assembly", "Hydraulic filter kit", "Transmission filter"] },
+];
+
+const oemCustomers = ["cus-ap", "cus-nv", "cus-ka", "cus-mv", "cus-db"];
+const oemPlants = ["pl-nor", "pl-pun", "pl-che", "pl-guj"];
+const dcPlants = ["dc-del", "dc-blr"];
+
+const behaviourWeights: Array<[DemandBehaviour, number]> = [
+  ["Smooth", 21],
+  ["Seasonal", 18],
+  ["Trending", 11],
+  ["Intermittent", 14],
+  ["Erratic", 9],
+  ["Lumpy", 7],
+  ["New item", 6],
+  ["End-of-life", 4],
+  ["Customer-schedule-driven", 7],
+  ["Event-driven", 3],
+];
+
+function pickBehaviour(r: number): DemandBehaviour {
+  const total = behaviourWeights.reduce((s, [, w]) => s + w, 0);
+  let acc = 0;
+  const target = r * total;
+  for (const [name, weight] of behaviourWeights) {
+    acc += weight;
+    if (target <= acc) return name;
+  }
+  return "Smooth";
+}
+
+export const TOTAL_SERIES = 500;
+
+const generatedRows: SkuRow[] = [];
+for (let n = 0; generatedRows.length < TOTAL_SERIES - skuSeeds.length; n++) {
+  const rand = mulberry32(hashString(`series-${n}`));
+  const fam = familyCatalog[n % familyCatalog.length];
+  const part = fam.parts[Math.floor(rand() * fam.parts.length)];
+  const aftermarket = fam.id === "pf-flt" ? rand() < 0.8 : rand() < 0.18;
+  const customerId = aftermarket ? "cus-ad" : oemCustomers[Math.floor(rand() * oemCustomers.length)];
+  const plantId = aftermarket
+    ? dcPlants[Math.floor(rand() * dcPlants.length)]
+    : oemPlants[Math.floor(rand() * oemPlants.length)];
+  const buId = aftermarket ? "bu-as" : fam.bu;
+  const behaviour = pickBehaviour(rand());
+  const qRoll = rand();
+  const quality: DataQualityTier =
+    behaviour === "New item" || behaviour === "Lumpy"
+      ? qRoll < 0.5
+        ? "Low"
+        : "Medium"
+      : qRoll < 0.56
+        ? "High"
+        : qRoll < 0.85
+          ? "Medium"
+          : "Low";
+  const volumeRoll = rand();
+  const baseVolume = Math.round(320 + volumeRoll * volumeRoll * 62_000);
+  const abc: "A" | "B" | "C" = baseVolume > 24_000 ? "A" : baseVolume > 7_000 ? "B" : "C";
+  const code = `${fam.code}-${2000 + n}-${"ABCDEFGH"[n % 8]}`;
+  generatedRows.push(
+    buildRow(code, `${part}, variant ${(n % 9) + 1}`, fam.id, customerId, plantId, buId, abc, baseVolume, behaviour, quality),
+  );
+}
+
+const seededBehaviour: Record<string, DemandBehaviour> = {
+  "CLT-1048": "Seasonal",
+  "HRN-6015-E": "New item",
+  "TRN-4120-B": "Lumpy",
+  "FLT-8100-A": "Smooth",
+  "BRK-2290-B": "Event-driven",
+  "SUS-7188-B": "Intermittent",
+  "BRK-1204-C": "End-of-life",
+};
+
+const seededQuality: Record<string, DataQualityTier> = {
+  "CLT-1048": "High",
+  "HRN-6015-E": "Low",
+  "TRN-4120-B": "Low",
+  "SUS-7188-B": "Medium",
+  "HRN-5240-C": "Medium",
+};
+
+export const skus: SkuRow[] = [
+  ...skuSeeds.map(([sku, description, familyId, customerId, plantId, buId, abc, baseVolume]) =>
+    buildRow(
       sku,
       description,
       familyId,
-      family: productFamilies.find((f) => f.id === familyId)!.label,
       customerId,
-      customer: customers.find((c) => c.id === customerId)!.label,
       plantId,
-      plant: plants.find((p) => p.id === plantId)!.label,
       buId,
       abc,
       baseVolume,
-      bestModel: modelNames[Math.floor(rand() * modelNames.length)],
-      mape,
-      bias,
-      stockCoverDays: Math.round(6 + rand() * 52),
-      onHand: Math.round(baseVolume * (0.15 + rand() * 0.5)),
-      leadTimeDays: Math.round(12 + rand() * 45),
-      volatility: mape > 14 ? "High" : mape > 9 ? "Medium" : "Low",
-    };
-  },
-);
+      seededBehaviour[sku] ?? "Smooth",
+      seededQuality[sku] ?? "High",
+    ),
+  ),
+  ...generatedRows,
+];
+
+export const demoCaseRow = skus.find((s) => s.sku === DEMO_SKU)!;
 
 // ---------------------------------------------------------------- filters
 export type Filters = {
