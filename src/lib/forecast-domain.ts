@@ -414,6 +414,24 @@ export type ExceptionRow = {
 };
 
 export const forecastExceptions: ExceptionRow[] = [
+  { id: "ex-0", sku: "CLT-1048", scope: "North Plant · Apex Motors", exception: "Seasonal pattern no longer valid — shutdown moved", metric: "Sep baseline -45% vs event-aware", severity: "High", owner: "R. Iyer" },
+  { id: "ex-8", sku: "CLT-1052-B", scope: "North Plant · Apex Motors", exception: "Catch-up build not covered by supply", metric: "Nov cover 13 days", severity: "High", owner: "A. Fernandes" },
+  { id: "ex-9", sku: "CLT-1090-C", scope: "Chennai · Northvale Motors", exception: "Override applied without evidence", metric: "Override +9.5%", severity: "Medium", owner: "D. Rao" },
+  { id: "ex-10", sku: "TRN-3311-A", scope: "Chennai · Northvale Motors", exception: "Supply constraint under review", metric: "Cover 12 days", severity: "Medium", owner: "Supply risk" },
+  { id: "ex-11", sku: "TRN-3480-D", scope: "Chennai · Meridian Vehicles", exception: "Phase-out curve not in supply plan", metric: "71 days cover", severity: "Medium", owner: "P. Rao" },
+  { id: "ex-12", sku: "HRN-5102-A", scope: "Sanand · Northvale Motors", exception: "Event approved late in cycle", metric: "Residual +14.3%", severity: "Medium", owner: "Programme management" },
+  { id: "ex-13", sku: "SUS-7001-A", scope: "Pune · Meridian Vehicles", exception: "Scenario volume not in official forecast", metric: "Scenario +17%", severity: "Low", owner: "K. Shah" },
+  { id: "ex-14", sku: "SUS-7420-C", scope: "Chennai · Delta Bus Works", exception: "Intermittent demand mis-modelled", metric: "MASE 1.12", severity: "Medium", owner: "Data science" },
+  { id: "ex-15", sku: "FLT-8214-B", scope: "DC North · Aftermarket", exception: "Festive restocking uplift pending", metric: "Event impact +12%", severity: "Medium", owner: "N. Bose" },
+  { id: "ex-16", sku: "FLT-8355-C", scope: "DC South · Aftermarket", exception: "Pull-forward distorting baseline", metric: "79 days cover", severity: "Low", owner: "N. Bose" },
+  { id: "ex-17", sku: "BRK-1450-D", scope: "Chennai · Delta Bus Works", exception: "Lead-time change not reflected", metric: "+12 days lead time", severity: "Low", owner: "A. Fernandes" },
+  { id: "ex-18", sku: "BRK-1204-C", scope: "Pune · Kestrel Automotive", exception: "End-of-life with open commitments", metric: "104 days cover", severity: "High", owner: "Product management" },
+  { id: "ex-19", sku: "TRN-3390-B", scope: "Nashik · Vantage Commercial", exception: "Customer shutdown partially reflected", metric: "40% already in releases", severity: "Medium", owner: "Event routing engine" },
+  { id: "ex-20", sku: "HRN-4102-A", scope: "Chennai · Northline Auto", exception: "Override returned for evidence", metric: "Override +20.6%", severity: "High", owner: "S. Kulkarni" },
+  { id: "ex-21", sku: "BRK-1240-E", scope: "Chennai · Aftermarket network", exception: "Rumour-grade evidence rejected", metric: "Override -25.0%", severity: "Low", owner: "R. Iyer" },
+  { id: "ex-22", sku: "SUS-2210-D", scope: "Nashik · Meridian Motors", exception: "Promotion uplift net of pull-forward", metric: "+7.1% approved", severity: "Low", owner: "M. Bhatt" },
+  { id: "ex-23", sku: "FLT-8100-A", scope: "DC South · Aftermarket", exception: "Data-quality warning on price feed", metric: "Promotion log 74.5% complete", severity: "Medium", owner: "Data governance" },
+
   { id: "ex-1", sku: "HRN-6015-E", scope: "Sanand · Kestrel Automotive", exception: "New programme without history", metric: "Data quality 46 / 100", severity: "High", owner: "Programme management" },
   { id: "ex-2", sku: "BRK-1180-A", scope: "Pune · Northvale Motors", exception: "Persistent under-forecast bias", metric: "Bias -6.1% (3 cycles)", severity: "High", owner: "R. Iyer" },
   { id: "ex-3", sku: "TRN-4120-B", scope: "Chennai · Kestrel Automotive", exception: "One-time order distorting baseline", metric: "Outlier 5.6× median", severity: "High", owner: "A. Fernandes" },
