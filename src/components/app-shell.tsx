@@ -2,6 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { Menu, PanelLeftClose, PanelLeftOpen, Radar, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { navGroups, navItems } from "@/components/app-nav";
+import { DemoTour } from "@/components/demo-tour";
 import { GlobalFilters } from "@/components/global-filters";
 import { StatusPill } from "@/components/primitives";
 import { usePlatform } from "@/lib/platform-state";
@@ -161,6 +162,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
+              <DemoTour />
               <StatusPill tone={published ? "positive" : version?.status === "published" ? "info" : "warning"}>
                 {published ? "Forecast published" : (version?.label ?? "Working draft")}
               </StatusPill>
