@@ -234,7 +234,9 @@ function ExecutiveOverview() {
                 <XAxis
                   dataKey="period"
                   tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
-                  interval={1}
+                  interval={5}
+                  minTickGap={12}
+
                   stroke="var(--color-neutral-line)"
                 />
                 <YAxis
