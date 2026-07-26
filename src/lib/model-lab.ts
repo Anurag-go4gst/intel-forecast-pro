@@ -98,7 +98,7 @@ export const modelCatalogue: CatalogueModel[] = [
     id: "moving-average",
     name: "Moving average",
     category: "Baseline",
-    patterns: ["Smooth", "Erratic"],
+    patterns: ["Smooth", "Erratic", "End-of-life"],
     minHistoryMonths: 6,
     seasonality: false,
     exogenous: false,
@@ -130,7 +130,7 @@ export const modelCatalogue: CatalogueModel[] = [
     id: "ets",
     name: "ETS (exponential smoothing)",
     category: "Statistical / time series",
-    patterns: ["Smooth", "Seasonal", "Trending"],
+    patterns: ["Smooth", "Seasonal", "Trending", "End-of-life"],
     minHistoryMonths: 24,
     seasonality: true,
     exogenous: false,
@@ -380,7 +380,12 @@ export function eligibilityFor(
   if (intermittentPattern && !model.intermittent) {
     return { eligible: false, reason: "Not suitable — series has frequent zero buckets; intermittent methods required." };
   }
-  if (!intermittentPattern && model.intermittent && model.category === "Intermittent demand") {
+  if (
+    !intermittentPattern &&
+    behaviour !== "End-of-life" &&
+    model.intermittent &&
+    model.category === "Intermittent demand"
+  ) {
     return { eligible: false, reason: "Not suitable — continuous demand; intermittent methods add no value." };
   }
   if (!model.patterns.includes(behaviour)) {
