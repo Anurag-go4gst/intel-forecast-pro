@@ -73,7 +73,7 @@ export function changePct(item: ApprovalItem) {
 const monthly = (total: number, shape: number[]) =>
   shape.map((s) => Math.round((total * s) / shape.reduce((a, b) => a + b, 0)));
 
-export const seedApprovalQueue: ApprovalItem[] = [
+const queueBase: Omit<ApprovalItem, "comments">[] = [
   {
     id: "aq-1",
     sku: "HRN-4420-B",
@@ -244,6 +244,11 @@ export const seedComments: Record<string, ApprovalComment[]> = {
     },
   ],
 };
+
+export const seedApprovalQueue: ApprovalItem[] = queueBase.map((item) => ({
+  ...item,
+  comments: seedComments[item.id] ?? [],
+}));
 
 // ------------------------------------------------------------- versioning
 
