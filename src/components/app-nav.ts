@@ -3,6 +3,7 @@ import {
   CalendarClock,
   ClipboardCheck,
   DatabaseZap,
+  FlaskConical,
   GitCompareArrows,
   Gauge,
   ScrollText,
@@ -41,6 +42,13 @@ export const navItems: NavItem[] = [
     icon: LineChart,
     group: "Plan",
     description: "Generate and adjust the baseline forecast",
+  },
+  {
+    to: "/model-lab",
+    label: "Model Lab",
+    icon: FlaskConical,
+    group: "Plan",
+    description: "Train, backtest and select champion models",
   },
   {
     to: "/model-comparison",
