@@ -15,7 +15,7 @@ import {
 } from "recharts";
 import { KpiTile, Panel, PageHeading, PrototypeNote, StatusPill } from "@/components/primitives";
 import { accuracyTrend, biasByFamily, filterSkus, formatNumber, riskBuckets, riskRows } from "@/lib/demo-data";
-import { championChallenger, fvaAgainst, fvaLayers } from "@/lib/governance-domain";
+import { championChallenger, fvaAgainst } from "@/lib/governance-domain";
 import { usePlatform } from "@/lib/platform-state";
 import { cn } from "@/lib/utils";
 
