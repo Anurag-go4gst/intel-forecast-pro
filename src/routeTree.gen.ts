@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WhatIfRouteImport } from './routes/what-if'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as PerformanceRouteImport } from './routes/performance'
+import { Route as ModelLabRouteImport } from './routes/model-lab'
 import { Route as ModelComparisonRouteImport } from './routes/model-comparison'
 import { Route as ForecastWorkspaceRouteImport } from './routes/forecast-workspace'
 import { Route as ForecastReviewRouteImport } from './routes/forecast-review'
@@ -34,6 +35,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const PerformanceRoute = PerformanceRouteImport.update({
   id: '/performance',
   path: '/performance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ModelLabRoute = ModelLabRouteImport.update({
+  id: '/model-lab',
+  path: '/model-lab',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ModelComparisonRoute = ModelComparisonRouteImport.update({
@@ -86,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/forecast-review': typeof ForecastReviewRoute
   '/forecast-workspace': typeof ForecastWorkspaceRoute
   '/model-comparison': typeof ModelComparisonRoute
+  '/model-lab': typeof ModelLabRoute
   '/performance': typeof PerformanceRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/what-if': typeof WhatIfRoute
@@ -99,6 +106,7 @@ export interface FileRoutesByTo {
   '/forecast-review': typeof ForecastReviewRoute
   '/forecast-workspace': typeof ForecastWorkspaceRoute
   '/model-comparison': typeof ModelComparisonRoute
+  '/model-lab': typeof ModelLabRoute
   '/performance': typeof PerformanceRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/what-if': typeof WhatIfRoute
@@ -113,6 +121,7 @@ export interface FileRoutesById {
   '/forecast-review': typeof ForecastReviewRoute
   '/forecast-workspace': typeof ForecastWorkspaceRoute
   '/model-comparison': typeof ModelComparisonRoute
+  '/model-lab': typeof ModelLabRoute
   '/performance': typeof PerformanceRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/what-if': typeof WhatIfRoute
@@ -128,6 +137,7 @@ export interface FileRouteTypes {
     | '/forecast-review'
     | '/forecast-workspace'
     | '/model-comparison'
+    | '/model-lab'
     | '/performance'
     | '/sitemap.xml'
     | '/what-if'
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
     | '/forecast-review'
     | '/forecast-workspace'
     | '/model-comparison'
+    | '/model-lab'
     | '/performance'
     | '/sitemap.xml'
     | '/what-if'
@@ -154,6 +165,7 @@ export interface FileRouteTypes {
     | '/forecast-review'
     | '/forecast-workspace'
     | '/model-comparison'
+    | '/model-lab'
     | '/performance'
     | '/sitemap.xml'
     | '/what-if'
@@ -168,6 +180,7 @@ export interface RootRouteChildren {
   ForecastReviewRoute: typeof ForecastReviewRoute
   ForecastWorkspaceRoute: typeof ForecastWorkspaceRoute
   ModelComparisonRoute: typeof ModelComparisonRoute
+  ModelLabRoute: typeof ModelLabRoute
   PerformanceRoute: typeof PerformanceRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   WhatIfRoute: typeof WhatIfRoute
@@ -194,6 +207,13 @@ declare module '@tanstack/react-router' {
       path: '/performance'
       fullPath: '/performance'
       preLoaderRoute: typeof PerformanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/model-lab': {
+      id: '/model-lab'
+      path: '/model-lab'
+      fullPath: '/model-lab'
+      preLoaderRoute: typeof ModelLabRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/model-comparison': {
@@ -264,6 +284,7 @@ const rootRouteChildren: RootRouteChildren = {
   ForecastReviewRoute: ForecastReviewRoute,
   ForecastWorkspaceRoute: ForecastWorkspaceRoute,
   ModelComparisonRoute: ModelComparisonRoute,
+  ModelLabRoute: ModelLabRoute,
   PerformanceRoute: PerformanceRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   WhatIfRoute: WhatIfRoute,
