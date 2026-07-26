@@ -82,7 +82,7 @@ function ExecutiveOverview() {
   const series = aggregateSeries(rows);
 
   const horizonTotal = series
-    .filter((p) => p.baseline !== null)
+    .filter((p) => p.actual === null && p.baseline !== null)
     .reduce((sum, p) => sum + (p.baseline ?? 0), 0);
   const weightedMape =
     rows.reduce((sum, r) => sum + r.mape * r.baseVolume, 0) /
@@ -147,7 +147,7 @@ function ExecutiveOverview() {
         />
         <KpiTile
           label="Forecast horizon"
-          value={String(series.filter((p) => p.baseline !== null).length)}
+          value={String(series.filter((p) => p.actual === null && p.baseline !== null).length)}
           unit="months"
           delta={`${formatNumber(horizonTotal)} units planned`}
           deltaTone="info"
