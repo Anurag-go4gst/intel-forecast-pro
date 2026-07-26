@@ -27,6 +27,17 @@ import {
   type ScenarioSpec,
 } from "@/lib/event-domain";
 import {
+  seedApprovalQueue,
+  seedAuditLog,
+  seedVersions,
+  proposedFinal,
+  type ApprovalItem,
+  type ApprovalStatus,
+  type AuditAction,
+  type AuditEntry,
+  type ForecastVersionRecord,
+} from "@/lib/governance-domain";
+import {
   autoMapping,
   seedTransformations,
   type TransformationEntry,
@@ -100,6 +111,18 @@ type PlatformContextValue = {
   cloneScenarioSpec: (id: string) => void;
   compareIds: string[];
   toggleCompare: (id: string) => void;
+
+  approvals: ApprovalItem[];
+  setApprovalStatus: (id: string, status: ApprovalStatus, note?: string) => void;
+  editRecommendation: (id: string, plannerOverride: number) => void;
+  addApprovalComment: (id: string, body: string) => void;
+
+  versions: ForecastVersionRecord[];
+  activeVersionId: string;
+  setActiveVersionId: (id: string) => void;
+
+  auditLog: AuditEntry[];
+  logAudit: (entry: Omit<AuditEntry, "id" | "at" | "date">) => void;
 
   adjustmentRequests: AdjustmentRequest[];
   promoteToReview: (request: Omit<AdjustmentRequest, "id" | "submittedAt" | "status">) => void;
@@ -183,7 +206,32 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     setReviewLines((prev) => prev.map((l) => (l.status === "Pending" ? { ...l, status: "Approved" } : l)));
   }, []);
 
-  const publish = useCallback(() => setPublished(true), []);
+  const publish = useCallback(() => {
+    setPublished(true);
+    setVersions((prev) =>
+      prev.map((v) =>
+        v.id === "v-2026-07"
+          ? { ...v, status: "Published" as const }
+          : v.status === "Published"
+            ? { ...v, status: "Superseded" as const }
+            : v,
+      ),
+    );
+    setAuditLog((log) => [
+      {
+        id: nextId("al"),
+        at: "Today (prototype session)",
+        date: "2026-07-26",
+        user: "You · Demand planning lead",
+        action: "Forecast publication" as AuditAction,
+        sku: "All",
+        customer: "All",
+        version: "V2026.07",
+        detail: "Published the July operational forecast to ERP, MRP and the supplier portal (prototype only).",
+      },
+      ...log,
+    ]);
+  }, []);
 
   const startRun = useCallback(() => {
     setRunState("running");
@@ -308,6 +356,98 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const [approvals, setApprovals] = useState<ApprovalItem[]>(seedApprovalQueue);
+  const [versions, setVersions] = useState<ForecastVersionRecord[]>(seedVersions);
+  const [activeVersionId, setActiveVersionId] = useState("v-2026-07");
+  const [auditLog, setAuditLog] = useState<AuditEntry[]>(seedAuditLog);
+
+  const logAudit = useCallback((entry: Omit<AuditEntry, "id" | "at" | "date">) => {
+    setAuditLog((prev) => [
+      { ...entry, id: nextId("al"), at: "Today (prototype session)", date: "2026-07-26" },
+      ...prev,
+    ]);
+  }, []);
+
+  const setApprovalStatus = useCallback(
+    (id: string, status: ApprovalStatus, note?: string) => {
+      setApprovals((prev) =>
+        prev.map((item) => {
+          if (item.id !== id) return item;
+          const comments = note
+            ? [
+                ...item.comments,
+                {
+                  id: nextId("cm"),
+                  author: "You · Demand planning lead",
+                  at: "Today (prototype session)",
+                  body: note,
+                },
+              ]
+            : item.comments;
+          setAuditLog((log) => [
+            {
+              id: nextId("al"),
+              at: "Today (prototype session)",
+              date: "2026-07-26",
+              user: "You · Demand planning lead",
+              action: (status === "Approved"
+                ? "Approval"
+                : status === "Rejected"
+                  ? "Rejection"
+                  : "Forecast adjustment") as AuditAction,
+              sku: item.sku,
+              customer: item.customer,
+              version: "V2026.07",
+              detail: `${status} — ${item.description} (${item.location}). Proposed final ${proposedFinal(item).toLocaleString("en-IN")} units.`,
+            },
+            ...log,
+          ]);
+          return { ...item, status, comments };
+        }),
+      );
+    },
+    [],
+  );
+
+  const editRecommendation = useCallback((id: string, plannerOverride: number) => {
+    setApprovals((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        setAuditLog((log) => [
+          {
+            id: nextId("al"),
+            at: "Today (prototype session)",
+            date: "2026-07-26",
+            user: "You · Demand planning lead",
+            action: "Forecast adjustment" as AuditAction,
+            sku: item.sku,
+            customer: item.customer,
+            version: "V2026.07",
+            detail: `Recommendation edited: planner override changed from ${item.plannerOverride.toLocaleString("en-IN")} to ${plannerOverride.toLocaleString("en-IN")} units.`,
+          },
+          ...log,
+        ]);
+        return { ...item, plannerOverride };
+      }),
+    );
+  }, []);
+
+  const addApprovalComment = useCallback((id: string, body: string) => {
+    setApprovals((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              comments: [
+                ...item.comments,
+                { id: nextId("cm"), author: "You · Demand planning lead", at: "Today (prototype session)", body },
+              ],
+            }
+          : item,
+      ),
+    );
+  }, []);
+
   const setRequestStatus = useCallback((id: string, status: AdjustmentRequest["status"]) => {
     setAdjustmentRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
   }, []);
@@ -358,6 +498,15 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       cloneScenarioSpec,
       compareIds,
       toggleCompare,
+      approvals,
+      setApprovalStatus,
+      editRecommendation,
+      addApprovalComment,
+      versions,
+      activeVersionId,
+      setActiveVersionId,
+      auditLog,
+      logAudit,
       adjustmentRequests,
       promoteToReview,
       setRequestStatus,
@@ -407,6 +556,24 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       cloneScenarioSpec,
       compareIds,
       toggleCompare,
+      approvals,
+      setApprovalStatus,
+      editRecommendation,
+      addApprovalComment,
+      versions,
+      activeVersionId,
+      setActiveVersionId,
+      auditLog,
+      logAudit,
+      approvals,
+      setApprovalStatus,
+      editRecommendation,
+      addApprovalComment,
+      versions,
+      activeVersionId,
+      setActiveVersionId,
+      auditLog,
+      logAudit,
       adjustmentRequests,
       promoteToReview,
       setRequestStatus,
