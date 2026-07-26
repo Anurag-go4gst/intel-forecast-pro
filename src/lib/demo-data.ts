@@ -362,40 +362,71 @@ export type SeriesPoint = {
   lower: number | null;
 };
 
-const monthLabels = [
-  "Aug 25",
-  "Sep 25",
-  "Oct 25",
-  "Nov 25",
-  "Dec 25",
-  "Jan 26",
-  "Feb 26",
-  "Mar 26",
-  "Apr 26",
-  "May 26",
-  "Jun 26",
-  "Jul 26",
-  "Aug 26",
-  "Sep 26",
-  "Oct 26",
-  "Nov 26",
-  "Dec 26",
-];
+const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-/** History ends after Jun 26; Jul 26 onwards is forecast horizon. */
-export const historyCutoffIndex = 11;
+/** 54 months of history (Jan 2022 – Jun 2026) followed by a 12-month horizon. */
+export const HISTORY_MONTHS = 54;
+export const FORECAST_MONTHS = 12;
 
-export function buildSeries(seedKey: string, base: number, uplift = 0): SeriesPoint[] {
+function buildMonthLabels(startYear: number, startMonth: number, count: number) {
+  const out: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const m = (startMonth + i) % 12;
+    const y = startYear + Math.floor((startMonth + i) / 12);
+    out.push(`${monthNames[m]} ${String(y).slice(2)}`);
+  }
+  return out;
+}
+
+export const monthLabels = buildMonthLabels(2022, 0, HISTORY_MONTHS + FORECAST_MONTHS);
+
+/** History ends after Jun 26; Jul 26 onwards is the forecast horizon. */
+export const historyCutoffIndex = HISTORY_MONTHS - 1;
+
+/** Month index (0 = Jan) for a given position in the series. */
+function monthOf(i: number) {
+  return i % 12;
+}
+
+function behaviourShape(behaviour: DemandBehaviour, i: number, rand: () => number): number {
+  const m = monthOf(i);
+  switch (behaviour) {
+    case "Seasonal":
+      return 1 + 0.18 * Math.sin(((m - 2) / 12) * Math.PI * 2);
+    case "Trending":
+      return 1 + i * 0.006;
+    case "Intermittent":
+      return rand() < 0.42 ? 0 : 1.4;
+    case "Lumpy":
+      return rand() < 0.55 ? 0 : 1 + rand() * 2.2;
+    case "Erratic":
+      return 0.55 + rand() * 1.1;
+    case "New item":
+      return i < HISTORY_MONTHS - 10 ? 0 : Math.min(1, (i - (HISTORY_MONTHS - 11)) / 8);
+    case "End-of-life":
+      return Math.max(0.15, 1 - i * 0.011);
+    case "Customer-schedule-driven":
+      return 1 + 0.09 * Math.sin((i / 3) * Math.PI);
+    case "Event-driven":
+      return m === 7 || m === 8 ? 1.22 : 0.97;
+    default:
+      return 1;
+  }
+}
+
+export function buildSeries(seedKey: string, base: number, uplift = 0, behaviour: DemandBehaviour = "Smooth"): SeriesPoint[] {
+  if (seedKey.startsWith(DEMO_SKU)) return demoCaseSeries;
   const rand = mulberry32(hashString(seedKey));
-  const trend = 0.004 + rand() * 0.01;
+  const trend = 0.0015 + rand() * 0.003;
   const noiseScale = 0.05 + rand() * 0.07;
+  const phase = rand() * 0.4;
   return monthLabels.map((label, i) => {
-    const seasonal = 1 + 0.11 * Math.sin((i / 12) * Math.PI * 2 + rand() * 0.4);
-    const level = base * (1 + trend * i) * seasonal;
+    const seasonal = 1 + 0.11 * Math.sin((monthOf(i) / 12) * Math.PI * 2 + phase);
+    const level = base * (1 + trend * i) * seasonal * behaviourShape(behaviour, i, rand);
     const noise = 1 + (rand() - 0.5) * noiseScale;
     const isHistory = i <= historyCutoffIndex;
-    const actual = isHistory ? Math.round(level * noise) : null;
-    const baseline = Math.round(level * (isHistory ? 1 - noiseScale * 0.2 : 1));
+    const actual = isHistory ? Math.max(0, Math.round(level * noise)) : null;
+    const baseline = Math.max(0, Math.round(level * (isHistory ? 1 - noiseScale * 0.2 : 1)));
     const spread = 0.06 + (i - historyCutoffIndex) * 0.012;
     return {
       period: label,
@@ -408,11 +439,120 @@ export function buildSeries(seedKey: string, base: number, uplift = 0): SeriesPo
   });
 }
 
+export function seriesForRow(row: SkuRow, uplift = 0): SeriesPoint[] {
+  return buildSeries(`${row.sku}|${row.customerId}|${row.plantId}`, row.baseVolume / 1.5, uplift, row.behaviour);
+}
+
 export function aggregateSeries(rows: SkuRow[], uplift = 0): SeriesPoint[] {
   const total = rows.reduce((sum, r) => sum + r.baseVolume, 0) || 1;
   const key = rows.map((r) => r.sku).join("|") || "empty";
-  return buildSeries(key, total / 1.6, uplift);
+  if (key.startsWith(DEMO_SKU)) return demoCaseSeries;
+  return buildSeries(`agg-${key.length}-${Math.round(total)}`, total / 1.6, uplift);
 }
+
+// ------------------------------------------------- prominent demonstration case
+/**
+ * CLT-1048 · Clutch Friction Assembly · Apex Motors · North Plant.
+ *
+ * History carries a deep September shutdown dip every year. For FY27 the
+ * confirmed shutdown moved to October, so the statistical baseline is wrong in
+ * two months at once: it keeps a September dip that will not happen and misses
+ * the October trough. Open orders already carry part of the October reduction,
+ * so only the residual is applied.
+ */
+export const demoCase = {
+  sku: DEMO_SKU,
+  description: "Clutch Friction Assembly",
+  customer: "Apex Motors (OEM)",
+  plant: "North Plant — Coimbatore",
+  family: "Clutch systems",
+  /** Gross October reduction stated in the confirmed OEM schedule. */
+  grossOctoberImpactPct: -38,
+  /** Share of that reduction already visible in open orders / EDI releases. */
+  alreadyReflectedPct: -14,
+  /** Residual actually applied so the reduction is not counted twice. */
+  residualOctoberImpactPct: -24,
+  septemberRestorePct: 82,
+  novemberRecoveryPct: 14,
+  scenarioName: "Upside recovery — Apex pulls November volume forward",
+  scenarioNovemberPct: 9,
+  scenarioDecemberPct: 6,
+  plannerOverridePct: 3,
+};
+
+const demoSeasonal: Record<number, number> = {
+  0: 0.96, 1: 1.0, 2: 1.06, 3: 1.04, 4: 1.02, 5: 1.0,
+  6: 0.98, 7: 1.07, 8: 0.55, 9: 1.09, 10: 1.03, 11: 0.92,
+};
+
+export const demoCaseSeries: SeriesPoint[] = (() => {
+  const rand = mulberry32(hashString("demo-clt-1048"));
+  const base = 11_600;
+  return monthLabels.map((label, i) => {
+    const m = monthOf(i);
+    const level = base * (1 + 0.0022 * i) * demoSeasonal[m];
+    const isHistory = i <= historyCutoffIndex;
+    if (isHistory) {
+      const noise = 1 + (rand() - 0.5) * 0.06;
+      return {
+        period: label,
+        actual: Math.round(level * noise),
+        baseline: i === historyCutoffIndex ? Math.round(level) : null,
+        adjusted: i === historyCutoffIndex ? Math.round(level) : null,
+        upper: i === historyCutoffIndex ? Math.round(level) : null,
+        lower: i === historyCutoffIndex ? Math.round(level) : null,
+      };
+    }
+    // Statistical baseline repeats the historical September dip and, because the
+    // open-order feature already carries part of it, softens October slightly.
+    const baselineFactor = m === 9 ? 1 + demoCase.alreadyReflectedPct / 100 : 1;
+    const baseline = Math.round(level * baselineFactor);
+    // Event-aware forecast: restore September, apply the residual October dip,
+    // add the November catch-up.
+    let adjusted = baseline;
+    if (m === 8) adjusted = Math.round((level / demoSeasonal[8]) * (demoCase.septemberRestorePct / 100 + 0.18));
+    if (m === 9) adjusted = Math.round(baseline * (1 + demoCase.residualOctoberImpactPct / 100));
+    if (m === 10) adjusted = Math.round(baseline * (1 + demoCase.novemberRecoveryPct / 100));
+    const spread = 0.07 + (i - historyCutoffIndex) * 0.008;
+    return {
+      period: label,
+      actual: null,
+      baseline,
+      adjusted,
+      upper: Math.round(adjusted * (1 + spread)),
+      lower: Math.round(adjusted * (1 - spread)),
+    };
+  });
+})();
+
+/** Upside recovery scenario — never part of the official forecast. */
+export const demoScenarioSeries = demoCaseSeries.map((p, i) => {
+  const m = monthOf(i);
+  if (p.adjusted === null) return { ...p, scenario: null };
+  const uplift =
+    m === 10 ? demoCase.scenarioNovemberPct / 100 : m === 11 ? demoCase.scenarioDecemberPct / 100 : 0.02;
+  return { ...p, scenario: Math.round(p.adjusted * (1 + uplift)) };
+});
+
+export const demoHorizon = demoCaseSeries.filter((p) => p.actual === null);
+
+export const demoTotals = {
+  baseline: demoHorizon.reduce((s, p) => s + (p.baseline ?? 0), 0),
+  eventAware: demoHorizon.reduce((s, p) => s + (p.adjusted ?? 0), 0),
+  scenario: demoScenarioSeries
+    .filter((p) => p.actual === null)
+    .reduce((s, p) => s + (p.scenario ?? 0), 0),
+};
+
+export const demoDoubleCountCheck = [
+  { source: "Open orders", signal: "Clear signal", reflectedPct: 14, note: "October releases already cut by 14% versus the prior schedule." },
+  { source: "OEM/customer schedules", signal: "Clear signal", reflectedPct: 12, note: "Apex EDI 830 revision R-14 confirms the October shutdown window." },
+  { source: "Backlog", signal: "Weak signal", reflectedPct: 3, note: "Backlog unchanged; no shutdown effect visible yet." },
+  { source: "Recent demand", signal: "No signal", reflectedPct: 0, note: "History still shows the September pattern only." },
+  { source: "Existing model features", signal: "Weak signal", reflectedPct: 2, note: "Calendar feature still carries the old September shutdown flag." },
+  { source: "Inventory movements", signal: "No signal", reflectedPct: 0, note: "No pre-build movement recorded at North Plant." },
+];
+
 
 // ---------------------------------------------------------------- data readiness
 export type DataSource = {
