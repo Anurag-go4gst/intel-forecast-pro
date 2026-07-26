@@ -781,3 +781,72 @@ export function modelProfileFor(row: SkuRow): ModelProfile {
     historyMonths: history,
   };
 }
+
+// ------------------------------------------------------------------ comparison chart
+export type ComparisonPoint = Record<string, number | string | null> & { period: string };
+
+/**
+ * Builds the visual comparison series: history, holdout actuals, one forecast
+ * line per eligible model, the champion line and a confidence interval.
+ */
+export function comparisonSeries(options: {
+  key: string;
+  base: number;
+  modelIds: string[];
+  championId: string | null;
+  holdoutMonths?: number;
+}): ComparisonPoint[] {
+  const { key, base, modelIds, championId } = options;
+  const holdout = options.holdoutMonths ?? 6;
+  const start = Math.max(0, historyCutoffIndex - 29);
+  const holdoutStart = historyCutoffIndex - holdout + 1;
+  const rands = new Map<string, () => number>();
+  modelIds.forEach((id) => rands.set(id, rng(`cmp-${key}-${id}`)));
+  const level = rng(`cmp-level-${key}`);
+
+  const out: ComparisonPoint[] = [];
+  for (let i = start; i < monthLabels.length; i++) {
+    const seasonal = 1 + 0.14 * Math.sin(((i % 12) / 12) * Math.PI * 2);
+    const trend = 1 + i * 0.0022;
+    const truth = base * seasonal * trend * (0.96 + level() * 0.08);
+    const isHistory = i <= historyCutoffIndex;
+    const inHoldout = isHistory && i >= holdoutStart;
+    const point: ComparisonPoint = {
+      period: monthLabels[i],
+      actual: isHistory && !inHoldout ? Math.round(truth) : null,
+      holdout: inHoldout ? Math.round(truth) : null,
+    };
+    modelIds.forEach((id) => {
+      const r = rands.get(id)!;
+      const err = ((r() - 0.45) * modelById(id).baseError) / 100;
+      point[`m_${id}`] = inHoldout || !isHistory ? Math.round(truth * (1 + err)) : null;
+    });
+    if (championId) {
+      const champValue = point[`m_${championId}`];
+      const spread = 0.05 + Math.max(0, i - historyCutoffIndex) * 0.011;
+      point.upper = !isHistory && typeof champValue === "number" ? Math.round(champValue * (1 + spread)) : null;
+      point.lower = !isHistory && typeof champValue === "number" ? Math.round(champValue * (1 - spread)) : null;
+    }
+    out.push(point);
+  }
+  return out;
+}
+
+export const modelPalette: Record<string, string> = {
+  ets: "var(--color-accent-blue)",
+  arima: "#7c8ea3",
+  sarima: "#8b6fb0",
+  sarimax: "var(--color-primary)",
+  prophet: "#c07a3e",
+  croston: "#4f8f7b",
+  sba: "#3f7f9d",
+  tsb: "#9a6b8d",
+  linreg: "#7f8c5a",
+  xgboost: "var(--color-positive)",
+  lightgbm: "#b08a2e",
+  transformer: "#5f6f8f",
+  foundation: "#a2606b",
+  "last-period": "#9aa4ae",
+  "moving-average": "#8d99a6",
+  "seasonal-naive": "#6f7d8c",
+};
