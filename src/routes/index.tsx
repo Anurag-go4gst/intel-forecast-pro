@@ -275,8 +275,8 @@ function ExecutiveOverview() {
 
         <Panel title="Planning cycle status" description="Current forecast cycle: July 2026 monthly run.">
           <div className="space-y-1">
-            <MetricRow label="SKU-customer-location combinations" value={formatNumber(rows.length * 82)} />
-            <MetricRow label="Combinations auto-approved" value="1,006" tone="positive" />
+            <MetricRow label="SKU-customer-location combinations" value={formatNumber(rows.length)} />
+            <MetricRow label="Combinations auto-approved" value="431" tone="positive" />
             <MetricRow label="Lines pending planner review" value={String(pendingReview)} tone="warning" />
             <MetricRow label="Open business events" value={String(openEvents)} tone="warning" />
             <MetricRow label="Data readiness score" value="93 / 100" tone="positive" />

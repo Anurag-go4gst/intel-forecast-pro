@@ -152,7 +152,7 @@ function DataReadiness() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiTile
           label="Series analysed"
-          value={formatNumber(seriesQuality.length * 82)}
+          value={formatNumber(seriesQuality.length)}
           delta="SKU × customer × location"
           deltaTone="neutral"
           icon={Table2}

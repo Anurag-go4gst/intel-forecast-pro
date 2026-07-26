@@ -968,7 +968,7 @@ export const seedReviewLines: ReviewLine[] = [
 
 
 export const approvalTrail = [
-  { id: "at-1", actor: "System", action: "Baseline forecast generated across 1,284 SKU-customer-location combinations", at: "24 Jul 2026, 06:10" },
+  { id: "at-1", actor: "System", action: "Baseline forecast generated across 500 SKU-customer-location combinations", at: "24 Jul 2026, 06:10" },
   { id: "at-2", actor: "R. Iyer · Demand planning", action: "Planner overrides submitted for 218 combinations", at: "24 Jul 2026, 09:42" },
   { id: "at-3", actor: "A. Fernandes · Supply planning", action: "Capacity feasibility review completed for Plant 02", at: "24 Jul 2026, 11:05" },
   { id: "at-4", actor: "S. Menon · Pricing", action: "Commented on aftermarket campaign uplift assumption", at: "24 Jul 2026, 12:18" },
