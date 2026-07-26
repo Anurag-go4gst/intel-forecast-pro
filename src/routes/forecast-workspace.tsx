@@ -21,6 +21,7 @@ import {
 import { KpiTile, MetricRow, Panel, PageHeading, PrototypeNote, StatusPill } from "@/components/primitives";
 import {
   buildSeries,
+  historyCutoffIndex,
   customers,
   filterSkus,
   formatNumber,
