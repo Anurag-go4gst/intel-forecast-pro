@@ -36,6 +36,7 @@ export const businessUnits = [
 
 export const customers = [
   { id: "all", label: "All customers / OEMs" },
+  { id: "cus-ap", label: "Apex Motors (OEM)" },
   { id: "cus-nv", label: "Northvale Motors (OEM)" },
   { id: "cus-ka", label: "Kestrel Automotive (OEM)" },
   { id: "cus-mv", label: "Meridian Vehicles (OEM)" },
@@ -45,6 +46,7 @@ export const customers = [
 
 export const productFamilies = [
   { id: "all", label: "All product families" },
+  { id: "pf-clt", label: "Clutch systems" },
   { id: "pf-brk", label: "Braking assemblies" },
   { id: "pf-trn", label: "Transmission components" },
   { id: "pf-hrn", label: "Wiring harnesses" },
@@ -54,6 +56,7 @@ export const productFamilies = [
 
 export const plants = [
   { id: "all", label: "All plants / locations" },
+  { id: "pl-nor", label: "North Plant — Coimbatore" },
   { id: "pl-pun", label: "Plant 01 — Pune" },
   { id: "pl-che", label: "Plant 02 — Chennai" },
   { id: "pl-guj", label: "Plant 03 — Sanand" },
@@ -74,6 +77,22 @@ export const forecastVersions = [
   { id: "v-2026-05-pub", label: "V2026.05 — Published", status: "published" as const },
 ];
 
+export const demandBehaviours = [
+  "Smooth",
+  "Seasonal",
+  "Trending",
+  "Intermittent",
+  "Erratic",
+  "Lumpy",
+  "New item",
+  "End-of-life",
+  "Customer-schedule-driven",
+  "Event-driven",
+] as const;
+export type DemandBehaviour = (typeof demandBehaviours)[number];
+
+export type DataQualityTier = "High" | "Medium" | "Low";
+
 export type SkuRow = {
   sku: string;
   description: string;
@@ -93,9 +112,28 @@ export type SkuRow = {
   onHand: number;
   leadTimeDays: number;
   volatility: "Low" | "Medium" | "High";
+  behaviour: DemandBehaviour;
+  quality: DataQualityTier;
+  isDemoCase?: boolean;
+};
+
+/** The prominent guided demonstration case. */
+export const DEMO_SKU = "CLT-1048";
+export const demoCaseMeta = {
+  sku: DEMO_SKU,
+  description: "Clutch Friction Assembly",
+  customerId: "cus-ap",
+  customer: "Apex Motors (OEM)",
+  plantId: "pl-nor",
+  plant: "North Plant — Coimbatore",
+  familyId: "pf-clt",
+  baseVolume: 12_400,
 };
 
 const skuSeeds: Array<[string, string, string, string, string, string, "A" | "B" | "C", number]> = [
+  ["CLT-1048", "Clutch Friction Assembly", "pf-clt", "cus-ap", "pl-nor", "bu-pt", "A", 12400],
+  ["CLT-1052-B", "Clutch pressure plate, 240mm", "pf-clt", "cus-ap", "pl-nor", "bu-pt", "A", 9800],
+  ["CLT-1090-C", "Clutch slave cylinder", "pf-clt", "cus-nv", "pl-che", "bu-pt", "B", 7600],
   ["BRK-1180-A", "Front brake caliper assembly", "pf-brk", "cus-nv", "pl-pun", "bu-bd", "A", 18400],
   ["BRK-1204-C", "Rear brake disc, ventilated", "pf-brk", "cus-ka", "pl-pun", "bu-bd", "A", 15250],
   ["BRK-2290-B", "Brake pad set, ceramic", "pf-brk", "cus-ad", "dc-del", "bu-as", "B", 42800],
@@ -123,33 +161,164 @@ const modelNames = [
   "Holt-Winters",
 ];
 
-export const skus: SkuRow[] = skuSeeds.map(
-  ([sku, description, familyId, customerId, plantId, buId, abc, baseVolume]) => {
-    const rand = mulberry32(hashString(sku));
-    const mape = Math.round((4 + rand() * 16) * 10) / 10;
-    const bias = Math.round((rand() * 14 - 7) * 10) / 10;
-    return {
+function buildRow(
+  sku: string,
+  description: string,
+  familyId: string,
+  customerId: string,
+  plantId: string,
+  buId: string,
+  abc: "A" | "B" | "C",
+  baseVolume: number,
+  behaviour: DemandBehaviour,
+  quality: DataQualityTier,
+): SkuRow {
+  const rand = mulberry32(hashString(sku));
+  const qualityPenalty = quality === "Low" ? 8 : quality === "Medium" ? 3 : 0;
+  const behaviourPenalty =
+    behaviour === "Intermittent" || behaviour === "Lumpy"
+      ? 9
+      : behaviour === "Erratic" || behaviour === "New item"
+        ? 7
+        : behaviour === "Seasonal" || behaviour === "Event-driven"
+          ? 2
+          : 0;
+  const mape = Math.round((4 + rand() * 8 + qualityPenalty + behaviourPenalty) * 10) / 10;
+  const bias = Math.round((rand() * 14 - 7) * 10) / 10;
+  return {
+    sku,
+    description,
+    familyId,
+    family: productFamilies.find((f) => f.id === familyId)!.label,
+    customerId,
+    customer: customers.find((c) => c.id === customerId)!.label,
+    plantId,
+    plant: plants.find((p) => p.id === plantId)!.label,
+    buId,
+    abc,
+    baseVolume,
+    bestModel: modelNames[Math.floor(rand() * modelNames.length)],
+    mape,
+    bias,
+    stockCoverDays: Math.round(6 + rand() * 92),
+    onHand: Math.round(baseVolume * (0.15 + rand() * 0.5)),
+    leadTimeDays: Math.round(12 + rand() * 45),
+    volatility: mape > 14 ? "High" : mape > 9 ? "Medium" : "Low",
+    behaviour,
+    quality,
+    isDemoCase: sku === DEMO_SKU,
+  };
+}
+
+// ------------------------------------------- generated portfolio (500 series)
+const familyCatalog: Array<{ id: string; code: string; bu: string; parts: string[] }> = [
+  { id: "pf-clt", code: "CLT", bu: "bu-pt", parts: ["Clutch friction disc", "Clutch cover assembly", "Clutch master cylinder", "Dual-mass flywheel", "Clutch fork lever", "Clutch damper spring set"] },
+  { id: "pf-brk", code: "BRK", bu: "bu-bd", parts: ["Brake caliper, front", "Brake disc rotor 280mm", "Brake pad set, organic", "Brake booster assembly", "Wheel cylinder", "ABS sensor ring", "Handbrake cable set"] },
+  { id: "pf-trn", code: "TRN", bu: "bu-pt", parts: ["Gear selector housing", "Synchroniser hub", "Transmission input shaft", "Differential side gear", "Shift rail assembly", "Transfer case bearing"] },
+  { id: "pf-hrn", code: "HRN", bu: "bu-el", parts: ["Engine bay harness", "Instrument panel harness", "Tailgate harness", "Battery cable set", "Sensor pigtail loom", "Roof module harness"] },
+  { id: "pf-sus", code: "SUS", bu: "bu-bd", parts: ["Rear suspension bush kit", "Front strut assembly", "Leaf spring, 5-leaf", "Anti-roll bar link", "Shock absorber, gas", "Control arm, lower"] },
+  { id: "pf-flt", code: "FLT", bu: "bu-as", parts: ["Oil filter cartridge", "Air filter element", "Cabin filter, carbon", "Fuel filter assembly", "Hydraulic filter kit", "Transmission filter"] },
+];
+
+const oemCustomers = ["cus-ap", "cus-nv", "cus-ka", "cus-mv", "cus-db"];
+const oemPlants = ["pl-nor", "pl-pun", "pl-che", "pl-guj"];
+const dcPlants = ["dc-del", "dc-blr"];
+
+const behaviourWeights: Array<[DemandBehaviour, number]> = [
+  ["Smooth", 21],
+  ["Seasonal", 18],
+  ["Trending", 11],
+  ["Intermittent", 14],
+  ["Erratic", 9],
+  ["Lumpy", 7],
+  ["New item", 6],
+  ["End-of-life", 4],
+  ["Customer-schedule-driven", 7],
+  ["Event-driven", 3],
+];
+
+function pickBehaviour(r: number): DemandBehaviour {
+  const total = behaviourWeights.reduce((s, [, w]) => s + w, 0);
+  let acc = 0;
+  const target = r * total;
+  for (const [name, weight] of behaviourWeights) {
+    acc += weight;
+    if (target <= acc) return name;
+  }
+  return "Smooth";
+}
+
+export const TOTAL_SERIES = 500;
+
+const generatedRows: SkuRow[] = [];
+for (let n = 0; generatedRows.length < TOTAL_SERIES - skuSeeds.length; n++) {
+  const rand = mulberry32(hashString(`series-${n}`));
+  const fam = familyCatalog[n % familyCatalog.length];
+  const part = fam.parts[Math.floor(rand() * fam.parts.length)];
+  const aftermarket = fam.id === "pf-flt" ? rand() < 0.8 : rand() < 0.18;
+  const customerId = aftermarket ? "cus-ad" : oemCustomers[Math.floor(rand() * oemCustomers.length)];
+  const plantId = aftermarket
+    ? dcPlants[Math.floor(rand() * dcPlants.length)]
+    : oemPlants[Math.floor(rand() * oemPlants.length)];
+  const buId = aftermarket ? "bu-as" : fam.bu;
+  const behaviour = pickBehaviour(rand());
+  const qRoll = rand();
+  const quality: DataQualityTier =
+    behaviour === "New item" || behaviour === "Lumpy"
+      ? qRoll < 0.5
+        ? "Low"
+        : "Medium"
+      : qRoll < 0.56
+        ? "High"
+        : qRoll < 0.85
+          ? "Medium"
+          : "Low";
+  const volumeRoll = rand();
+  const baseVolume = Math.round(320 + volumeRoll * volumeRoll * 62_000);
+  const abc: "A" | "B" | "C" = baseVolume > 24_000 ? "A" : baseVolume > 7_000 ? "B" : "C";
+  const code = `${fam.code}-${2000 + n}-${"ABCDEFGH"[n % 8]}`;
+  generatedRows.push(
+    buildRow(code, `${part}, variant ${(n % 9) + 1}`, fam.id, customerId, plantId, buId, abc, baseVolume, behaviour, quality),
+  );
+}
+
+const seededBehaviour: Record<string, DemandBehaviour> = {
+  "CLT-1048": "Seasonal",
+  "HRN-6015-E": "New item",
+  "TRN-4120-B": "Lumpy",
+  "FLT-8100-A": "Smooth",
+  "BRK-2290-B": "Event-driven",
+  "SUS-7188-B": "Intermittent",
+  "BRK-1204-C": "End-of-life",
+};
+
+const seededQuality: Record<string, DataQualityTier> = {
+  "CLT-1048": "High",
+  "HRN-6015-E": "Low",
+  "TRN-4120-B": "Low",
+  "SUS-7188-B": "Medium",
+  "HRN-5240-C": "Medium",
+};
+
+export const skus: SkuRow[] = [
+  ...skuSeeds.map(([sku, description, familyId, customerId, plantId, buId, abc, baseVolume]) =>
+    buildRow(
       sku,
       description,
       familyId,
-      family: productFamilies.find((f) => f.id === familyId)!.label,
       customerId,
-      customer: customers.find((c) => c.id === customerId)!.label,
       plantId,
-      plant: plants.find((p) => p.id === plantId)!.label,
       buId,
       abc,
       baseVolume,
-      bestModel: modelNames[Math.floor(rand() * modelNames.length)],
-      mape,
-      bias,
-      stockCoverDays: Math.round(6 + rand() * 52),
-      onHand: Math.round(baseVolume * (0.15 + rand() * 0.5)),
-      leadTimeDays: Math.round(12 + rand() * 45),
-      volatility: mape > 14 ? "High" : mape > 9 ? "Medium" : "Low",
-    };
-  },
-);
+      seededBehaviour[sku] ?? "Smooth",
+      seededQuality[sku] ?? "High",
+    ),
+  ),
+  ...generatedRows,
+];
+
+export const demoCaseRow = skus.find((s) => s.sku === DEMO_SKU)!;
 
 // ---------------------------------------------------------------- filters
 export type Filters = {
@@ -193,40 +362,71 @@ export type SeriesPoint = {
   lower: number | null;
 };
 
-const monthLabels = [
-  "Aug 25",
-  "Sep 25",
-  "Oct 25",
-  "Nov 25",
-  "Dec 25",
-  "Jan 26",
-  "Feb 26",
-  "Mar 26",
-  "Apr 26",
-  "May 26",
-  "Jun 26",
-  "Jul 26",
-  "Aug 26",
-  "Sep 26",
-  "Oct 26",
-  "Nov 26",
-  "Dec 26",
-];
+const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-/** History ends after Jun 26; Jul 26 onwards is forecast horizon. */
-export const historyCutoffIndex = 11;
+/** 54 months of history (Jan 2022 – Jun 2026) followed by a 12-month horizon. */
+export const HISTORY_MONTHS = 54;
+export const FORECAST_MONTHS = 12;
 
-export function buildSeries(seedKey: string, base: number, uplift = 0): SeriesPoint[] {
+function buildMonthLabels(startYear: number, startMonth: number, count: number) {
+  const out: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const m = (startMonth + i) % 12;
+    const y = startYear + Math.floor((startMonth + i) / 12);
+    out.push(`${monthNames[m]} ${String(y).slice(2)}`);
+  }
+  return out;
+}
+
+export const monthLabels = buildMonthLabels(2022, 0, HISTORY_MONTHS + FORECAST_MONTHS);
+
+/** History ends after Jun 26; Jul 26 onwards is the forecast horizon. */
+export const historyCutoffIndex = HISTORY_MONTHS - 1;
+
+/** Month index (0 = Jan) for a given position in the series. */
+function monthOf(i: number) {
+  return i % 12;
+}
+
+function behaviourShape(behaviour: DemandBehaviour, i: number, rand: () => number): number {
+  const m = monthOf(i);
+  switch (behaviour) {
+    case "Seasonal":
+      return 1 + 0.18 * Math.sin(((m - 2) / 12) * Math.PI * 2);
+    case "Trending":
+      return 1 + i * 0.006;
+    case "Intermittent":
+      return rand() < 0.42 ? 0 : 1.4;
+    case "Lumpy":
+      return rand() < 0.55 ? 0 : 1 + rand() * 2.2;
+    case "Erratic":
+      return 0.55 + rand() * 1.1;
+    case "New item":
+      return i < HISTORY_MONTHS - 10 ? 0 : Math.min(1, (i - (HISTORY_MONTHS - 11)) / 8);
+    case "End-of-life":
+      return Math.max(0.15, 1 - i * 0.011);
+    case "Customer-schedule-driven":
+      return 1 + 0.09 * Math.sin((i / 3) * Math.PI);
+    case "Event-driven":
+      return m === 7 || m === 8 ? 1.22 : 0.97;
+    default:
+      return 1;
+  }
+}
+
+export function buildSeries(seedKey: string, base: number, uplift = 0, behaviour: DemandBehaviour = "Smooth"): SeriesPoint[] {
+  if (seedKey.startsWith(DEMO_SKU)) return demoCaseSeries;
   const rand = mulberry32(hashString(seedKey));
-  const trend = 0.004 + rand() * 0.01;
+  const trend = 0.0015 + rand() * 0.003;
   const noiseScale = 0.05 + rand() * 0.07;
+  const phase = rand() * 0.4;
   return monthLabels.map((label, i) => {
-    const seasonal = 1 + 0.11 * Math.sin((i / 12) * Math.PI * 2 + rand() * 0.4);
-    const level = base * (1 + trend * i) * seasonal;
+    const seasonal = 1 + 0.11 * Math.sin((monthOf(i) / 12) * Math.PI * 2 + phase);
+    const level = base * (1 + trend * i) * seasonal * behaviourShape(behaviour, i, rand);
     const noise = 1 + (rand() - 0.5) * noiseScale;
     const isHistory = i <= historyCutoffIndex;
-    const actual = isHistory ? Math.round(level * noise) : null;
-    const baseline = Math.round(level * (isHistory ? 1 - noiseScale * 0.2 : 1));
+    const actual = isHistory ? Math.max(0, Math.round(level * noise)) : null;
+    const baseline = Math.max(0, Math.round(level * (isHistory ? 1 - noiseScale * 0.2 : 1)));
     const spread = 0.06 + (i - historyCutoffIndex) * 0.012;
     return {
       period: label,
@@ -239,11 +439,120 @@ export function buildSeries(seedKey: string, base: number, uplift = 0): SeriesPo
   });
 }
 
+export function seriesForRow(row: SkuRow, uplift = 0): SeriesPoint[] {
+  return buildSeries(`${row.sku}|${row.customerId}|${row.plantId}`, row.baseVolume / 1.5, uplift, row.behaviour);
+}
+
 export function aggregateSeries(rows: SkuRow[], uplift = 0): SeriesPoint[] {
   const total = rows.reduce((sum, r) => sum + r.baseVolume, 0) || 1;
   const key = rows.map((r) => r.sku).join("|") || "empty";
-  return buildSeries(key, total / 1.6, uplift);
+  if (key.startsWith(DEMO_SKU)) return demoCaseSeries;
+  return buildSeries(`agg-${key.length}-${Math.round(total)}`, total / 1.6, uplift);
 }
+
+// ------------------------------------------------- prominent demonstration case
+/**
+ * CLT-1048 · Clutch Friction Assembly · Apex Motors · North Plant.
+ *
+ * History carries a deep September shutdown dip every year. For FY27 the
+ * confirmed shutdown moved to October, so the statistical baseline is wrong in
+ * two months at once: it keeps a September dip that will not happen and misses
+ * the October trough. Open orders already carry part of the October reduction,
+ * so only the residual is applied.
+ */
+export const demoCase = {
+  sku: DEMO_SKU,
+  description: "Clutch Friction Assembly",
+  customer: "Apex Motors (OEM)",
+  plant: "North Plant — Coimbatore",
+  family: "Clutch systems",
+  /** Gross October reduction stated in the confirmed OEM schedule. */
+  grossOctoberImpactPct: -38,
+  /** Share of that reduction already visible in open orders / EDI releases. */
+  alreadyReflectedPct: -14,
+  /** Residual actually applied so the reduction is not counted twice. */
+  residualOctoberImpactPct: -24,
+  septemberRestorePct: 82,
+  novemberRecoveryPct: 14,
+  scenarioName: "Upside recovery — Apex pulls November volume forward",
+  scenarioNovemberPct: 9,
+  scenarioDecemberPct: 6,
+  plannerOverridePct: 3,
+};
+
+const demoSeasonal: Record<number, number> = {
+  0: 0.96, 1: 1.0, 2: 1.06, 3: 1.04, 4: 1.02, 5: 1.0,
+  6: 0.98, 7: 1.07, 8: 0.55, 9: 1.09, 10: 1.03, 11: 0.92,
+};
+
+export const demoCaseSeries: SeriesPoint[] = (() => {
+  const rand = mulberry32(hashString("demo-clt-1048"));
+  const base = 11_600;
+  return monthLabels.map((label, i) => {
+    const m = monthOf(i);
+    const level = base * (1 + 0.0022 * i) * demoSeasonal[m];
+    const isHistory = i <= historyCutoffIndex;
+    if (isHistory) {
+      const noise = 1 + (rand() - 0.5) * 0.06;
+      return {
+        period: label,
+        actual: Math.round(level * noise),
+        baseline: i === historyCutoffIndex ? Math.round(level) : null,
+        adjusted: i === historyCutoffIndex ? Math.round(level) : null,
+        upper: i === historyCutoffIndex ? Math.round(level) : null,
+        lower: i === historyCutoffIndex ? Math.round(level) : null,
+      };
+    }
+    // Statistical baseline repeats the historical September dip and, because the
+    // open-order feature already carries part of it, softens October slightly.
+    const baselineFactor = m === 9 ? 1 + demoCase.alreadyReflectedPct / 100 : 1;
+    const baseline = Math.round(level * baselineFactor);
+    // Event-aware forecast: restore September, apply the residual October dip,
+    // add the November catch-up.
+    let adjusted = baseline;
+    if (m === 8) adjusted = Math.round((level / demoSeasonal[8]) * (demoCase.septemberRestorePct / 100 + 0.18));
+    if (m === 9) adjusted = Math.round(baseline * (1 + demoCase.residualOctoberImpactPct / 100));
+    if (m === 10) adjusted = Math.round(baseline * (1 + demoCase.novemberRecoveryPct / 100));
+    const spread = 0.07 + (i - historyCutoffIndex) * 0.008;
+    return {
+      period: label,
+      actual: null,
+      baseline,
+      adjusted,
+      upper: Math.round(adjusted * (1 + spread)),
+      lower: Math.round(adjusted * (1 - spread)),
+    };
+  });
+})();
+
+/** Upside recovery scenario — never part of the official forecast. */
+export const demoScenarioSeries = demoCaseSeries.map((p, i) => {
+  const m = monthOf(i);
+  if (p.adjusted === null) return { ...p, scenario: null };
+  const uplift =
+    m === 10 ? demoCase.scenarioNovemberPct / 100 : m === 11 ? demoCase.scenarioDecemberPct / 100 : 0.02;
+  return { ...p, scenario: Math.round(p.adjusted * (1 + uplift)) };
+});
+
+export const demoHorizon = demoCaseSeries.filter((p) => p.actual === null);
+
+export const demoTotals = {
+  baseline: demoHorizon.reduce((s, p) => s + (p.baseline ?? 0), 0),
+  eventAware: demoHorizon.reduce((s, p) => s + (p.adjusted ?? 0), 0),
+  scenario: demoScenarioSeries
+    .filter((p) => p.actual === null)
+    .reduce((s, p) => s + (p.scenario ?? 0), 0),
+};
+
+export const demoDoubleCountCheck = [
+  { source: "Open orders", signal: "Clear signal", reflectedPct: 14, note: "October releases already cut by 14% versus the prior schedule." },
+  { source: "OEM/customer schedules", signal: "Clear signal", reflectedPct: 12, note: "Apex EDI 830 revision R-14 confirms the October shutdown window." },
+  { source: "Backlog", signal: "Weak signal", reflectedPct: 3, note: "Backlog unchanged; no shutdown effect visible yet." },
+  { source: "Recent demand", signal: "No signal", reflectedPct: 0, note: "History still shows the September pattern only." },
+  { source: "Existing model features", signal: "Weak signal", reflectedPct: 2, note: "Calendar feature still carries the old September shutdown flag." },
+  { source: "Inventory movements", signal: "No signal", reflectedPct: 0, note: "No pre-build movement recorded at North Plant." },
+];
+
 
 // ---------------------------------------------------------------- data readiness
 export type DataSource = {
@@ -390,6 +699,92 @@ export type DemandEvent = {
 
 export const seedEvents: DemandEvent[] = [
   {
+    id: "ev-0",
+    title: "Apex Motors shutdown moved from September to October",
+    type: "Customer change",
+    scope: "CLT-1048 Clutch Friction Assembly · North Plant — Coimbatore",
+    window: "Sep 2026 – Nov 2026",
+    expectedImpactPct: -24,
+    confidence: "High",
+    status: "Accepted",
+    owner: "Customer account team · Apex",
+    rationale:
+      "Confirmed OEM schedule R-14 moves the annual shutdown to October. September demand is restored, October carries the residual reduction after the open-order check, and November takes the catch-up.",
+  },
+  {
+    id: "ev-7",
+    title: "Apex Motors November catch-up build",
+    type: "Customer change",
+    scope: "Clutch systems · North Plant — Coimbatore",
+    window: "Nov 2026",
+    expectedImpactPct: 14,
+    confidence: "High",
+    status: "Accepted",
+    owner: "Customer account team · Apex",
+    rationale: "Apex confirmed a catch-up build in November to recover the October shutdown volume.",
+  },
+  {
+    id: "ev-8",
+    title: "Coimbatore North Plant second-shift addition",
+    type: "Plant event",
+    scope: "Clutch systems · North Plant — Coimbatore",
+    window: "Aug 2026 onwards",
+    expectedImpactPct: 6,
+    confidence: "Medium",
+    status: "Under review",
+    owner: "Manufacturing engineering",
+    rationale: "Additional shift raises servable volume; demand unchanged but constraint releases.",
+  },
+  {
+    id: "ev-9",
+    title: "Delta Bus Works electric bus tender award",
+    type: "New programme",
+    scope: "Suspension modules · Plant 01 — Pune",
+    window: "Dec 2026 – Jun 2027",
+    expectedImpactPct: 17,
+    confidence: "Medium",
+    status: "Under review",
+    owner: "Programme management",
+    rationale: "State transport tender for 1,200 electric buses; award decision expected in November.",
+  },
+  {
+    id: "ev-10",
+    title: "Tier-2 casting vendor capacity loss",
+    type: "Plant event",
+    scope: "Transmission components · Plant 02 — Chennai",
+    window: "Aug 2026 – Sep 2026",
+    expectedImpactPct: -11,
+    confidence: "Low",
+    status: "Proposed",
+    owner: "Supply risk",
+    rationale: "Unverified report of a fire at a casting supplier; no order or schedule signal yet.",
+  },
+  {
+    id: "ev-11",
+    title: "Festive season aftermarket restocking",
+    type: "Promotion",
+    scope: "Aftermarket & Spares · DC North, DC South",
+    window: "Sep 2026 – Nov 2026",
+    expectedImpactPct: 12,
+    confidence: "High",
+    status: "Accepted",
+    owner: "Aftermarket sales",
+    rationale: "Dealer restocking ahead of the festive period; comparable 2025 lift was 11.4%.",
+  },
+  {
+    id: "ev-12",
+    title: "Meridian Vehicles platform phase-out",
+    type: "Customer change",
+    scope: "Wiring harnesses · Plant 03 — Sanand",
+    window: "Jan 2027 – Jun 2027",
+    expectedImpactPct: -21,
+    confidence: "High",
+    status: "Under review",
+    owner: "Product management",
+    rationale: "Legacy platform withdrawn progressively as the successor harness ramps.",
+  },
+
+  {
     id: "ev-1",
     title: "Northvale Motors EV platform ramp-up",
     type: "New programme",
@@ -493,6 +888,31 @@ export type SavedScenario = {
 
 export const seedScenarios: SavedScenario[] = [
   {
+    id: "sc-0",
+    name: "Apex upside recovery (CLT-1048)",
+    createdBy: "R. Iyer · Demand planning",
+    createdAt: "24 Jul 2026",
+    drivers: { ...defaultDrivers, demandShiftPct: 6, oemScheduleChangePct: 4 },
+    note: "Tests a faster November–December catch-up at Apex. Scenario only — never the official forecast.",
+  },
+  {
+    id: "sc-4",
+    name: "Worst case — shutdown extends into November",
+    createdBy: "A. Fernandes · Supply planning",
+    createdAt: "24 Jul 2026",
+    drivers: { ...defaultDrivers, oemScheduleChangePct: -12, capacityCapPct: 92 },
+    note: "Apex shutdown slips by two weeks; November recovery does not materialise.",
+  },
+  {
+    id: "sc-5",
+    name: "Demand shock — festive offtake +15%",
+    createdBy: "N. Bose · Aftermarket",
+    createdAt: "20 Jul 2026",
+    drivers: { ...defaultDrivers, demandShiftPct: 15 },
+    note: "Stress-tests DC replenishment and safety stock across the aftermarket network.",
+  },
+
+  {
     id: "sc-1",
     name: "OEM schedule uplift +8%",
     createdBy: "R. Iyer · Demand planning",
@@ -532,16 +952,23 @@ export type ReviewLine = {
 };
 
 export const seedReviewLines: ReviewLine[] = [
+  { id: "rl-0", scope: "CLT-1048 Clutch Friction Assembly · Apex Motors · North Plant", planner: "R. Iyer", statistical: 141600, plannerOverride: 132400, consensus: 132400, variancePct: -6.5, status: "Pending", comment: "Shutdown moved to October: September restored, residual October dip, November catch-up." },
   { id: "rl-1", scope: "Braking assemblies · Northvale Motors", planner: "R. Iyer", statistical: 54200, plannerOverride: 56800, consensus: 56800, variancePct: 4.8, status: "Pending", comment: "Adds confirmed spare capacity order." },
   { id: "rl-2", scope: "Wiring harnesses · Sanand", planner: "P. Rao", statistical: 18600, plannerOverride: 22700, consensus: 22700, variancePct: 22.0, status: "Pending", comment: "EV platform ramp event applied." },
   { id: "rl-3", scope: "Filtration · Aftermarket DCs", planner: "N. Bose", statistical: 121400, plannerOverride: 132300, consensus: 132300, variancePct: 9.0, status: "Pending", comment: "Monsoon campaign, pending pricing sign-off." },
   { id: "rl-4", scope: "Transmission · Chennai", planner: "A. Fernandes", statistical: 38900, plannerOverride: 35400, consensus: 35400, variancePct: -9.0, status: "Approved", comment: "Line requalification shutdown reflected." },
   { id: "rl-5", scope: "Suspension · Delta Bus Works", planner: "K. Shah", statistical: 19300, plannerOverride: 19300, consensus: 19300, variancePct: 0, status: "Approved", comment: "Statistical forecast accepted without change." },
   { id: "rl-6", scope: "Braking assemblies · Kestrel", planner: "R. Iyer", statistical: 44100, plannerOverride: 36200, consensus: 36200, variancePct: -17.9, status: "Returned", comment: "Return: attach customer schedule evidence for the pause." },
+  { id: "rl-7", scope: "Clutch systems · Apex Motors · North Plant (spares)", planner: "D. Rao", statistical: 26400, plannerOverride: 28900, consensus: 28900, variancePct: 9.5, status: "Pending", comment: "Service demand rises while the OEM line is down." },
+  { id: "rl-8", scope: "Filtration · DC North", planner: "N. Bose", statistical: 88700, plannerOverride: 95300, consensus: 95300, variancePct: 7.4, status: "Pending", comment: "Festive restocking event, residual impact only." },
+  { id: "rl-9", scope: "Suspension modules · Pune", planner: "K. Shah", statistical: 31200, plannerOverride: 36500, consensus: 36500, variancePct: 17.0, status: "Returned", comment: "Return: tender award not confirmed, keep in scenario." },
+  { id: "rl-10", scope: "Wiring harnesses · Meridian Vehicles", planner: "P. Rao", statistical: 47800, plannerOverride: 41300, consensus: 41300, variancePct: -13.6, status: "Pending", comment: "Platform phase-out curve applied from January." },
+  { id: "rl-11", scope: "Transmission · Kestrel Automotive", planner: "A. Fernandes", statistical: 22900, plannerOverride: 22900, consensus: 22900, variancePct: 0, status: "Approved", comment: "Baseline accepted; challenger model gap not material." },
 ];
 
+
 export const approvalTrail = [
-  { id: "at-1", actor: "System", action: "Baseline forecast generated across 1,284 SKU-customer-location combinations", at: "24 Jul 2026, 06:10" },
+  { id: "at-1", actor: "System", action: "Baseline forecast generated across 500 SKU-customer-location combinations", at: "24 Jul 2026, 06:10" },
   { id: "at-2", actor: "R. Iyer · Demand planning", action: "Planner overrides submitted for 218 combinations", at: "24 Jul 2026, 09:42" },
   { id: "at-3", actor: "A. Fernandes · Supply planning", action: "Capacity feasibility review completed for Plant 02", at: "24 Jul 2026, 11:05" },
   { id: "at-4", actor: "S. Menon · Pricing", action: "Commented on aftermarket campaign uplift assumption", at: "24 Jul 2026, 12:18" },
@@ -575,6 +1002,21 @@ export type RiskRow = {
 };
 
 export const riskRows: RiskRow[] = [
+  { sku: "CLT-1048", description: "Clutch Friction Assembly", scope: "North Plant · Apex Motors", risk: "Excess", severity: "High", coverDays: 88, exposureValue: 3.9, driver: "Baseline still plans the September dip that will not happen" },
+  { sku: "CLT-1052-B", description: "Clutch pressure plate, 240mm", scope: "North Plant · Apex Motors", risk: "Stockout", severity: "Medium", coverDays: 13, exposureValue: 1.7, driver: "November catch-up build not yet covered by supply" },
+  { sku: "CLT-1090-C", description: "Clutch slave cylinder", scope: "Chennai · Northvale", risk: "Excess", severity: "Low", coverDays: 62, exposureValue: 0.7, driver: "Service demand softer than the statistical baseline" },
+  { sku: "TRN-3311-A", description: "Gear shift fork, 6-speed", scope: "Chennai · Northvale", risk: "Stockout", severity: "Medium", coverDays: 12, exposureValue: 2.1, driver: "Casting vendor disruption under review" },
+  { sku: "TRN-3480-D", description: "Clutch release bearing", scope: "Chennai · Meridian", risk: "Excess", severity: "Medium", coverDays: 71, exposureValue: 1.6, driver: "Platform phase-out not yet reflected in supply plan" },
+  { sku: "HRN-5102-A", description: "Main body wiring harness", scope: "Sanand · Northvale", risk: "Stockout", severity: "Medium", coverDays: 16, exposureValue: 2.4, driver: "EV ramp residual impact approved late in the cycle" },
+  { sku: "HRN-5240-C", description: "Door harness, LH", scope: "Sanand · Meridian", risk: "Excess", severity: "Low", coverDays: 58, exposureValue: 0.9, driver: "Stockout-censored history inflates the baseline" },
+  { sku: "SUS-7001-A", description: "Front strut module", scope: "Pune · Meridian", risk: "Stockout", severity: "Low", coverDays: 19, exposureValue: 1.2, driver: "Tender scenario volume not in the official forecast" },
+  { sku: "SUS-7420-C", description: "Coil spring, heavy duty", scope: "Chennai · Delta Bus Works", risk: "Excess", severity: "Low", coverDays: 64, exposureValue: 0.8, driver: "Slow mover with intermittent order pattern" },
+  { sku: "FLT-8214-B", description: "Cabin air filter, activated", scope: "DC North · Aftermarket", risk: "Stockout", severity: "Medium", coverDays: 11, exposureValue: 1.5, driver: "Festive restocking event approved this cycle" },
+  { sku: "FLT-8355-C", description: "Fuel filter assembly", scope: "DC South · Aftermarket", risk: "Excess", severity: "Low", coverDays: 79, exposureValue: 0.6, driver: "Prior campaign pulled demand forward" },
+  { sku: "BRK-1450-D", description: "Brake master cylinder", scope: "Chennai · Delta Bus Works", risk: "Stockout", severity: "Low", coverDays: 18, exposureValue: 0.9, driver: "Lead time extended by 12 days" },
+  { sku: "BRK-1204-C", description: "Rear brake disc, ventilated", scope: "Pune · Kestrel", risk: "Excess", severity: "High", coverDays: 104, exposureValue: 2.2, driver: "End-of-life variant with open supply commitments" },
+  { sku: "TRN-3390-B", description: "Gear selector housing", scope: "Nashik · Vantage", risk: "Excess", severity: "Medium", coverDays: 69, exposureValue: 1.3, driver: "December customer shutdown reduces consumption" },
+
   { sku: "HRN-6015-E", description: "Battery cable set, EV pack", scope: "Sanand · Northvale", risk: "Stockout", severity: "High", coverDays: 7, exposureValue: 4.2, driver: "EV ramp event not yet covered by supplier capacity" },
   { sku: "BRK-1180-A", description: "Front brake caliper assembly", scope: "Pune · Northvale", risk: "Stockout", severity: "High", coverDays: 9, exposureValue: 3.6, driver: "Forecast under-bias of 6.1% over last 3 cycles" },
   { sku: "FLT-8100-A", description: "Oil filter cartridge", scope: "DC South · Aftermarket", risk: "Stockout", severity: "Medium", coverDays: 14, exposureValue: 1.9, driver: "Monsoon campaign uplift pending approval" },

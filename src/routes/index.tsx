@@ -82,7 +82,7 @@ function ExecutiveOverview() {
   const series = aggregateSeries(rows);
 
   const horizonTotal = series
-    .filter((p) => p.baseline !== null)
+    .filter((p) => p.actual === null && p.baseline !== null)
     .reduce((sum, p) => sum + (p.baseline ?? 0), 0);
   const weightedMape =
     rows.reduce((sum, r) => sum + r.mape * r.baseVolume, 0) /
@@ -147,7 +147,7 @@ function ExecutiveOverview() {
         />
         <KpiTile
           label="Forecast horizon"
-          value={String(series.filter((p) => p.baseline !== null).length)}
+          value={String(series.filter((p) => p.actual === null && p.baseline !== null).length)}
           unit="months"
           delta={`${formatNumber(horizonTotal)} units planned`}
           deltaTone="info"
@@ -234,7 +234,9 @@ function ExecutiveOverview() {
                 <XAxis
                   dataKey="period"
                   tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
-                  interval={1}
+                  interval={5}
+                  minTickGap={12}
+
                   stroke="var(--color-neutral-line)"
                 />
                 <YAxis
@@ -273,8 +275,8 @@ function ExecutiveOverview() {
 
         <Panel title="Planning cycle status" description="Current forecast cycle: July 2026 monthly run.">
           <div className="space-y-1">
-            <MetricRow label="SKU-customer-location combinations" value={formatNumber(rows.length * 82)} />
-            <MetricRow label="Combinations auto-approved" value="1,006" tone="positive" />
+            <MetricRow label="SKU-customer-location combinations" value={formatNumber(rows.length)} />
+            <MetricRow label="Combinations auto-approved" value="431" tone="positive" />
             <MetricRow label="Lines pending planner review" value={String(pendingReview)} tone="warning" />
             <MetricRow label="Open business events" value={String(openEvents)} tone="warning" />
             <MetricRow label="Data readiness score" value="93 / 100" tone="positive" />

@@ -186,10 +186,20 @@ export const confidenceTone: Record<ConfidenceClass, "positive" | "info" | "warn
 
 function qualityFor(row: SkuRow): SeriesQuality {
   const r = rng(`quality-${row.sku}-${row.customerId}`);
-  const historyMonths = Math.round(6 + r() * 42);
-  const completeness = Math.round((88 + r() * 12) * 10) / 10;
-  const outliers = Math.round(r() * 9);
-  const stockoutPeriods = Math.round(r() * 6);
+  const historyMonths =
+    row.behaviour === "New item"
+      ? Math.round(4 + r() * 7)
+      : row.quality === "Low"
+        ? Math.round(10 + r() * 16)
+        : row.quality === "Medium"
+          ? Math.round(24 + r() * 22)
+          : 54;
+  const completeness =
+    Math.round(
+      (row.quality === "High" ? 97.5 + r() * 2.5 : row.quality === "Medium" ? 92 + r() * 5 : 78 + r() * 12) * 10,
+    ) / 10;
+  const outliers = Math.round(r() * (row.quality === "Low" ? 11 : row.quality === "Medium" ? 6 : 2));
+  const stockoutPeriods = Math.round(r() * (row.quality === "Low" ? 7 : row.quality === "Medium" ? 3 : 1));
   const raw =
     completeness * 0.5 +
     Math.min(historyMonths, 36) * 1.05 +
@@ -197,6 +207,7 @@ function qualityFor(row: SkuRow): SeriesQuality {
     stockoutPeriods * 2.4 -
     (row.volatility === "High" ? 9 : row.volatility === "Medium" ? 4 : 0);
   const score = Math.max(28, Math.min(97, Math.round(raw)));
+
   const confidence = classifyConfidence(score);
   const reason =
     historyMonths < 12
@@ -244,7 +255,7 @@ export function confidenceSummary(rows: SeriesQuality[]) {
 }
 
 /** Scaled-up portfolio counts so the executive view reads like a real estate. */
-export const seriesScaleFactor = 82;
+export const seriesScaleFactor = 1;
 
 // ------------------------------------------------------------------ transformations
 export type TransformationEntry = {
@@ -323,23 +334,48 @@ export type BehaviourClass = {
   signature: string;
 };
 
-export const behaviourClasses: BehaviourClass[] = [
-  { id: "bc-smooth", name: "Smooth", seriesShare: 21, seriesCount: 276, recommended: "ETS / XGBoost", signature: "Low CV², stable inter-demand interval." },
-  { id: "bc-seasonal", name: "Seasonal", seriesShare: 18, seriesCount: 236, recommended: "SARIMA / Prophet", signature: "Significant 12-month autocorrelation peak." },
-  { id: "bc-trending", name: "Trending", seriesShare: 11, seriesCount: 144, recommended: "ETS with damped trend", signature: "Monotonic drift over 18+ months." },
-  { id: "bc-intermittent", name: "Intermittent", seriesShare: 14, seriesCount: 184, recommended: "Croston / SBA", signature: "Zero demand in more than 35% of buckets." },
-  { id: "bc-erratic", name: "Erratic", seriesShare: 9, seriesCount: 118, recommended: "TSB / regression", signature: "High CV² with regular demand occurrence." },
-  { id: "bc-lumpy", name: "Lumpy", seriesShare: 7, seriesCount: 92, recommended: "TSB with review", signature: "Sparse occurrence and high size variability." },
-  { id: "bc-new", name: "New item", seriesShare: 6, seriesCount: 79, recommended: "Analogue / foundation model", signature: "Fewer than 12 observations." },
-  { id: "bc-eol", name: "End-of-life", seriesShare: 4, seriesCount: 52, recommended: "Managed run-down curve", signature: "Declining trend with phase-out date set." },
-  { id: "bc-sched", name: "Customer-schedule-driven", seriesShare: 7, seriesCount: 92, recommended: "Regression on EDI schedule", signature: "Demand explained by 830/862 releases." },
-  { id: "bc-event", name: "Event-driven", seriesShare: 3, seriesCount: 39, recommended: "Baseline + event uplift", signature: "Variance concentrated around campaign windows." },
+const behaviourClassBase: Array<Omit<BehaviourClass, "seriesShare" | "seriesCount">> = [
+  { id: "bc-smooth", name: "Smooth", recommended: "ETS / XGBoost", signature: "Low CV², stable inter-demand interval." },
+  { id: "bc-seasonal", name: "Seasonal", recommended: "SARIMA / Prophet", signature: "Significant 12-month autocorrelation peak." },
+  { id: "bc-trending", name: "Trending", recommended: "ETS with damped trend", signature: "Monotonic drift over 18+ months." },
+  { id: "bc-intermittent", name: "Intermittent", recommended: "Croston / SBA", signature: "Zero demand in more than 35% of buckets." },
+  { id: "bc-erratic", name: "Erratic", recommended: "TSB / regression", signature: "High CV² with regular demand occurrence." },
+  { id: "bc-lumpy", name: "Lumpy", recommended: "TSB with review", signature: "Sparse occurrence and high size variability." },
+  { id: "bc-new", name: "New item", recommended: "Analogue / foundation model", signature: "Fewer than 12 observations." },
+  { id: "bc-eol", name: "End-of-life", recommended: "Managed run-down curve", signature: "Declining trend with phase-out date set." },
+  { id: "bc-sched", name: "Customer-schedule-driven", recommended: "Regression on EDI schedule", signature: "Demand explained by 830/862 releases." },
+  { id: "bc-event", name: "Event-driven", recommended: "Baseline + event uplift", signature: "Variance concentrated around campaign windows." },
 ];
 
+export const behaviourClasses: BehaviourClass[] = behaviourClassBase.map((base) => {
+  const seriesCount = skus.filter((s) => s.behaviour === base.name).length;
+  return {
+    ...base,
+    seriesCount,
+    seriesShare: Math.round((seriesCount / skus.length) * 1000) / 10,
+  };
+});
+
+
 export function behaviourForSku(sku: string) {
-  const r = rng(`behaviour-${sku}`);
-  return behaviourClasses[Math.floor(r() * behaviourClasses.length)];
+  const row = skus.find((s) => s.sku === sku);
+  return behaviourClasses.find((b) => b.name === row?.behaviour) ?? behaviourClasses[0];
 }
+
+/** Live counts of the 500 generated series by demand-behaviour class. */
+export const behaviourCounts: Record<string, number> = skus.reduce<Record<string, number>>((acc, row) => {
+  acc[row.behaviour] = (acc[row.behaviour] ?? 0) + 1;
+  return acc;
+}, {});
+
+export const qualityTierCounts = skus.reduce(
+  (acc, row) => {
+    acc[row.quality] += 1;
+    return acc;
+  },
+  { High: 0, Medium: 0, Low: 0 } as Record<"High" | "Medium" | "Low", number>,
+);
+
 
 export const rollingBacktest = [
   { fold: "Fold 1", xgboost: 7.2, lightgbm: 7.6, sarima: 10.1, croston: 16.9, foundation: 8.4 },
@@ -378,6 +414,24 @@ export type ExceptionRow = {
 };
 
 export const forecastExceptions: ExceptionRow[] = [
+  { id: "ex-0", sku: "CLT-1048", scope: "North Plant · Apex Motors", exception: "Seasonal pattern no longer valid — shutdown moved", metric: "Sep baseline -45% vs event-aware", severity: "High", owner: "R. Iyer" },
+  { id: "ex-8", sku: "CLT-1052-B", scope: "North Plant · Apex Motors", exception: "Catch-up build not covered by supply", metric: "Nov cover 13 days", severity: "High", owner: "A. Fernandes" },
+  { id: "ex-9", sku: "CLT-1090-C", scope: "Chennai · Northvale Motors", exception: "Override applied without evidence", metric: "Override +9.5%", severity: "Medium", owner: "D. Rao" },
+  { id: "ex-10", sku: "TRN-3311-A", scope: "Chennai · Northvale Motors", exception: "Supply constraint under review", metric: "Cover 12 days", severity: "Medium", owner: "Supply risk" },
+  { id: "ex-11", sku: "TRN-3480-D", scope: "Chennai · Meridian Vehicles", exception: "Phase-out curve not in supply plan", metric: "71 days cover", severity: "Medium", owner: "P. Rao" },
+  { id: "ex-12", sku: "HRN-5102-A", scope: "Sanand · Northvale Motors", exception: "Event approved late in cycle", metric: "Residual +14.3%", severity: "Medium", owner: "Programme management" },
+  { id: "ex-13", sku: "SUS-7001-A", scope: "Pune · Meridian Vehicles", exception: "Scenario volume not in official forecast", metric: "Scenario +17%", severity: "Low", owner: "K. Shah" },
+  { id: "ex-14", sku: "SUS-7420-C", scope: "Chennai · Delta Bus Works", exception: "Intermittent demand mis-modelled", metric: "MASE 1.12", severity: "Medium", owner: "Data science" },
+  { id: "ex-15", sku: "FLT-8214-B", scope: "DC North · Aftermarket", exception: "Festive restocking uplift pending", metric: "Event impact +12%", severity: "Medium", owner: "N. Bose" },
+  { id: "ex-16", sku: "FLT-8355-C", scope: "DC South · Aftermarket", exception: "Pull-forward distorting baseline", metric: "79 days cover", severity: "Low", owner: "N. Bose" },
+  { id: "ex-17", sku: "BRK-1450-D", scope: "Chennai · Delta Bus Works", exception: "Lead-time change not reflected", metric: "+12 days lead time", severity: "Low", owner: "A. Fernandes" },
+  { id: "ex-18", sku: "BRK-1204-C", scope: "Pune · Kestrel Automotive", exception: "End-of-life with open commitments", metric: "104 days cover", severity: "High", owner: "Product management" },
+  { id: "ex-19", sku: "TRN-3390-B", scope: "Nashik · Vantage Commercial", exception: "Customer shutdown partially reflected", metric: "40% already in releases", severity: "Medium", owner: "Event routing engine" },
+  { id: "ex-20", sku: "HRN-4102-A", scope: "Chennai · Northline Auto", exception: "Override returned for evidence", metric: "Override +20.6%", severity: "High", owner: "S. Kulkarni" },
+  { id: "ex-21", sku: "BRK-1240-E", scope: "Chennai · Aftermarket network", exception: "Rumour-grade evidence rejected", metric: "Override -25.0%", severity: "Low", owner: "R. Iyer" },
+  { id: "ex-22", sku: "SUS-2210-D", scope: "Nashik · Meridian Motors", exception: "Promotion uplift net of pull-forward", metric: "+7.1% approved", severity: "Low", owner: "M. Bhatt" },
+  { id: "ex-23", sku: "FLT-8100-A", scope: "DC South · Aftermarket", exception: "Data-quality warning on price feed", metric: "Promotion log 74.5% complete", severity: "Medium", owner: "Data governance" },
+
   { id: "ex-1", sku: "HRN-6015-E", scope: "Sanand · Kestrel Automotive", exception: "New programme without history", metric: "Data quality 46 / 100", severity: "High", owner: "Programme management" },
   { id: "ex-2", sku: "BRK-1180-A", scope: "Pune · Northvale Motors", exception: "Persistent under-forecast bias", metric: "Bias -6.1% (3 cycles)", severity: "High", owner: "R. Iyer" },
   { id: "ex-3", sku: "TRN-4120-B", scope: "Chennai · Kestrel Automotive", exception: "One-time order distorting baseline", metric: "Outlier 5.6× median", severity: "High", owner: "A. Fernandes" },

@@ -21,6 +21,7 @@ import {
 import { KpiTile, MetricRow, Panel, PageHeading, PrototypeNote, StatusPill } from "@/components/primitives";
 import {
   buildSeries,
+  historyCutoffIndex,
   customers,
   filterSkus,
   formatNumber,
@@ -117,16 +118,20 @@ function ForecastWorkspace() {
       fullSeries
         .map((p) => ({
           ...p,
-          scenario: p.baseline !== null ? Math.round(p.baseline * (1 + scenarioUplift)) : null,
+          scenario: p.baseline !== null && p.actual === null ? Math.round(p.baseline * (1 + scenarioUplift)) : null,
         }))
-        .filter((_, index) => index <= 11 + horizon),
+        .filter(
+          (_, index) =>
+            index >= Math.max(0, historyCutoffIndex - 23) && index <= historyCutoffIndex + horizon,
+        ),
     [fullSeries, scenarioUplift, horizon],
   );
 
-  const horizonPoints = series.filter((p) => p.baseline !== null);
+  const horizonPoints = series.filter((p) => p.actual === null && p.baseline !== null);
   const horizonBaseline = horizonPoints.reduce((sum, p) => sum + (p.baseline ?? 0), 0);
-  const horizonApproved = horizonPoints.reduce((sum, p) => sum + (p.adjusted ?? 0), 0);
+  const horizonApproved = horizonPoints.reduce((sum, p) => sum + (p.adjusted ?? p.baseline ?? 0), 0);
   const horizonScenario = horizonPoints.reduce((sum, p) => sum + (p.scenario ?? 0), 0);
+
   const overrideCount = Object.keys(overrides).length;
 
   const quality = qualityForSku(activeSku.sku);
