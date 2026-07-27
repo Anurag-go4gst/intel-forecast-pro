@@ -99,7 +99,7 @@ const auditHistory = [
 ];
 
 function ForecastWorkspace() {
-  const { filters, runState, runProgress, startRun, events, drivers } = usePlatform();
+  const { filters, runState, runProgress, startRun, events, drivers, modelSelections } = usePlatform();
   const scopedRows = filterSkus(filters);
   const [overrides, setOverrides] = useState<Record<string, number>>({});
   const [level, setLevel] = useState<"sku" | "family" | "customer">("sku");
@@ -150,6 +150,7 @@ function ForecastWorkspace() {
   const behaviour = behaviourForSku(activeSku.sku);
   const champion = candidateModels.find((m) => m.id === championModelId)!;
   const profile = useMemo(() => modelProfileFor(activeSku), [activeSku]);
+  const operationalSelection = modelSelections[`${activeSku.sku}|${customerId}|${plantId}`];
   const profileTone =
     profile.confidence === "High" ? "positive" : profile.confidence === "Medium" ? "warning" : "risk";
 
@@ -298,7 +299,7 @@ function ForecastWorkspace() {
       </Panel>
 
       <Panel
-        title="Selected champion model"
+        title="Recommended Champion and Selected Operational Model"
         description="Chosen in Model Lab by weighted validation score (WAPE 30 / MASE 20 / Bias 20 / Stability 20 / Suitability 10) — not by MAPE alone."
         actions={
           <StatusPill tone={profileTone}>
@@ -320,6 +321,34 @@ function ForecastWorkspace() {
             tone={profile.dataQuality.startsWith("High") ? "positive" : profile.dataQuality.startsWith("Medium") ? "warning" : "risk"}
           />
           <MetricRow label="Model version" value={profile.version} />
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <div className="rounded-md border border-border bg-surface-muted p-3">
+            <p className="label-caps">Recommended Champion</p>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {operationalSelection?.recommendedChampionName ?? profile.champion}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              System recommendation from the Model Lab tournament — never auto-applied.
+            </p>
+          </div>
+          <div className="rounded-md border border-border p-3">
+            <div className="flex items-start justify-between gap-2">
+              <p className="label-caps">Selected Operational Model</p>
+              <StatusPill tone={operationalSelection ? (operationalSelection.status === "Active" ? "positive" : "warning") : "warning"}>
+                {operationalSelection ? operationalSelection.status : "Not selected"}
+              </StatusPill>
+            </div>
+            <p className="mt-1 text-sm font-semibold text-foreground">
+              {operationalSelection ? operationalSelection.selectedModelName : "Awaiting a decision in Model Lab"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {operationalSelection
+                ? `${operationalSelection.method} · effective ${operationalSelection.effectiveFrom} · ${operationalSelection.reason}`
+                : "Accept the Champion or select another model in Model Lab to set the operational model."}
+            </p>
+          </div>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           {modelLabLinks.map((link) => (

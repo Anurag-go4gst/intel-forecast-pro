@@ -423,19 +423,33 @@ export const weightLabels: Array<{ key: keyof ScoreWeights; label: string }> = [
 ];
 
 // ------------------------------------------------------------------ tournament
+export type StabilityBand = "High" | "Medium" | "Low";
+
+export function stabilityBand(stability: number): StabilityBand {
+  return stability >= 80 ? "High" : stability >= 65 ? "Medium" : "Low";
+}
+
 export type TournamentRow = {
   id: string;
   name: string;
   category: ModelCategory;
   eligible: boolean;
   eligibilityReason: string;
+  /** Average WAPE across the rolling validation windows. */
   wape: number;
+  /** Alias of `wape`, named explicitly for the comparison table. */
+  validationWape: number;
+  /** WAPE measured on the untouched holdout period. */
+  holdoutWape: number;
   mase: number;
   smape: number;
   mape: number;
   bias: number;
   stability: number;
+  stabilityBand: StabilityBand;
   confidence: "High" | "Medium" | "Low";
+  /** Forecast quantity produced by this method over the selected horizon. */
+  forecastAtHorizon: number;
   execMs: number;
   suitability: number;
   wapeScore: number;
@@ -445,9 +459,53 @@ export type TournamentRow = {
   suitabilityScore: number;
   weighted: number;
   rank: number | null;
-  status: "Champion" | "Challenger" | "Rejected" | "Not eligible";
+  status: "Champion" | "Challenger" | "Ensemble member" | "Rejected" | "Not eligible";
   rationale: string;
+  /** Difference from the recommended champion (null on the champion itself). */
+  delta: ChampionDelta | null;
 };
+
+/**
+ * Error differences relative to the recommended champion. Expressed both in
+ * percentage points and as a relative percentage — these are *error*
+ * differences, never described as an "accuracy difference".
+ */
+export type ChampionDelta = {
+  validationPp: number;
+  validationRel: number;
+  holdoutPp: number;
+  holdoutRel: number;
+  masePp: number;
+  biasPp: number;
+  absBiasPp: number;
+  stabilityPoints: number;
+  forecastQty: number;
+  forecastQtyPct: number;
+};
+
+function buildDelta(row: TournamentRow, champ: TournamentRow): ChampionDelta {
+  const rel = (a: number, b: number) => (b === 0 ? 0 : round1(((a - b) / b) * 100));
+  return {
+    validationPp: round1(row.validationWape - champ.validationWape),
+    validationRel: rel(row.validationWape, champ.validationWape),
+    holdoutPp: round1(row.holdoutWape - champ.holdoutWape),
+    holdoutRel: rel(row.holdoutWape, champ.holdoutWape),
+    masePp: round2(row.mase - champ.mase),
+    biasPp: round1(row.bias - champ.bias),
+    absBiasPp: round1(Math.abs(row.bias) - Math.abs(champ.bias)),
+    stabilityPoints: row.stability - champ.stability,
+    forecastQty: row.forecastAtHorizon - champ.forecastAtHorizon,
+    forecastQtyPct: rel(row.forecastAtHorizon, champ.forecastAtHorizon),
+  };
+}
+
+/** Formats an error difference in percentage points and relative percent. */
+export function formatErrorDelta(pp: number, rel: number): string {
+  if (Math.abs(pp) < 0.05) return "Same error as Champion";
+  const worse = pp > 0;
+  return `${pp > 0 ? "+" : ""}${pp.toFixed(1)} pp ${worse ? "worse" : "better"} · ${Math.abs(rel).toFixed(1)}% ${worse ? "higher" : "lower"} error`;
+}
+
 
 export type TournamentResult = {
   key: string;
@@ -458,6 +516,9 @@ export type TournamentResult = {
   rows: TournamentRow[];
   champion: TournamentRow | null;
   runnerUp: TournamentRow | null;
+  /** Validated ensemble of the top eligible members, offered as a selection. */
+  ensemble: TournamentRow | null;
+  ensembleMembers: TournamentRow[];
   eligibleCount: number;
   explanation: string;
 };
@@ -478,9 +539,12 @@ export function runTournament(options: {
   historyMonths: number;
   horizon: number;
   weights?: ScoreWeights;
+  /** Monthly base volume used to express the forecast at the selected horizon. */
+  baseVolume?: number;
 }): TournamentResult {
   const { key, behaviour, historyMonths, horizon } = options;
   const weights = options.weights ?? defaultWeights;
+  const baseVolume = options.baseVolume ?? 1000;
   const totalWeight =
     weights.wape + weights.mase + weights.bias + weights.stability + weights.suitability || 1;
 
@@ -489,11 +553,15 @@ export function runTournament(options: {
     const elig = eligibilityFor(model, behaviour, historyMonths);
     const horizonPenalty = (horizon - 6) * 0.18;
     const wape = round1(clamp(model.baseError + (r() - 0.45) * 3.2 + horizonPenalty, 3.4, 34));
+    const holdoutWape = round1(clamp(wape * (0.94 + r() * 0.28), 3.2, 38));
     const mase = round2(clamp(wape / 12 + (r() - 0.5) * 0.12, 0.3, 2.4));
     const smape = round1(clamp(wape * (1.08 + r() * 0.18), 3.6, 40));
     const mape = round1(clamp(wape * (1.14 + r() * 0.34), 3.8, 62));
     const bias = round1((r() - 0.5) * (model.category === "Intermittent demand" ? 11 : 7));
     const stability = Math.round(clamp(96 - wape * 1.5 - r() * 12 + model.suitability * 0.08, 38, 96));
+    const forecastAtHorizon = Math.round(
+      baseVolume * horizon * (1 + bias / 220 + (r() - 0.5) * 0.06),
+    );
 
     const wapeScore = Math.round(clamp(100 - (wape - 5) * 3.4, 0, 100));
     const maseScore = Math.round(clamp((1.6 - mase) * 78, 0, 100));
@@ -520,12 +588,16 @@ export function runTournament(options: {
       eligible: elig.eligible,
       eligibilityReason: elig.reason,
       wape,
+      validationWape: wape,
+      holdoutWape,
       mase,
       smape,
       mape,
       bias,
       stability,
+      stabilityBand: stabilityBand(stability),
       confidence,
+      forecastAtHorizon,
       execMs: Math.round(model.execMs * (0.8 + r() * 0.5)),
       suitability: model.suitability,
       wapeScore,
@@ -537,8 +609,10 @@ export function runTournament(options: {
       rank: null,
       status: elig.eligible ? "Rejected" : "Not eligible",
       rationale: elig.reason,
-    };
+      delta: null,
+    } satisfies TournamentRow;
   });
+
 
   const ranked = rows
     .filter((row) => row.eligible)
@@ -570,6 +644,61 @@ export function runTournament(options: {
   const champion = ranked.find((row) => row.status === "Champion") ?? null;
   const runnerUp = ranked.find((row) => row !== champion && row.status === "Challenger") ?? null;
 
+  // ----------------------------------------------- validated ensemble
+  const ensembleMembers = ranked
+    .filter((row) => row.status === "Champion" || row.status === "Challenger")
+    .filter((row) => modelById(row.id).status !== "Challenger")
+    .slice(0, 3);
+
+  let ensemble: TournamentRow | null = null;
+  if (ensembleMembers.length >= 2 && champion) {
+    const avg = (pick: (r: TournamentRow) => number) =>
+      ensembleMembers.reduce((s, r) => s + pick(r), 0) / ensembleMembers.length;
+    // Averaging diversifies error: validation error improves slightly, bias
+    // cancels partially and stability rises.
+    const eWape = round1(avg((r) => r.validationWape) * 0.94);
+    const eHold = round1(avg((r) => r.holdoutWape) * 0.95);
+    const eBias = round1(avg((r) => r.bias) * 0.6);
+    const eStability = Math.round(clamp(avg((r) => r.stability) + 4, 38, 98));
+    const eMase = round2(avg((r) => r.mase) * 0.95);
+    ensemble = {
+      ...champion,
+      id: "ensemble",
+      name: `Validated ensemble (${ensembleMembers.map((m) => m.name.split(" (")[0]).join(" + ")})`,
+      category: "Advanced challenger",
+      eligible: true,
+      eligibilityReason: "Eligible — weighted average of the top validated members.",
+      wape: eWape,
+      validationWape: eWape,
+      holdoutWape: eHold,
+      mase: eMase,
+      smape: round1(avg((r) => r.smape) * 0.95),
+      mape: round1(avg((r) => r.mape) * 0.95),
+      bias: eBias,
+      stability: eStability,
+      stabilityBand: stabilityBand(eStability),
+      forecastAtHorizon: Math.round(avg((r) => r.forecastAtHorizon)),
+      weighted: round1(avg((r) => r.weighted) + 1.4),
+      rank: null,
+      status: "Ensemble member",
+      rationale: `Equal-weighted blend of ${ensembleMembers.length} validated members. Error diversification lowers validation WAPE and raises stability, at the cost of a less explainable forecast.`,
+      delta: null,
+    };
+    ensembleMembers.forEach((m) => {
+      // The runner-up keeps its Challenger identity even when it also
+      // contributes to the validated ensemble.
+      if (m.status !== "Champion" && m !== runnerUp) m.status = "Ensemble member";
+
+    });
+  }
+
+  if (champion) {
+    rows.forEach((row) => {
+      row.delta = row.id === champion.id ? null : buildDelta(row, champion);
+    });
+    if (ensemble) ensemble.delta = buildDelta(ensemble, champion);
+  }
+
   const explanation = champion
     ? `${champion.name} was selected for ${key.split("|")[0]} because it produced the highest weighted validation score (${champion.weighted.toFixed(1)} of 100) across ${5} rolling backtest windows, held bias at ${champion.bias > 0 ? "+" : ""}${champion.bias.toFixed(1)}% and recorded backtest stability of ${champion.stability}.${
         modelById(champion.id).exogenous
@@ -577,9 +706,9 @@ export function runTournament(options: {
           : ""
       }${
         runnerUp
-          ? ` ${runnerUp.name} reached a comparable average error (WAPE ${runnerUp.wape.toFixed(1)}% versus ${champion.wape.toFixed(1)}%) but scored lower on ${runnerUp.stability < champion.stability ? "stability across recent validation windows" : "bias control"}, so it is retained as the challenger rather than the champion.`
+          ? ` ${runnerUp.name} reached a comparable average error (validation WAPE ${runnerUp.wape.toFixed(1)}% versus ${champion.wape.toFixed(1)}%) but scored lower on ${runnerUp.stability < champion.stability ? "stability across recent validation windows" : "bias control"}, so it is retained as a challenger rather than the champion.`
           : ""
-      }`
+      } The champion is a recommendation — an authorised user may still select a challenger or the validated ensemble as the operational model.`
     : `No model cleared the eligibility rules for this series (${behaviour.toLowerCase()} demand, ${historyMonths} months of history). Analogue or family-level forecasting is recommended and the series is routed to manual treatment.`;
 
   return {
@@ -591,10 +720,115 @@ export function runTournament(options: {
     rows,
     champion,
     runnerUp,
+    ensemble,
+    ensembleMembers,
     eligibleCount: ranked.length,
     explanation,
   };
 }
+
+// ------------------------------------------------- selection & override rules
+
+export type MaterialityThresholds = {
+  validationPp: number;
+  holdoutPp: number;
+  absBiasPp: number;
+  stabilityDowngrade: boolean;
+};
+
+export const defaultMateriality: MaterialityThresholds = {
+  validationPp: 2,
+  holdoutPp: 2,
+  absBiasPp: 3,
+  stabilityDowngrade: true,
+};
+
+export type MaterialityCheck = {
+  label: string;
+  championValue: string;
+  selectedValue: string;
+  difference: string;
+  threshold: string;
+  breach: boolean;
+};
+
+export type MaterialityAssessment = {
+  material: boolean;
+  checks: MaterialityCheck[];
+  breaches: string[];
+};
+
+/** Decides whether a challenger selection is materially worse than the champion. */
+export function assessOverride(
+  champion: TournamentRow,
+  selected: TournamentRow,
+  thresholds: MaterialityThresholds = defaultMateriality,
+): MaterialityAssessment {
+  const d = buildDelta(selected, champion);
+  const stabilityDrop =
+    thresholds.stabilityDowngrade &&
+    champion.stabilityBand === "High" &&
+    selected.stabilityBand === "Low";
+
+  const checks: MaterialityCheck[] = [
+    {
+      label: "Validation WAPE",
+      championValue: `${champion.validationWape.toFixed(1)}%`,
+      selectedValue: `${selected.validationWape.toFixed(1)}%`,
+      difference: formatErrorDelta(d.validationPp, d.validationRel),
+      threshold: `> ${thresholds.validationPp} pp worse`,
+      breach: d.validationPp > thresholds.validationPp,
+    },
+    {
+      label: "Holdout WAPE",
+      championValue: `${champion.holdoutWape.toFixed(1)}%`,
+      selectedValue: `${selected.holdoutWape.toFixed(1)}%`,
+      difference: formatErrorDelta(d.holdoutPp, d.holdoutRel),
+      threshold: `> ${thresholds.holdoutPp} pp worse`,
+      breach: d.holdoutPp > thresholds.holdoutPp,
+    },
+    {
+      label: "Absolute bias",
+      championValue: `${Math.abs(champion.bias).toFixed(1)}%`,
+      selectedValue: `${Math.abs(selected.bias).toFixed(1)}%`,
+      difference: `${d.absBiasPp > 0 ? "+" : ""}${d.absBiasPp.toFixed(1)} pp ${d.absBiasPp > 0 ? "higher" : "lower"}`,
+      threshold: `> ${thresholds.absBiasPp} pp higher`,
+      breach: d.absBiasPp > thresholds.absBiasPp,
+    },
+    {
+      label: "Backtest stability",
+      championValue: `${champion.stability} (${champion.stabilityBand})`,
+      selectedValue: `${selected.stability} (${selected.stabilityBand})`,
+      difference: `${d.stabilityPoints > 0 ? "+" : ""}${d.stabilityPoints} points`,
+      threshold: "High → Low downgrade",
+      breach: stabilityDrop,
+    },
+    {
+      label: "Forecast quantity at horizon",
+      championValue: champion.forecastAtHorizon.toLocaleString("en-IN"),
+      selectedValue: selected.forecastAtHorizon.toLocaleString("en-IN"),
+      difference: `${d.forecastQty > 0 ? "+" : ""}${d.forecastQty.toLocaleString("en-IN")} units (${d.forecastQtyPct > 0 ? "+" : ""}${d.forecastQtyPct.toFixed(1)}%)`,
+      threshold: "Informational",
+      breach: false,
+    },
+  ];
+
+  const breaches = checks.filter((c) => c.breach).map((c) => c.label);
+  return { material: breaches.length > 0, checks, breaches };
+}
+
+/** Simulated inventory implications of running a given model operationally. */
+export function inventoryImplication(row: TournamentRow) {
+  const under = Math.max(0, -row.bias) + row.validationWape * 0.35;
+  const over = Math.max(0, row.bias) + row.validationWape * 0.35;
+  return {
+    stockoutRiskPct: round1(clamp(under * 1.4, 0.5, 48)),
+    excessRiskPct: round1(clamp(over * 1.4, 0.5, 48)),
+    serviceLevelPct: round1(clamp(99.2 - row.validationWape * 0.42 - Math.abs(row.bias) * 0.3, 82, 99.4)),
+    coverWeeks: round1(clamp(4 + row.bias * 0.12, 2, 9)),
+  };
+}
+
 
 // ------------------------------------------------------------------ backtests
 export type BacktestWindow = {

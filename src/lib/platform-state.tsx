@@ -42,6 +42,8 @@ import {
   seedTransformations,
   type TransformationEntry,
 } from "@/lib/forecast-domain";
+import type { ModelSelection } from "@/lib/model-selection";
+
 import {
   dataIssues,
   workflowStages,
@@ -49,6 +51,7 @@ import {
   type StageId,
 } from "@/lib/workflow";
 import { clearPersistedState, usePersistentState } from "@/lib/persist";
+
 
 export type UploadedFile = {
   name: string;
@@ -106,6 +109,14 @@ type PlatformContextValue = {
   runValidation: () => void;
   transformations: TransformationEntry[];
   setTransformationStatus: (id: string, status: TransformationEntry["status"]) => void;
+
+  /** Operational model selection per SKU|customer|plant series key. */
+  modelSelections: Record<string, ModelSelection>;
+  recordModelSelection: (selection: Omit<ModelSelection, "version" | "decidedBy" | "decidedAt">) => void;
+  approveModelSelection: (key: string) => void;
+  clearModelSelection: (key: string) => void;
+
+
 
   intelEvents: IntelEvent[];
   addIntelEvent: (event: Omit<IntelEvent, "id" | "createdAt" | "modifiedAt">) => void;
@@ -390,6 +401,90 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     ]);
   }, []);
 
+  // ------------------------------------------- operational model selection
+  const [modelSelections, setModelSelections] = usePersistentState<Record<string, ModelSelection>>(
+    "modelSelections",
+    {},
+  );
+
+  const recordModelSelection = useCallback(
+    (selection: Omit<ModelSelection, "version" | "decidedBy" | "decidedAt">) => {
+      setModelSelections((prev) => {
+        const previous = prev[selection.key];
+        const nextVersion = previous
+          ? `ms.${String(Number(previous.version.split(".")[1] ?? 1) + 1).padStart(2, "0")}`
+          : "ms.01";
+        return {
+          ...prev,
+          [selection.key]: {
+            ...selection,
+            version: nextVersion,
+            decidedBy: "You · Demand planning lead",
+            decidedAt: "Today (prototype session)",
+          },
+        };
+      });
+      const [sku, customerId] = selection.key.split("|");
+      setAuditLog((log) => [
+        {
+          id: nextId("al"),
+          at: "Today (prototype session)",
+          date: "2026-07-26",
+          user: "You · Demand planning lead",
+          action: "Model selection" as AuditAction,
+          sku,
+          customer: customerId,
+          version: "V2026.07",
+          detail:
+            `Recommended Champion ${selection.recommendedChampionName}; selected operational model ${selection.selectedModelName}. ` +
+            `Selection method: ${selection.method}. Status: ${selection.status}.` +
+            (selection.reason ? ` Reason: ${selection.reason}.` : "") +
+            (selection.comment ? ` Comment: ${selection.comment}.` : "") +
+            (selection.effectiveFrom ? ` Effective period: ${selection.effectiveFrom}.` : "") +
+            (selection.evidence ? ` Evidence: ${selection.evidence}.` : "") +
+            (selection.materialBreaches.length
+              ? ` Materiality breaches: ${selection.materialBreaches.join(", ")}.`
+              : " No materiality thresholds breached."),
+        },
+        ...log,
+      ]);
+    },
+    [],
+  );
+
+  const approveModelSelection = useCallback((key: string) => {
+    setModelSelections((prev) => {
+      const found = prev[key];
+      if (!found) return prev;
+      return { ...prev, [key]: { ...found, status: "Active" } };
+    });
+    const [sku, customerId] = key.split("|");
+    setAuditLog((log) => [
+      {
+        id: nextId("al"),
+        at: "Today (prototype session)",
+        date: "2026-07-26",
+        user: "You · Forecast governance",
+        action: "Approval" as AuditAction,
+        sku,
+        customer: customerId,
+        version: "V2026.07",
+        detail: "Authorised model override approved — the selected model becomes the operational baseline model.",
+      },
+      ...log,
+    ]);
+  }, []);
+
+  const clearModelSelection = useCallback((key: string) => {
+    setModelSelections((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
+
+
+
   const setApprovalStatus = useCallback(
     (id: string, status: ApprovalStatus, note?: string) => {
       setApprovals((prev) =>
@@ -517,6 +612,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     setMappingState({});
     setValidationRun(false);
     setTransformations(seedTransformations);
+    setModelSelections({});
     setIntelEvents(seedIntelEvents);
     setScenarioSpecs(seedScenarioSpecs);
     setCompareIds(["ss-1", "ss-2"]);
@@ -576,6 +672,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       runValidation,
       transformations,
       setTransformationStatus,
+      modelSelections,
+      recordModelSelection,
+      approveModelSelection,
+      clearModelSelection,
       intelEvents,
       addIntelEvent,
       updateIntelEvent,
@@ -647,6 +747,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       runValidation,
       transformations,
       setTransformationStatus,
+      modelSelections,
+      recordModelSelection,
+      approveModelSelection,
+      clearModelSelection,
       intelEvents,
       addIntelEvent,
       updateIntelEvent,
