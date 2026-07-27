@@ -138,6 +138,9 @@ function ForecastWorkspace() {
   const quality = qualityForSku(activeSku.sku);
   const behaviour = behaviourForSku(activeSku.sku);
   const champion = candidateModels.find((m) => m.id === championModelId)!;
+  const profile = useMemo(() => modelProfileFor(activeSku), [activeSku]);
+  const profileTone =
+    profile.confidence === "High" ? "positive" : profile.confidence === "Medium" ? "warning" : "risk";
 
   const eventDelta = horizonApproved - horizonBaseline;
   const overrideDelta = Math.round(horizonBaseline * 0.012);
