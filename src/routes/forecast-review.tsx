@@ -263,19 +263,29 @@ function ForecastReview() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {[
-                  { label: "Baseline", value: formatNumber(selected.baseline) },
-                  { label: "Event adjustment", value: `${selected.eventAdjustment >= 0 ? "+" : ""}${formatNumber(selected.eventAdjustment)}` },
-                  { label: "Planner override", value: `${selected.plannerOverride >= 0 ? "+" : ""}${formatNumber(selected.plannerOverride)}` },
-                  { label: "Proposed final", value: formatNumber(proposedFinal(selected)) },
-                ].map((cell) => (
-                  <div key={cell.label} className="rounded-md border border-border bg-surface-muted px-3 py-2">
-                    <p className="label-caps">{cell.label}</p>
-                    <p className="num mt-1 text-sm font-semibold">{cell.value}</p>
-                  </div>
-                ))}
+              <div>
+                <p className="label-caps mb-2">
+                  Final forecast bridge — model baseline + approved event adjustment + approved
+                  planner override = approved operational forecast (unapproved what-if scenarios excluded)
+                </p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {[
+                    { label: "Model baseline", value: formatNumber(selected.baseline) },
+                    { label: "Approved event adjustment", value: `${selected.eventAdjustment >= 0 ? "+" : ""}${formatNumber(selected.eventAdjustment)}` },
+                    { label: "Approved planner override", value: `${selected.plannerOverride >= 0 ? "+" : ""}${formatNumber(selected.plannerOverride)}` },
+                    {
+                      label: selected.status === "Approved" ? "Approved operational forecast" : "Proposed final forecast",
+                      value: formatNumber(proposedFinal(selected)),
+                    },
+                  ].map((cell) => (
+                    <div key={cell.label} className="rounded-md border border-border bg-surface-muted px-3 py-2">
+                      <p className="label-caps">{cell.label}</p>
+                      <p className="num mt-1 text-sm font-semibold">{cell.value}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
+
 
               <div className="flex flex-wrap gap-2">
                 <button
