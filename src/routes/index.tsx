@@ -513,6 +513,91 @@ function ExecutiveOverview() {
         </Panel>
       </div>
 
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <Panel
+          title="Model portfolio"
+          description="Share of the 500 demand series by champion forecasting method selected in Model Lab."
+          actions={
+            <Link
+              to="/model-lab"
+              search={{ tab: "catalogue" }}
+              className="rounded-md border border-input px-2.5 py-1.5 text-[11px] font-medium hover:bg-accent"
+            >
+              Open Model Lab
+            </Link>
+          }
+        >
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={portfolioMix} layout="vertical" margin={{ top: 4, right: 24, bottom: 0, left: 0 }}>
+                <CartesianGrid stroke="var(--color-border)" horizontal={false} />
+                <XAxis
+                  type="number"
+                  tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
+                  stroke="var(--color-neutral-line)"
+                  tickFormatter={(v: number) => `${v}%`}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="bucket"
+                  width={110}
+                  tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
+                  stroke="var(--color-neutral-line)"
+                />
+                <Tooltip {...chartTooltipStyle} formatter={(v: number | string) => `${v}%`} />
+                <Bar dataKey="share" name="Share of series" radius={[0, 3, 3, 0]}>
+                  {portfolioMix.map((entry) => (
+                    <Cell
+                      key={entry.bucket}
+                      fill={
+                        entry.bucket === "Manual treatment"
+                          ? "var(--color-warning)"
+                          : entry.bucket === "Other models"
+                            ? "var(--color-neutral-line)"
+                            : "var(--color-primary)"
+                      }
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Panel>
+
+        <Panel
+          title="Model portfolio detail"
+          description="Illustrative prototype results — no production model training performed."
+          bodyClassName="p-0"
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[420px] text-sm">
+              <thead>
+                <tr className="border-b border-border bg-surface-muted text-left">
+                  <th className="label-caps px-4 py-2.5">Method</th>
+                  <th className="label-caps px-4 py-2.5 text-right">Series</th>
+                  <th className="label-caps px-4 py-2.5 text-right">Share</th>
+                </tr>
+              </thead>
+              <tbody>
+                {portfolioMix.map((row) => (
+                  <tr key={row.bucket} className="border-b border-border last:border-0 hover:bg-surface-muted/60">
+                    <td className="px-4 py-2 text-xs font-medium">{row.bucket}</td>
+                    <td className="num px-4 py-2 text-right text-xs">{formatNumber(row.series)}</td>
+                    <td className="num px-4 py-2 text-right text-xs font-semibold">{row.share.toFixed(1)}%</td>
+                  </tr>
+                ))}
+                <tr className="bg-surface-muted">
+                  <td className="px-4 py-2 text-xs font-semibold">Total</td>
+                  <td className="num px-4 py-2 text-right text-xs font-semibold">
+                    {formatNumber(portfolioMix.reduce((s, r) => s + r.series, 0))}
+                  </td>
+                  <td className="num px-4 py-2 text-right text-xs font-semibold">100.0%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      </div>
 
 
       <PrototypeNote>
