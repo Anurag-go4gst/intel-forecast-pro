@@ -7,8 +7,10 @@ import {
   Gauge,
   Layers,
   Play,
+  ShieldCheck,
   Timer,
   Trophy,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -20,6 +22,7 @@ import {
   Legend,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -38,13 +41,17 @@ import {
 import { qualityForSku } from "@/lib/forecast-domain";
 import {
   accuracyByHorizon,
+  assessOverride,
   backtestWindows,
   behaviourEligibility,
   categoryNote,
   comparisonSeries,
+  defaultMateriality,
   defaultWeights,
   errorDistribution,
   errorHeatmap,
+  formatErrorDelta,
+  inventoryImplication,
   modelCatalogue,
   modelCategories,
   modelPalette,
@@ -56,8 +63,16 @@ import {
   type ScoreWeights,
   type TournamentRow,
 } from "@/lib/model-lab";
+import {
+  effectivePeriods,
+  overrideReasons,
+  selectionStatusTone,
+  type ModelSelection,
+  type SelectionMethod,
+} from "@/lib/model-selection";
 import { usePlatform } from "@/lib/platform-state";
 import { cn } from "@/lib/utils";
+
 
 export const Route = createFileRoute("/model-lab")({
   head: () => ({
@@ -114,26 +129,37 @@ const statusTone = {
 const rowStatusTone = {
   Champion: "positive",
   Challenger: "info",
+  "Ensemble member": "info",
   Rejected: "warning",
   "Not eligible": "neutral",
 } as const;
 
 type SortKey =
   | "rank"
-  | "wape"
+  | "validationWape"
+  | "holdoutWape"
   | "mase"
   | "smape"
   | "mape"
   | "bias"
   | "stability"
   | "confidence"
+  | "forecastAtHorizon"
   | "execMs"
   | "weighted"
   | "name";
 
+
 function ModelLab() {
   const search = Route.useSearch();
-  const { blockingOpen, completeStage } = usePlatform();
+  const {
+    blockingOpen,
+    completeStage,
+    modelSelections,
+    recordModelSelection,
+    approveModelSelection,
+    clearModelSelection,
+  } = usePlatform();
   const [tab, setTab] = useState<TabId>(search.tab ?? "catalogue");
   const [customerId, setCustomerId] = useState(search.customer ?? demoCaseRow.customerId);
   const [sku, setSku] = useState(search.sku ?? DEMO_SKU);
@@ -146,6 +172,9 @@ function ModelLab() {
   const [sortKey, setSortKey] = useState<SortKey>("rank");
   const [sortAsc, setSortAsc] = useState(true);
   const [hidden, setHidden] = useState<string[]>([]);
+  const [compareIds, setCompareIds] = useState<string[] | null>(null);
+  const [detailsId, setDetailsId] = useState<string | null>(null);
+  const [overrideId, setOverrideId] = useState<string | null>(null);
 
   // Deep links from Forecast Workspace / Executive Overview carry the series.
   useEffect(() => {
@@ -183,8 +212,9 @@ function ModelLab() {
         historyMonths: quality.historyMonths,
         horizon,
         weights,
+        baseVolume: Math.round(row.baseVolume / 1.5),
       }),
-    [key, row.behaviour, quality.historyMonths, horizon, weights],
+    [key, row.behaviour, row.baseVolume, quality.historyMonths, horizon, weights],
   );
 
   const running = stage >= 0 && stage < tournamentStages.length;
@@ -229,26 +259,133 @@ function ModelLab() {
   }, [result.rows, sortKey, sortAsc]);
 
   const eligibleIds = result.rows.filter((r) => r.eligible).map((r) => r.id);
-  const visibleIds = eligibleIds.filter((id) => !hidden.includes(id));
   const championId = result.champion?.id ?? null;
+
+  /** Rows that can be picked for the visual comparison (max four). */
+  const selectableRows = useMemo(
+    () => [...result.rows.filter((r) => r.eligible), ...(result.ensemble ? [result.ensemble] : [])],
+    [result],
+  );
+
+  const rowById = (id: string | null) =>
+    id ? (selectableRows.find((r) => r.id === id) ?? result.rows.find((r) => r.id === id) ?? null) : null;
+
+  const defaultCompare = useMemo(() => {
+    const ordered = [...result.rows.filter((r) => r.eligible)].sort(
+      (a, b) => (a.rank ?? 99) - (b.rank ?? 99),
+    );
+    return ordered.slice(0, 4).map((r) => r.id);
+  }, [result]);
+
+  const compareSelection = (compareIds ?? defaultCompare).filter((id) =>
+    selectableRows.some((r) => r.id === id),
+  );
+  const visibleIds = compareSelection.filter((id) => !hidden.includes(id));
+  // The ensemble is a blend; the overlay chart draws its members' champion line.
+  const chartIds = visibleIds.filter((id) => id !== "ensemble");
+
+  function toggleCompareModel(id: string) {
+    const current = compareIds ?? defaultCompare;
+    if (current.includes(id)) setCompareIds(current.filter((x) => x !== id));
+    else if (current.length < 4) setCompareIds([...current, id]);
+  }
+
+  function compareWithChampion(id: string) {
+    setCompareIds(championId && championId !== id ? [championId, id] : [id]);
+    setHidden([]);
+    setTab("comparison");
+  }
+
+  // ------------------------------------------------------- model selection
+  const selection: ModelSelection | undefined = modelSelections[key];
+  const selectedRow = rowById(selection?.selectedModelId ?? championId);
+  const overrideRow = rowById(overrideId);
+  const assessment =
+    result.champion && overrideRow && overrideRow.id !== result.champion.id
+      ? assessOverride(result.champion, overrideRow)
+      : null;
+
+  function acceptChampion() {
+    if (!result.champion) return;
+    recordModelSelection({
+      key,
+      sku: row.sku,
+      customerId,
+      plantId,
+      recommendedChampionId: result.champion.id,
+      recommendedChampionName: result.champion.name,
+      selectedModelId: result.champion.id,
+      selectedModelName: result.champion.name,
+      method: "Champion accepted",
+      reason: "System recommendation accepted without change.",
+      comment: "",
+      effectiveFrom: effectivePeriods[3],
+      effectiveTo: "",
+      evidence: "",
+      status: "Active",
+      materialBreaches: [],
+    });
+  }
+
+  function commitSelection(input: {
+    target: TournamentRow;
+    method: SelectionMethod;
+    reason: string;
+    comment: string;
+    effectiveFrom: string;
+    evidence: string;
+  }) {
+    if (!result.champion) return;
+    const check = assessOverride(result.champion, input.target);
+    recordModelSelection({
+      key,
+      sku: row.sku,
+      customerId,
+      plantId,
+      recommendedChampionId: result.champion.id,
+      recommendedChampionName: result.champion.name,
+      selectedModelId: input.target.id,
+      selectedModelName: input.target.name,
+      method: input.method,
+      reason: input.reason,
+      comment: input.comment,
+      effectiveFrom: input.effectiveFrom,
+      effectiveTo: "",
+      evidence: input.evidence,
+      status: check.material ? "Awaiting approval" : "Active",
+      materialBreaches: check.breaches,
+    });
+    setOverrideId(null);
+  }
 
   const chartData = useMemo(
     () =>
       comparisonSeries({
         key,
         base: row.baseVolume / 1.5,
-        modelIds: visibleIds,
-        championId: championId && visibleIds.includes(championId) ? championId : null,
+        modelIds: chartIds,
+        championId: championId && chartIds.includes(championId) ? championId : null,
       }),
-    [key, row.baseVolume, visibleIds.join(","), championId],
+    [key, row.baseVolume, chartIds.join(","), championId],
   );
+
+  const futureRows = chartData.filter((p) => p.upper !== undefined && p.actual === null && p.holdout === null);
+  const horizonForecast = futureRows.slice(0, horizon).map((p, i) => {
+    const point: Record<string, string | number | null> = { horizon: `M+${i + 1}`, period: p.period };
+    chartIds.forEach((id) => (point[`m_${id}`] = (p[`m_${id}`] as number | null) ?? null));
+    return point;
+  });
 
   const btModelId = championId ?? eligibleIds[0] ?? "ets";
   const windows = useMemo(() => backtestWindows(key, row.baseVolume / 1.5, btModelId), [key, row.baseVolume, btModelId]);
   const heat = useMemo(() => errorHeatmap(key, eligibleIds.slice(0, 6)), [key, eligibleIds.join(",")]);
   const heatMonths = [...new Set(heat.map((c) => c.month))];
   const heatModels = [...new Set(heat.map((c) => c.model))];
+  const compareHeat = useMemo(() => errorHeatmap(key, chartIds), [key, chartIds.join(",")]);
+  const compareHeatMonths = [...new Set(compareHeat.map((c) => c.month))];
+  const compareHeatModels = [...new Set(compareHeat.map((c) => c.model))];
   const stability = useMemo(() => stabilitySeries(key, eligibleIds.slice(0, 5)), [key, eligibleIds.join(",")]);
+  const compareStability = useMemo(() => stabilitySeries(key, chartIds), [key, chartIds.join(",")]);
   const distribution = useMemo(() => errorDistribution(key, btModelId), [key, btModelId]);
   const horizonAcc = useMemo(() => accuracyByHorizon(key, btModelId), [key, btModelId]);
 
@@ -259,6 +396,7 @@ function ModelLab() {
       setSortAsc(k !== "weighted" && k !== "stability" && k !== "confidence");
     }
   }
+
 
   return (
     <div className="space-y-5">
@@ -426,37 +564,55 @@ function ModelLab() {
             />
           </div>
 
+          <SelectionIdentityPanel
+            champion={result.champion}
+            selection={selection}
+            selectedRow={selectedRow}
+            ensemble={result.ensemble}
+            onAcceptChampion={acceptChampion}
+            onSelectEnsemble={() => result.ensemble && setOverrideId(result.ensemble.id)}
+            onSelectChallenger={() => result.runnerUp && setOverrideId(result.runnerUp.id)}
+            onApprove={() => approveModelSelection(key)}
+            onClear={() => clearModelSelection(key)}
+          />
+
           <Panel
             title="Tournament results"
-            description="Sort by any metric. Champion selection uses the weighted score, not MAPE alone."
+            description="Sort by any metric. The Champion is the system recommendation from the weighted score — authorised users may still select another model. All differences are error differences, in percentage points and relative percent."
             bodyClassName="p-0"
           >
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1400px] text-sm">
+              <table className="w-full min-w-[1800px] text-sm">
                 <thead>
                   <tr className="border-b border-border bg-surface-muted text-left">
                     <SortTh label="Model" k="name" {...{ sortKey, sortAsc, toggleSort }} />
                     <th className="label-caps px-3 py-2.5">Eligibility</th>
-                    <SortTh label="WAPE" k="wape" numeric {...{ sortKey, sortAsc, toggleSort }} />
+                    <SortTh label="Validation WAPE" k="validationWape" numeric {...{ sortKey, sortAsc, toggleSort }} />
+                    <SortTh label="Holdout WAPE" k="holdoutWape" numeric {...{ sortKey, sortAsc, toggleSort }} />
                     <SortTh label="MASE" k="mase" numeric {...{ sortKey, sortAsc, toggleSort }} />
                     <SortTh label="sMAPE" k="smape" numeric {...{ sortKey, sortAsc, toggleSort }} />
-                    <SortTh label="MAPE" k="mape" numeric {...{ sortKey, sortAsc, toggleSort }} />
                     <SortTh label="Bias" k="bias" numeric {...{ sortKey, sortAsc, toggleSort }} />
-                    <SortTh label="Stability" k="stability" numeric {...{ sortKey, sortAsc, toggleSort }} />
+                    <SortTh label="Backtest stability" k="stability" numeric {...{ sortKey, sortAsc, toggleSort }} />
                     <SortTh label="Confidence" k="confidence" {...{ sortKey, sortAsc, toggleSort }} />
-                    <SortTh label="Exec time" k="execMs" numeric {...{ sortKey, sortAsc, toggleSort }} />
+                    <SortTh label={`Forecast @ M+${horizon}`} k="forecastAtHorizon" numeric {...{ sortKey, sortAsc, toggleSort }} />
+                    <th className="label-caps px-3 py-2.5">Difference from Champion</th>
                     <SortTh label="Weighted" k="weighted" numeric {...{ sortKey, sortAsc, toggleSort }} />
                     <SortTh label="Rank" k="rank" numeric {...{ sortKey, sortAsc, toggleSort }} />
                     <th className="label-caps px-3 py-2.5">Status</th>
+                    <th className="label-caps px-3 py-2.5">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedRows.map((r) => (
+                  {[...sortedRows, ...(result.ensemble ? [result.ensemble] : [])].map((r) => (
                     <tr
                       key={r.id}
                       className={cn(
                         "border-b border-border align-top last:border-0",
-                        r.status === "Champion" ? "bg-accent/60" : !r.eligible && "opacity-60",
+                        r.status === "Champion"
+                          ? "bg-accent/60"
+                          : selection?.selectedModelId === r.id
+                            ? "bg-positive-soft/40"
+                            : !r.eligible && "opacity-60",
                       )}
                     >
                       <td className="px-3 py-2.5">
@@ -467,22 +623,91 @@ function ModelLab() {
                         <StatusPill tone={r.eligible ? "positive" : "warning"}>
                           {r.eligible ? "Eligible" : "Not eligible"}
                         </StatusPill>
+                        {!r.eligible && <p className="mt-1 max-w-[180px]">{r.eligibilityReason}</p>}
                       </td>
-                      <Num v={`${r.wape.toFixed(1)}%`} bold />
+                      <Num v={`${r.validationWape.toFixed(1)}%`} bold />
+                      <Num v={`${r.holdoutWape.toFixed(1)}%`} />
                       <Num v={r.mase.toFixed(2)} tone={r.mase < 1 ? "positive" : "risk"} />
                       <Num v={`${r.smape.toFixed(1)}%`} />
-                      <Num v={`${r.mape.toFixed(1)}%`} />
                       <Num
                         v={`${r.bias > 0 ? "+" : ""}${r.bias.toFixed(1)}%`}
                         tone={Math.abs(r.bias) > 3 ? "risk" : Math.abs(r.bias) > 2 ? "warning" : "positive"}
                       />
-                      <Num v={String(r.stability)} />
+                      <td className="px-3 py-2.5 text-right">
+                        <span className="num text-xs">{r.stability}</span>
+                        <p className="text-[11px] text-muted-foreground">{r.stabilityBand}</p>
+                      </td>
                       <td className="px-3 py-2.5 text-xs">{r.confidence}</td>
-                      <Num v={`${(r.execMs / 1000).toFixed(2)}s`} />
+                      <Num v={r.eligible ? formatNumber(r.forecastAtHorizon) : "—"} />
+                      <td className="px-3 py-2.5 text-[11px]">
+                        {r.status === "Champion" ? (
+                          <span className="text-muted-foreground">Recommended Champion</span>
+                        ) : r.delta ? (
+                          <>
+                            <p
+                              className={cn(
+                                "font-medium",
+                                r.delta.validationPp > 0 ? "text-risk" : "text-positive",
+                              )}
+                            >
+                              {formatErrorDelta(r.delta.validationPp, r.delta.validationRel)}
+                            </p>
+                            <p className="text-muted-foreground">
+                              Holdout {r.delta.holdoutPp > 0 ? "+" : ""}
+                              {r.delta.holdoutPp.toFixed(1)} pp · bias {r.delta.absBiasPp > 0 ? "+" : ""}
+                              {r.delta.absBiasPp.toFixed(1)} pp · stability {r.delta.stabilityPoints > 0 ? "+" : ""}
+                              {r.delta.stabilityPoints}
+                            </p>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">Not comparable</span>
+                        )}
+                      </td>
                       <Num v={r.weighted.toFixed(1)} bold />
                       <Num v={r.rank ? `#${r.rank}` : "—"} />
                       <td className="px-3 py-2.5">
                         <StatusPill tone={rowStatusTone[r.status]}>{r.status}</StatusPill>
+                        {selection?.selectedModelId === r.id && (
+                          <p className="mt-1 text-[11px] font-medium text-positive">Selected operational model</p>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <div className="flex flex-col items-start gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setDetailsId(r.id)}
+                            className="text-[11px] font-medium text-primary hover:underline"
+                          >
+                            View details
+                          </button>
+                          {r.eligible && r.status !== "Champion" && (
+                            <button
+                              type="button"
+                              onClick={() => compareWithChampion(r.id)}
+                              className="text-[11px] font-medium text-primary hover:underline"
+                            >
+                              Compare with Champion
+                            </button>
+                          )}
+                          {r.eligible &&
+                            (r.status === "Champion" ? (
+                              <button
+                                type="button"
+                                onClick={acceptChampion}
+                                className="rounded-md border border-input px-2 py-1 text-[11px] font-medium hover:bg-accent"
+                              >
+                                Accept Champion
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setOverrideId(r.id)}
+                                className="rounded-md border border-input px-2 py-1 text-[11px] font-medium hover:bg-accent"
+                              >
+                                Use this model
+                              </button>
+                            ))}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -490,6 +715,7 @@ function ModelLab() {
               </table>
             </div>
           </Panel>
+
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
             <Panel
@@ -596,12 +822,40 @@ function ModelLab() {
       {tab === "comparison" && (
         <>
           <Panel
-            title="Show or hide models"
-            description="The champion is emphasised; non-selected models are visually subdued."
+            title="Select up to four models to compare"
+            description="Pick the models to overlay. Click a selected chip a second time to remove it; use the eye toggle below to temporarily hide a line."
           >
             <div className="flex flex-wrap gap-1.5">
-              {eligibleIds.map((id) => {
-                const model = result.rows.find((r) => r.id === id)!;
+              {selectableRows.map((model) => {
+                const picked = compareSelection.includes(model.id);
+                const full = compareSelection.length >= 4 && !picked;
+                return (
+                  <button
+                    key={model.id}
+                    type="button"
+                    disabled={full}
+                    onClick={() => toggleCompareModel(model.id)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                      picked
+                        ? "border-primary bg-accent text-foreground"
+                        : "border-input text-muted-foreground hover:bg-accent",
+                      full && "cursor-not-allowed opacity-40",
+                    )}
+                  >
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ background: modelPalette[model.id] ?? "var(--color-muted-foreground)" }}
+                    />
+                    {model.name}
+                    {model.id === championId && " · champion"}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border pt-3">
+              <span className="label-caps mr-1">Visible</span>
+              {compareSelection.map((id) => {
                 const on = !hidden.includes(id);
                 return (
                   <button
@@ -609,21 +863,20 @@ function ModelLab() {
                     type="button"
                     onClick={() => setHidden(on ? [...hidden, id] : hidden.filter((h) => h !== id))}
                     className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
-                      on ? "border-input bg-surface text-foreground" : "border-dashed border-input text-muted-foreground opacity-60",
+                      "rounded-full border px-2.5 py-1 text-[11px] font-medium",
+                      on ? "border-input bg-surface" : "border-dashed border-input opacity-60",
                     )}
                   >
-                    <span
-                      className="h-2 w-2 rounded-full"
-                      style={{ background: modelPalette[id] ?? "var(--color-muted-foreground)" }}
-                    />
-                    {model.name}
-                    {id === championId && " · champion"}
+                    {rowById(id)?.name ?? id}
                   </button>
                 );
               })}
+              <span className="ml-auto text-[11px] text-muted-foreground">
+                {compareSelection.length} of 4 selected
+              </span>
             </div>
           </Panel>
+
 
           <Panel
             title={`Model forecasts — ${row.sku} · ${row.description}`}
@@ -683,15 +936,15 @@ function ModelLab() {
                     dot={false}
                     connectNulls
                   />
-                  {visibleIds.map((id) => (
+                  {chartIds.map((id) => (
                     <Line
                       key={id}
                       type="monotone"
                       dataKey={`m_${id}`}
-                      name={result.rows.find((r) => r.id === id)!.name}
+                      name={rowById(id)?.name ?? id}
                       stroke={modelPalette[id] ?? "var(--color-muted-foreground)"}
-                      strokeWidth={id === championId ? 2.8 : 1.2}
-                      strokeOpacity={id === championId ? 1 : 0.45}
+                      strokeWidth={id === championId ? 2.8 : 1.6}
+                      strokeOpacity={id === championId ? 1 : 0.7}
                       dot={false}
                       connectNulls
                     />
@@ -700,7 +953,213 @@ function ModelLab() {
               </ResponsiveContainer>
             </div>
           </Panel>
+
+          <Panel
+            title="Month-by-month error heatmap"
+            description="Absolute percentage error for each compared model across the last 12 validation months. Darker means larger error."
+            bodyClassName="p-0"
+          >
+            <div className="overflow-x-auto p-4">
+              <table className="w-full min-w-[720px] border-separate border-spacing-0.5 text-xs">
+                <thead>
+                  <tr>
+                    <th className="label-caps px-2 py-1 text-left">Model</th>
+                    {compareHeatMonths.map((m) => (
+                      <th key={m} className="label-caps px-1 py-1 text-center">
+                        {m.slice(0, 3)}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {compareHeatModels.map((m) => (
+                    <tr key={m}>
+                      <td className="px-2 py-1 text-[11px] font-medium whitespace-nowrap">{m}</td>
+                      {compareHeatMonths.map((month) => {
+                        const cell = compareHeat.find((c) => c.model === m && c.month === month);
+                        const v = cell?.error ?? 0;
+                        const intensity = Math.min(1, v / 30);
+                        return (
+                          <td
+                            key={month}
+                            className="num px-1 py-1 text-center text-[10px]"
+                            style={{
+                              background: `color-mix(in oklab, var(--color-risk) ${Math.round(intensity * 70)}%, var(--color-surface))`,
+                            }}
+                            title={`${m} · ${month}: ${v.toFixed(1)}% absolute error`}
+                          >
+                            {v.toFixed(0)}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <Panel
+              title="Forecast by horizon"
+              description={`Forecast quantity produced by each compared model for M+1 to M+${horizon}.`}
+            >
+              <div className="h-72 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={horizonForecast} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+                    <CartesianGrid stroke="var(--color-border)" vertical={false} />
+                    <XAxis dataKey="horizon" tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} stroke="var(--color-neutral-line)" />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
+                      stroke="var(--color-neutral-line)"
+                      width={52}
+                      tickFormatter={(v: number) => formatNumber(v)}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: 6,
+                        border: "1px solid var(--color-border)",
+                        background: "var(--color-surface)",
+                        fontSize: 12,
+                      }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    {chartIds.map((id) => (
+                      <Line
+                        key={id}
+                        type="monotone"
+                        dataKey={`m_${id}`}
+                        name={rowById(id)?.name ?? id}
+                        stroke={modelPalette[id] ?? "var(--color-muted-foreground)"}
+                        strokeWidth={id === championId ? 2.6 : 1.6}
+                        dot={false}
+                        connectNulls
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </Panel>
+
+            <Panel
+              title="Bias comparison"
+              description="Positive bias means the model over-forecasts. The tolerance band is ±2 percentage points."
+            >
+              <div className="h-72 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={compareSelection.map((id) => ({
+                      name: (rowById(id)?.name ?? id).split(" (")[0],
+                      bias: rowById(id)?.bias ?? 0,
+                    }))}
+                    margin={{ top: 8, right: 12, bottom: 0, left: 0 }}
+                  >
+                    <CartesianGrid stroke="var(--color-border)" vertical={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} stroke="var(--color-neutral-line)" />
+                    <YAxis tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} stroke="var(--color-neutral-line)" width={44} unit="%" />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: 6,
+                        border: "1px solid var(--color-border)",
+                        background: "var(--color-surface)",
+                        fontSize: 12,
+                      }}
+                    />
+                    <ReferenceLine y={2} stroke="var(--color-warning)" strokeDasharray="4 4" />
+                    <ReferenceLine y={-2} stroke="var(--color-warning)" strokeDasharray="4 4" />
+                    <ReferenceLine y={0} stroke="var(--color-neutral-line)" />
+                    <Bar dataKey="bias" name="Bias %" fill="var(--color-primary)" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Panel>
+          </div>
+
+          <Panel
+            title="Backtest stability comparison"
+            description="WAPE per rolling-origin window. Flatter lines mean a more stable model."
+          >
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={compareStability} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+                  <CartesianGrid stroke="var(--color-border)" vertical={false} />
+                  <XAxis dataKey="window" tick={{ fontSize: 10, fill: "var(--color-muted-foreground)" }} stroke="var(--color-neutral-line)" />
+                  <YAxis tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} stroke="var(--color-neutral-line)" width={44} unit="%" />
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: 6,
+                      border: "1px solid var(--color-border)",
+                      background: "var(--color-surface)",
+                      fontSize: 12,
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  {chartIds.map((id) => (
+                    <Line
+                      key={id}
+                      type="monotone"
+                      dataKey={`m_${id}`}
+                      name={rowById(id)?.name ?? id}
+                      stroke={modelPalette[id] ?? "var(--color-muted-foreground)"}
+                      strokeWidth={id === championId ? 2.6 : 1.6}
+                      dot={{ r: 2 }}
+                      connectNulls
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </Panel>
+
+          <Panel
+            title="Forecast quantity difference and simulated inventory implications"
+            description="Quantity difference versus the recommended Champion, with a simulated stockout and excess-inventory read-through. Illustrative prototype data — not an approved operational forecast."
+            bodyClassName="p-0"
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1000px] text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-surface-muted text-left">
+                    <th className="label-caps px-3 py-2.5">Model</th>
+                    <th className="label-caps px-3 py-2.5 text-right">Forecast @ M+{horizon}</th>
+                    <th className="label-caps px-3 py-2.5 text-right">Difference vs Champion</th>
+                    <th className="label-caps px-3 py-2.5 text-right">Stockout risk</th>
+                    <th className="label-caps px-3 py-2.5 text-right">Excess-inventory risk</th>
+                    <th className="label-caps px-3 py-2.5">Simulated implication</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {compareSelection.map((id) => {
+                    const r = rowById(id);
+                    if (!r) return null;
+                    const imp = inventoryImplication(r);
+                    return (
+                      <tr key={id} className="border-b border-border last:border-0">
+                        <td className="px-3 py-2.5 text-xs font-semibold">
+                          {r.name}
+                          {id === championId && <span className="ml-1 text-[11px] text-muted-foreground">· champion</span>}
+                        </td>
+                        <td className="num px-3 py-2.5 text-right text-xs">{formatNumber(r.forecastAtHorizon)}</td>
+                        <td className="num px-3 py-2.5 text-right text-xs">
+                          {r.delta
+                            ? `${r.delta.forecastQty > 0 ? "+" : ""}${formatNumber(r.delta.forecastQty)} (${r.delta.forecastQtyPct > 0 ? "+" : ""}${r.delta.forecastQtyPct.toFixed(1)}%)`
+                            : "—"}
+                        </td>
+                        <td className="num px-3 py-2.5 text-right text-xs">{imp.stockoutRiskPct}%</td>
+                        <td className="num px-3 py-2.5 text-right text-xs">{imp.excessRiskPct}%</td>
+                        <td className="px-3 py-2.5 text-[11px] text-muted-foreground">
+                          Simulated service level {imp.serviceLevelPct}% · {imp.coverWeeks} weeks of cover
+                        </td>
+
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
         </>
+
       )}
 
       {tab === "backtests" && (
@@ -939,12 +1398,487 @@ function ModelLab() {
         </>
       )}
 
+      {detailsId && (
+        <ModelDetailsDialog
+          model={rowById(detailsId)}
+          champion={result.champion}
+          horizon={horizon}
+          onCompare={() => {
+            compareWithChampion(detailsId);
+            setDetailsId(null);
+          }}
+          onUse={() => {
+            setOverrideId(detailsId);
+            setDetailsId(null);
+          }}
+          onClose={() => setDetailsId(null)}
+        />
+      )}
+
+      {overrideRow && result.champion && (
+        <OverrideDialog
+          champion={result.champion}
+          target={overrideRow}
+          assessment={assessment}
+          horizon={horizon}
+          onCancel={() => setOverrideId(null)}
+          onConfirm={(input) => commitSelection({ target: overrideRow, ...input })}
+        />
+      )}
+
       <PrototypeNote>
         Illustrative prototype results — no production model training performed.
       </PrototypeNote>
     </div>
   );
 }
+
+/**
+ * Shows the two identities that must never be conflated: the Champion the
+ * tournament recommends, and the model actually selected for operations.
+ */
+function SelectionIdentityPanel({
+  champion,
+  selection,
+  selectedRow,
+  ensemble,
+  onAcceptChampion,
+  onSelectEnsemble,
+  onSelectChallenger,
+  onApprove,
+  onClear,
+}: {
+  champion: TournamentRow | null;
+  selection?: ModelSelection;
+  selectedRow: TournamentRow | null;
+  ensemble: TournamentRow | null;
+  onAcceptChampion: () => void;
+  onSelectEnsemble: () => void;
+  onSelectChallenger: () => void;
+  onApprove: () => void;
+  onClear: () => void;
+}) {
+  const awaiting = selection?.status === "Awaiting approval";
+  return (
+    <Panel
+      title="Recommended Champion and Selected Operational Model"
+      description="The tournament recommends; authorised users decide. Both identities are recorded separately in the audit log."
+      actions={<ShieldCheck className="h-4 w-4 text-muted-foreground" aria-hidden />}
+    >
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="rounded-md border border-border bg-surface-muted p-3">
+          <p className="label-caps">Recommended Champion</p>
+          <p className="mt-1 text-sm font-semibold text-foreground">{champion?.name ?? "None"}</p>
+          <p className="text-xs text-muted-foreground">
+            {champion
+              ? `Validation WAPE ${champion.validationWape.toFixed(1)}% · holdout ${champion.holdoutWape.toFixed(1)}% · bias ${champion.bias > 0 ? "+" : ""}${champion.bias.toFixed(1)}% · stability ${champion.stability} (${champion.stabilityBand})`
+              : "No eligible model — manual or analogue treatment required."}
+          </p>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            System recommendation from the weighted selection score. Never auto-applied.
+          </p>
+        </div>
+
+        <div className="rounded-md border border-border p-3">
+          <div className="flex items-start justify-between gap-2">
+            <p className="label-caps">Selected Operational Model</p>
+            <StatusPill tone={selection ? selectionStatusTone[selection.status] : "warning"}>
+              {selection ? selection.status : "Not selected"}
+            </StatusPill>
+          </div>
+          <p className="mt-1 text-sm font-semibold text-foreground">
+            {selection ? selection.selectedModelName : "Awaiting a decision"}
+          </p>
+          {selection ? (
+            <>
+              <p className="text-xs text-muted-foreground">
+                {selection.method} · effective {selection.effectiveFrom}
+                {selectedRow ? ` · validation WAPE ${selectedRow.validationWape.toFixed(1)}%` : ""}
+              </p>
+              <p className="mt-1 text-xs text-foreground">{selection.reason}</p>
+              {selection.comment && (
+                <p className="mt-1 text-[11px] text-muted-foreground">{selection.comment}</p>
+              )}
+              {selection.materialBreaches.length > 0 && (
+                <ul className="mt-2 space-y-0.5">
+                  {selection.materialBreaches.map((b) => (
+                    <li key={b} className="text-[11px] text-risk">
+                      Material difference — {b}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Accept the Champion, select the Challenger, or use any eligible model with a recorded reason.
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={onAcceptChampion}
+          disabled={!champion}
+          className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+        >
+          Accept Champion
+        </button>
+        <button
+          type="button"
+          onClick={onSelectChallenger}
+          className="rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-accent"
+        >
+          Select Challenger
+        </button>
+        <button
+          type="button"
+          onClick={onSelectEnsemble}
+          disabled={!ensemble}
+          className="rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-40"
+        >
+          Select Validated Ensemble
+        </button>
+        {awaiting && (
+          <button
+            type="button"
+            onClick={onApprove}
+            className="rounded-md bg-positive px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+          >
+            Approve override
+          </button>
+        )}
+        {selection && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-accent"
+          >
+            Revert to recommendation
+          </button>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
+function DialogShell({
+  title,
+  subtitle,
+  onClose,
+  children,
+  footer,
+}: {
+  title: string;
+  subtitle?: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-foreground/40 p-4">
+      <div className="mt-10 w-full max-w-3xl rounded-lg border border-border bg-surface shadow-lg">
+        <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+            {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1 hover:bg-accent">
+            <X className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
+        <div className="max-h-[70vh] space-y-3 overflow-y-auto px-4 py-3">{children}</div>
+        {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-border px-4 py-3">{footer}</div>}
+      </div>
+    </div>
+  );
+}
+
+function MetricRow({ label, champion, target, tone }: { label: string; champion: string; target: string; tone?: string }) {
+  return (
+    <tr className="border-b border-border last:border-0">
+      <td className="py-2 text-xs">{label}</td>
+      <td className="num py-2 text-right text-xs">{champion}</td>
+      <td className="num py-2 text-right text-xs font-semibold">{target}</td>
+      <td className={cn("py-2 pl-4 text-right text-[11px]", tone)}>{""}</td>
+    </tr>
+  );
+}
+
+function ModelDetailsDialog({
+  model,
+  champion,
+  horizon,
+  onCompare,
+  onUse,
+  onClose,
+}: {
+  model: TournamentRow | null;
+  champion: TournamentRow | null;
+  horizon: number;
+  onCompare: () => void;
+  onUse: () => void;
+  onClose: () => void;
+}) {
+  if (!model) return null;
+  const imp = inventoryImplication(model);
+  return (
+    <DialogShell
+      title={model.name}
+      subtitle={`${model.category} · ${categoryNote[model.category] ?? ""}`}
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-accent">
+            Close
+          </button>
+          {model.eligible && model.status !== "Champion" && (
+            <>
+              <button type="button" onClick={onCompare} className="rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-accent">
+                Compare with Champion
+              </button>
+              <button type="button" onClick={onUse} className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground">
+                Use this model
+              </button>
+            </>
+          )}
+        </>
+      }
+    >
+      <div className="flex flex-wrap gap-2">
+        <StatusPill tone={rowStatusTone[model.status]}>{model.status}</StatusPill>
+        <StatusPill tone={model.eligible ? "positive" : "warning"}>
+          {model.eligible ? "Eligible" : model.eligibilityReason}
+        </StatusPill>
+        <StatusPill tone="neutral">Forecast confidence {model.confidence}</StatusPill>
+      </div>
+
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border text-left">
+            <th className="label-caps py-2">Metric</th>
+            <th className="label-caps py-2 text-right">Champion</th>
+            <th className="label-caps py-2 text-right">This model</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          <MetricRow label="Validation WAPE" champion={`${champion?.validationWape.toFixed(1) ?? "—"}%`} target={`${model.validationWape.toFixed(1)}%`} />
+          <MetricRow label="Holdout WAPE" champion={`${champion?.holdoutWape.toFixed(1) ?? "—"}%`} target={`${model.holdoutWape.toFixed(1)}%`} />
+          <MetricRow label="MASE" champion={champion?.mase.toFixed(2) ?? "—"} target={model.mase.toFixed(2)} />
+          <MetricRow label="sMAPE" champion={`${champion?.smape.toFixed(1) ?? "—"}%`} target={`${model.smape.toFixed(1)}%`} />
+          <MetricRow label="Bias" champion={`${champion?.bias.toFixed(1) ?? "—"}%`} target={`${model.bias.toFixed(1)}%`} />
+          <MetricRow label="Backtest stability" champion={`${champion?.stability ?? "—"} (${champion?.stabilityBand ?? "—"})`} target={`${model.stability} (${model.stabilityBand})`} />
+          <MetricRow label={`Forecast @ M+${horizon}`} champion={formatNumber(champion?.forecastAtHorizon ?? 0)} target={formatNumber(model.forecastAtHorizon)} />
+          <MetricRow label="Weighted selection score" champion={champion?.weighted.toFixed(1) ?? "—"} target={model.weighted.toFixed(1)} />
+        </tbody>
+      </table>
+
+      {model.delta && (
+        <p className="text-xs text-foreground">
+          Error difference versus Champion: {formatErrorDelta(model.delta.validationPp, model.delta.validationRel)}.
+        </p>
+      )}
+      <p className="text-xs text-muted-foreground">{model.rationale}</p>
+      <p className="text-xs text-muted-foreground">
+        Simulated inventory read-through: stockout risk {imp.stockoutRiskPct}% · excess-inventory risk {imp.excessRiskPct}% ·
+        service level {imp.serviceLevelPct}% · {imp.coverWeeks} weeks of cover.
+      </p>
+    </DialogShell>
+  );
+}
+
+function OverrideDialog({
+  champion,
+  target,
+  assessment,
+  horizon,
+  onCancel,
+  onConfirm,
+}: {
+  champion: TournamentRow;
+  target: TournamentRow;
+  assessment: ReturnType<typeof assessOverride> | null;
+  horizon: number;
+  onCancel: () => void;
+  onConfirm: (input: {
+    method: SelectionMethod;
+    reason: string;
+    comment: string;
+    effectiveFrom: string;
+    evidence: string;
+  }) => void;
+}) {
+  const [reason, setReason] = useState(overrideReasons[0]);
+  const [comment, setComment] = useState("");
+  const [effectiveFrom, setEffectiveFrom] = useState(effectivePeriods[0]);
+  const [evidence, setEvidence] = useState("");
+  const material = assessment?.material ?? false;
+  const method: SelectionMethod =
+    target.id === "ensemble"
+      ? "Validated ensemble selected"
+      : target.status === "Challenger"
+        ? "Challenger selected"
+        : "Manual override";
+  const canConfirm = reason.trim().length > 0 && comment.trim().length >= 10;
+
+  return (
+    <DialogShell
+      title={`Use ${target.name} instead of the recommended Champion`}
+      subtitle={`Recommended Champion remains ${champion.name}. Both identities are retained.`}
+      onClose={onCancel}
+      footer={
+        <>
+          <button type="button" onClick={onCancel} className="rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-accent">
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!canConfirm}
+            onClick={() => onConfirm({ method, reason, comment, effectiveFrom, evidence })}
+            className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+          >
+            {material ? "Submit for approval" : "Confirm selection"}
+          </button>
+        </>
+      }
+    >
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border text-left">
+            <th className="label-caps py-2">Comparison</th>
+            <th className="label-caps py-2 text-right">Champion</th>
+            <th className="label-caps py-2 text-right">Selected</th>
+            <th className="label-caps py-2 text-right">Difference</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr className="border-b border-border">
+            <td className="py-2 text-xs">Validation WAPE</td>
+            <td className="num py-2 text-right text-xs">{champion.validationWape.toFixed(1)}%</td>
+            <td className="num py-2 text-right text-xs">{target.validationWape.toFixed(1)}%</td>
+            <td className={cn("py-2 text-right text-[11px]", (target.delta?.validationPp ?? 0) > 0 ? "text-risk" : "text-positive")}>
+              {target.delta ? formatErrorDelta(target.delta.validationPp, target.delta.validationRel) : "—"}
+            </td>
+          </tr>
+          <tr className="border-b border-border">
+            <td className="py-2 text-xs">Holdout WAPE</td>
+            <td className="num py-2 text-right text-xs">{champion.holdoutWape.toFixed(1)}%</td>
+            <td className="num py-2 text-right text-xs">{target.holdoutWape.toFixed(1)}%</td>
+            <td className="py-2 text-right text-[11px]">
+              {target.delta ? formatErrorDelta(target.delta.holdoutPp, target.delta.holdoutRel) : "—"}
+            </td>
+          </tr>
+          <tr className="border-b border-border">
+            <td className="py-2 text-xs">Bias</td>
+            <td className="num py-2 text-right text-xs">{champion.bias.toFixed(1)}%</td>
+            <td className="num py-2 text-right text-xs">{target.bias.toFixed(1)}%</td>
+            <td className="py-2 text-right text-[11px]">
+              {target.delta ? `${target.delta.absBiasPp > 0 ? "+" : ""}${target.delta.absBiasPp.toFixed(1)} pp absolute bias` : "—"}
+            </td>
+          </tr>
+          <tr className="border-b border-border">
+            <td className="py-2 text-xs">Backtest stability</td>
+            <td className="num py-2 text-right text-xs">{champion.stability} ({champion.stabilityBand})</td>
+            <td className="num py-2 text-right text-xs">{target.stability} ({target.stabilityBand})</td>
+            <td className="py-2 text-right text-[11px]">
+              {target.delta ? `${target.delta.stabilityPoints > 0 ? "+" : ""}${target.delta.stabilityPoints} points` : "—"}
+            </td>
+          </tr>
+          <tr>
+            <td className="py-2 text-xs">Forecast @ M+{horizon}</td>
+            <td className="num py-2 text-right text-xs">{formatNumber(champion.forecastAtHorizon)}</td>
+            <td className="num py-2 text-right text-xs">{formatNumber(target.forecastAtHorizon)}</td>
+            <td className="py-2 text-right text-[11px]">
+              {target.delta
+                ? `${target.delta.forecastQty > 0 ? "+" : ""}${formatNumber(target.delta.forecastQty)} units (${target.delta.forecastQtyPct > 0 ? "+" : ""}${target.delta.forecastQtyPct.toFixed(1)}%)`
+                : "—"}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div
+        className={cn(
+          "rounded-md border p-3 text-xs",
+          material ? "border-risk/40 bg-risk-soft text-risk" : "border-border bg-surface-muted text-muted-foreground",
+        )}
+      >
+        {material ? (
+          <>
+            <p className="font-semibold">Materially worse than the Champion — approval required.</p>
+            <ul className="mt-1 space-y-0.5">
+              {assessment?.breaches.map((b) => (
+                <li key={b}>· {b}</li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p>
+            Within materiality thresholds (WAPE ≤ {defaultMateriality.validationPp} pp worse, absolute bias ≤{" "}
+            {defaultMateriality.absBiasPp} pp higher, no High-to-Low stability downgrade). The
+            selection takes effect immediately once confirmed.
+          </p>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="flex flex-col gap-1">
+          <span className="label-caps">Override reason (required)</span>
+          <select
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            className="rounded-md border border-input bg-surface px-2 py-1.5 text-xs"
+          >
+            {overrideReasons.map((r) => (
+              <option key={r}>{r}</option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="label-caps">Effective period (required)</span>
+          <select
+            value={effectiveFrom}
+            onChange={(e) => setEffectiveFrom(e.target.value)}
+            className="rounded-md border border-input bg-surface px-2 py-1.5 text-xs"
+          >
+            {effectivePeriods.map((p) => (
+              <option key={p}>{p}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <label className="flex flex-col gap-1">
+        <span className="label-caps">Comment (required, minimum 10 characters)</span>
+        <textarea
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          rows={3}
+          placeholder="Explain why this model is preferred over the recommended Champion for this series."
+          className="rounded-md border border-input bg-surface px-2 py-1.5 text-xs"
+        />
+      </label>
+
+      <label className="flex flex-col gap-1">
+        <span className="label-caps">Supporting evidence (optional)</span>
+        <input
+          value={evidence}
+          onChange={(e) => setEvidence(e.target.value)}
+          placeholder="Reference an event, customer schedule or backtest window."
+          className="rounded-md border border-input bg-surface px-2 py-1.5 text-xs"
+        />
+      </label>
+
+      <PrototypeNote>
+        Selection is recorded against this series only, with the recommended Champion retained alongside it.
+      </PrototypeNote>
+    </DialogShell>
+  );
+}
+
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
