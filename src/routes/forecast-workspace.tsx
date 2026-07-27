@@ -283,6 +283,49 @@ function ForecastWorkspace() {
         </div>
       </Panel>
 
+      <Panel
+        title="Selected champion model"
+        description="Chosen in Model Lab by weighted validation score (WAPE 30 / MASE 20 / Bias 20 / Stability 20 / Suitability 10) — not by MAPE alone."
+        actions={
+          <StatusPill tone={confidenceTone(profile.confidence as "High" | "Medium" | "Low")}>
+            {profile.confidence} model confidence
+          </StatusPill>
+        }
+      >
+        <div className="grid grid-cols-1 gap-x-6 gap-y-1 md:grid-cols-2 xl:grid-cols-3">
+          <MetricRow label="Champion model" value={profile.champion} tone="positive" />
+          <MetricRow label="Model category" value={profile.category} />
+          <MetricRow label="Runner-up model" value={profile.runnerUp} />
+          <MetricRow label="Weighted selection score" value={`${profile.weighted.toFixed(1)} / 100`} />
+          <MetricRow label="Demand behaviour" value={`${profile.behaviour} · ${profile.historyMonths} mo history`} />
+          <MetricRow label="Last training date" value={profile.lastTraining} />
+          <MetricRow label="Next retraining date" value={profile.nextRetraining} />
+          <MetricRow
+            label="Data-quality status"
+            value={`${profile.dataQuality}`}
+            tone={profile.dataQuality.startsWith("High") ? "positive" : profile.dataQuality.startsWith("Medium") ? "warning" : "risk"}
+          />
+          <MetricRow label="Model version" value={profile.version} />
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {modelLabLinks.map((link) => (
+            <Link
+              key={link.tab}
+              to="/model-lab"
+              search={{ tab: link.tab, sku: activeSku.sku, customer: customerId, plant: plantId }}
+              className="inline-flex items-center gap-1.5 rounded-md border border-input px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-accent"
+            >
+              <link.icon className="h-3.5 w-3.5" aria-hidden /> {link.label}
+            </Link>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Illustrative prototype results — no production model training performed.
+        </p>
+      </Panel>
+
+
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiTile label="Baseline volume" value={formatNumber(horizonBaseline)} unit="units" delta={`${horizon}-month horizon`} deltaTone="info" icon={Layers} />
         <KpiTile
