@@ -685,7 +685,10 @@ export function runTournament(options: {
       delta: null,
     };
     ensembleMembers.forEach((m) => {
-      if (m.status !== "Champion") m.status = "Ensemble member";
+      // The runner-up keeps its Challenger identity even when it also
+      // contributes to the validated ensemble.
+      if (m.status !== "Champion" && m !== runnerUp) m.status = "Ensemble member";
+
     });
   }
 
