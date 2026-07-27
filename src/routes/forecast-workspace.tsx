@@ -290,7 +290,7 @@ function ForecastWorkspace() {
         title="Selected champion model"
         description="Chosen in Model Lab by weighted validation score (WAPE 30 / MASE 20 / Bias 20 / Stability 20 / Suitability 10) — not by MAPE alone."
         actions={
-          <StatusPill tone={confidenceTone(profile.confidence as "High" | "Medium" | "Low")}>
+          <StatusPill tone={profileTone}>
             {profile.confidence} model confidence
           </StatusPill>
         }
