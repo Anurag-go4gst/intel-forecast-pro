@@ -68,7 +68,7 @@ export function DemoTour() {
       </button>
 
       {open && mounted && createPortal(
-        <div className="fixed inset-x-0 bottom-[4.75rem] z-40 px-3 sm:inset-x-auto sm:left-4 sm:bottom-[5.5rem] sm:w-[400px] sm:px-0">
+        <div className="fixed inset-x-0 bottom-[5.5rem] z-30 px-3 sm:inset-x-auto sm:right-4 sm:bottom-[5.5rem] sm:w-[400px] sm:px-0">
           <div className="rounded-lg border border-border bg-surface shadow-lg">
             <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
               <div className="min-w-0">
