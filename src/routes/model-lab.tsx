@@ -369,7 +369,7 @@ function ModelLab() {
     [key, row.baseVolume, chartIds.join(","), championId],
   );
 
-  const futureRows = chartData.filter((p) => p.upper !== undefined && p.actual === null && p.holdout === null);
+  const futureRows = chartData.filter((p) => p.upper !== null && p.actual === null && p.holdout === null);
   const horizonForecast = futureRows.slice(0, horizon).map((p, i) => {
     const point: Record<string, string | number | null> = { horizon: `M+${i + 1}`, period: p.period };
     chartIds.forEach((id) => (point[`m_${id}`] = (p[`m_${id}`] as number | null) ?? null));
