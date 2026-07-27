@@ -131,10 +131,11 @@ type SortKey =
   | "name";
 
 function ModelLab() {
-  const [tab, setTab] = useState<TabId>("catalogue");
-  const [customerId, setCustomerId] = useState(demoCaseRow.customerId);
-  const [sku, setSku] = useState(DEMO_SKU);
-  const [plantId, setPlantId] = useState(demoCaseRow.plantId);
+  const search = Route.useSearch();
+  const [tab, setTab] = useState<TabId>(search.tab ?? "catalogue");
+  const [customerId, setCustomerId] = useState(search.customer ?? demoCaseRow.customerId);
+  const [sku, setSku] = useState(search.sku ?? DEMO_SKU);
+  const [plantId, setPlantId] = useState(search.plant ?? demoCaseRow.plantId);
   const [horizon, setHorizon] = useState(12);
   const [weights, setWeights] = useState<ScoreWeights>(defaultWeights);
 
