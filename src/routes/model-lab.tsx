@@ -145,6 +145,16 @@ function ModelLab() {
   const [sortAsc, setSortAsc] = useState(true);
   const [hidden, setHidden] = useState<string[]>([]);
 
+  // Deep links from Forecast Workspace / Executive Overview carry the series.
+  useEffect(() => {
+    if (search.tab) setTab(search.tab);
+    if (search.customer) setCustomerId(search.customer);
+    if (search.sku) setSku(search.sku);
+    if (search.plant) setPlantId(search.plant);
+  }, [search.tab, search.customer, search.sku, search.plant]);
+
+
+
   const skuOptions = useMemo(() => {
     const set = new Map<string, SkuRow>();
     skus.filter((r) => r.customerId === customerId).forEach((r) => set.set(r.sku, r));
