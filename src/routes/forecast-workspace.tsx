@@ -79,6 +79,13 @@ type TabId = (typeof tabs)[number]["id"];
 
 const horizonOptions = [3, 6, 9, 12] as const;
 
+const modelLabLinks = [
+  { tab: "tournament" as const, label: "View Model Tournament", icon: Trophy },
+  { tab: "comparison" as const, label: "Compare Models", icon: GitCompare },
+  { tab: "backtests" as const, label: "View Backtests", icon: History },
+  { tab: "suitability" as const, label: "View Selection Rationale", icon: Beaker },
+];
+
 const auditHistory = [
   { at: "24 Jul 2026, 11:20", actor: "System", action: "Baseline generated", detail: "Champion model XGBoost (global), 5-fold rolling backtest" },
   { at: "24 Jul 2026, 11:34", actor: "R. Iyer · Planner", action: "Event applied", detail: "EV platform ramp-up, +6.0% on Sep–Nov 26" },
