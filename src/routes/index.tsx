@@ -45,6 +45,7 @@ import {
   seriesScaleFactor,
 } from "@/lib/forecast-domain";
 import { portfolioMix } from "@/lib/model-lab";
+import { WorkflowLauncher } from "@/components/workflow-launcher";
 import { DemoTour } from "@/components/demo-tour";
 import { usePlatform } from "@/lib/platform-state";
 import { cn } from "@/lib/utils";
