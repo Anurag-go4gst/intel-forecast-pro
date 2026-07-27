@@ -74,10 +74,27 @@ export const Route = createFileRoute("/model-lab")({
       },
     ],
   }),
+  validateSearch: (search: Record<string, unknown>): ModelLabSearch => ({
+    tab: (["catalogue", "tournament", "comparison", "backtests", "suitability"] as const).includes(
+      search.tab as TabId,
+    )
+      ? (search.tab as TabId)
+      : undefined,
+    sku: typeof search.sku === "string" ? search.sku : undefined,
+    customer: typeof search.customer === "string" ? search.customer : undefined,
+    plant: typeof search.plant === "string" ? search.plant : undefined,
+  }),
   component: ModelLab,
 });
 
 type TabId = "catalogue" | "tournament" | "comparison" | "backtests" | "suitability";
+
+type ModelLabSearch = {
+  tab?: TabId;
+  sku?: string;
+  customer?: string;
+  plant?: string;
+};
 
 const tabs: Array<{ id: TabId; label: string }> = [
   { id: "catalogue", label: "Model Catalogue" },
@@ -114,10 +131,11 @@ type SortKey =
   | "name";
 
 function ModelLab() {
-  const [tab, setTab] = useState<TabId>("catalogue");
-  const [customerId, setCustomerId] = useState(demoCaseRow.customerId);
-  const [sku, setSku] = useState(DEMO_SKU);
-  const [plantId, setPlantId] = useState(demoCaseRow.plantId);
+  const search = Route.useSearch();
+  const [tab, setTab] = useState<TabId>(search.tab ?? "catalogue");
+  const [customerId, setCustomerId] = useState(search.customer ?? demoCaseRow.customerId);
+  const [sku, setSku] = useState(search.sku ?? DEMO_SKU);
+  const [plantId, setPlantId] = useState(search.plant ?? demoCaseRow.plantId);
   const [horizon, setHorizon] = useState(12);
   const [weights, setWeights] = useState<ScoreWeights>(defaultWeights);
 
@@ -126,6 +144,16 @@ function ModelLab() {
   const [sortKey, setSortKey] = useState<SortKey>("rank");
   const [sortAsc, setSortAsc] = useState(true);
   const [hidden, setHidden] = useState<string[]>([]);
+
+  // Deep links from Forecast Workspace / Executive Overview carry the series.
+  useEffect(() => {
+    if (search.tab) setTab(search.tab);
+    if (search.customer) setCustomerId(search.customer);
+    if (search.sku) setSku(search.sku);
+    if (search.plant) setPlantId(search.plant);
+  }, [search.tab, search.customer, search.sku, search.plant]);
+
+
 
   const skuOptions = useMemo(() => {
     const set = new Map<string, SkuRow>();

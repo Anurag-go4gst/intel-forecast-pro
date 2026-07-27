@@ -1,11 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
+  Beaker,
   CalendarRange,
+  GitCompare,
+  History,
   Layers,
   Play,
   RotateCcw,
   Save,
   Sparkles,
+  Trophy,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
@@ -36,6 +40,7 @@ import {
   confidenceTone,
   qualityForSku,
 } from "@/lib/forecast-domain";
+import { modelProfileFor } from "@/lib/model-lab";
 import { usePlatform } from "@/lib/platform-state";
 import { cn } from "@/lib/utils";
 
@@ -77,6 +82,13 @@ const tabs = [
 type TabId = (typeof tabs)[number]["id"];
 
 const horizonOptions = [3, 6, 9, 12] as const;
+
+const modelLabLinks = [
+  { tab: "tournament" as const, label: "View Model Tournament", icon: Trophy },
+  { tab: "comparison" as const, label: "Compare Models", icon: GitCompare },
+  { tab: "backtests" as const, label: "View Backtests", icon: History },
+  { tab: "suitability" as const, label: "View Selection Rationale", icon: Beaker },
+];
 
 const auditHistory = [
   { at: "24 Jul 2026, 11:20", actor: "System", action: "Baseline generated", detail: "Champion model XGBoost (global), 5-fold rolling backtest" },
@@ -137,6 +149,9 @@ function ForecastWorkspace() {
   const quality = qualityForSku(activeSku.sku);
   const behaviour = behaviourForSku(activeSku.sku);
   const champion = candidateModels.find((m) => m.id === championModelId)!;
+  const profile = useMemo(() => modelProfileFor(activeSku), [activeSku]);
+  const profileTone =
+    profile.confidence === "High" ? "positive" : profile.confidence === "Medium" ? "warning" : "risk";
 
   const eventDelta = horizonApproved - horizonBaseline;
   const overrideDelta = Math.round(horizonBaseline * 0.012);
@@ -281,6 +296,49 @@ function ForecastWorkspace() {
           </div>
         </div>
       </Panel>
+
+      <Panel
+        title="Selected champion model"
+        description="Chosen in Model Lab by weighted validation score (WAPE 30 / MASE 20 / Bias 20 / Stability 20 / Suitability 10) — not by MAPE alone."
+        actions={
+          <StatusPill tone={profileTone}>
+            {profile.confidence} model confidence
+          </StatusPill>
+        }
+      >
+        <div className="grid grid-cols-1 gap-x-6 gap-y-1 md:grid-cols-2 xl:grid-cols-3">
+          <MetricRow label="Champion model" value={profile.champion} tone="positive" />
+          <MetricRow label="Model category" value={profile.category} />
+          <MetricRow label="Runner-up model" value={profile.runnerUp} />
+          <MetricRow label="Weighted selection score" value={`${profile.weighted.toFixed(1)} / 100`} />
+          <MetricRow label="Demand behaviour" value={`${profile.behaviour} · ${profile.historyMonths} mo history`} />
+          <MetricRow label="Last training date" value={profile.lastTraining} />
+          <MetricRow label="Next retraining date" value={profile.nextRetraining} />
+          <MetricRow
+            label="Data-quality status"
+            value={`${profile.dataQuality}`}
+            tone={profile.dataQuality.startsWith("High") ? "positive" : profile.dataQuality.startsWith("Medium") ? "warning" : "risk"}
+          />
+          <MetricRow label="Model version" value={profile.version} />
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {modelLabLinks.map((link) => (
+            <Link
+              key={link.tab}
+              to="/model-lab"
+              search={{ tab: link.tab, sku: activeSku.sku, customer: customerId, plant: plantId }}
+              className="inline-flex items-center gap-1.5 rounded-md border border-input px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-accent"
+            >
+              <link.icon className="h-3.5 w-3.5" aria-hidden /> {link.label}
+            </Link>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Illustrative prototype results — no production model training performed.
+        </p>
+      </Panel>
+
+
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiTile label="Baseline volume" value={formatNumber(horizonBaseline)} unit="units" delta={`${horizon}-month horizon`} deltaTone="info" icon={Layers} />
