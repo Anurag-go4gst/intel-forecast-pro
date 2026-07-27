@@ -74,10 +74,27 @@ export const Route = createFileRoute("/model-lab")({
       },
     ],
   }),
+  validateSearch: (search: Record<string, unknown>): ModelLabSearch => ({
+    tab: (["catalogue", "tournament", "comparison", "backtests", "suitability"] as const).includes(
+      search.tab as TabId,
+    )
+      ? (search.tab as TabId)
+      : undefined,
+    sku: typeof search.sku === "string" ? search.sku : undefined,
+    customer: typeof search.customer === "string" ? search.customer : undefined,
+    plant: typeof search.plant === "string" ? search.plant : undefined,
+  }),
   component: ModelLab,
 });
 
 type TabId = "catalogue" | "tournament" | "comparison" | "backtests" | "suitability";
+
+type ModelLabSearch = {
+  tab?: TabId;
+  sku?: string;
+  customer?: string;
+  plant?: string;
+};
 
 const tabs: Array<{ id: TabId; label: string }> = [
   { id: "catalogue", label: "Model Catalogue" },
