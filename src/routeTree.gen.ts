@@ -10,14 +10,16 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WhatIfRouteImport } from './routes/what-if'
+import { Route as ValidationSetupRouteImport } from './routes/validation-setup'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as ProjectRouteImport } from './routes/project'
 import { Route as PerformanceRouteImport } from './routes/performance'
 import { Route as ModelLabRouteImport } from './routes/model-lab'
-import { Route as ModelComparisonRouteImport } from './routes/model-comparison'
 import { Route as ForecastWorkspaceRouteImport } from './routes/forecast-workspace'
 import { Route as ForecastReviewRouteImport } from './routes/forecast-review'
 import { Route as EventIntelligenceRouteImport } from './routes/event-intelligence'
 import { Route as DataReadinessRouteImport } from './routes/data-readiness'
+import { Route as BaselineRouteImport } from './routes/baseline'
 import { Route as AuditLogRouteImport } from './routes/audit-log'
 import { Route as AssistantRouteImport } from './routes/assistant'
 import { Route as IndexRouteImport } from './routes/index'
@@ -27,9 +29,19 @@ const WhatIfRoute = WhatIfRouteImport.update({
   path: '/what-if',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ValidationSetupRoute = ValidationSetupRouteImport.update({
+  id: '/validation-setup',
+  path: '/validation-setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectRoute = ProjectRouteImport.update({
+  id: '/project',
+  path: '/project',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PerformanceRoute = PerformanceRouteImport.update({
@@ -40,11 +52,6 @@ const PerformanceRoute = PerformanceRouteImport.update({
 const ModelLabRoute = ModelLabRouteImport.update({
   id: '/model-lab',
   path: '/model-lab',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ModelComparisonRoute = ModelComparisonRouteImport.update({
-  id: '/model-comparison',
-  path: '/model-comparison',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForecastWorkspaceRoute = ForecastWorkspaceRouteImport.update({
@@ -67,6 +74,11 @@ const DataReadinessRoute = DataReadinessRouteImport.update({
   path: '/data-readiness',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BaselineRoute = BaselineRouteImport.update({
+  id: '/baseline',
+  path: '/baseline',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuditLogRoute = AuditLogRouteImport.update({
   id: '/audit-log',
   path: '/audit-log',
@@ -87,28 +99,32 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/assistant': typeof AssistantRoute
   '/audit-log': typeof AuditLogRoute
+  '/baseline': typeof BaselineRoute
   '/data-readiness': typeof DataReadinessRoute
   '/event-intelligence': typeof EventIntelligenceRoute
   '/forecast-review': typeof ForecastReviewRoute
   '/forecast-workspace': typeof ForecastWorkspaceRoute
-  '/model-comparison': typeof ModelComparisonRoute
   '/model-lab': typeof ModelLabRoute
   '/performance': typeof PerformanceRoute
+  '/project': typeof ProjectRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/validation-setup': typeof ValidationSetupRoute
   '/what-if': typeof WhatIfRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/assistant': typeof AssistantRoute
   '/audit-log': typeof AuditLogRoute
+  '/baseline': typeof BaselineRoute
   '/data-readiness': typeof DataReadinessRoute
   '/event-intelligence': typeof EventIntelligenceRoute
   '/forecast-review': typeof ForecastReviewRoute
   '/forecast-workspace': typeof ForecastWorkspaceRoute
-  '/model-comparison': typeof ModelComparisonRoute
   '/model-lab': typeof ModelLabRoute
   '/performance': typeof PerformanceRoute
+  '/project': typeof ProjectRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/validation-setup': typeof ValidationSetupRoute
   '/what-if': typeof WhatIfRoute
 }
 export interface FileRoutesById {
@@ -116,14 +132,16 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/assistant': typeof AssistantRoute
   '/audit-log': typeof AuditLogRoute
+  '/baseline': typeof BaselineRoute
   '/data-readiness': typeof DataReadinessRoute
   '/event-intelligence': typeof EventIntelligenceRoute
   '/forecast-review': typeof ForecastReviewRoute
   '/forecast-workspace': typeof ForecastWorkspaceRoute
-  '/model-comparison': typeof ModelComparisonRoute
   '/model-lab': typeof ModelLabRoute
   '/performance': typeof PerformanceRoute
+  '/project': typeof ProjectRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/validation-setup': typeof ValidationSetupRoute
   '/what-if': typeof WhatIfRoute
 }
 export interface FileRouteTypes {
@@ -132,42 +150,48 @@ export interface FileRouteTypes {
     | '/'
     | '/assistant'
     | '/audit-log'
+    | '/baseline'
     | '/data-readiness'
     | '/event-intelligence'
     | '/forecast-review'
     | '/forecast-workspace'
-    | '/model-comparison'
     | '/model-lab'
     | '/performance'
+    | '/project'
     | '/sitemap.xml'
+    | '/validation-setup'
     | '/what-if'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/assistant'
     | '/audit-log'
+    | '/baseline'
     | '/data-readiness'
     | '/event-intelligence'
     | '/forecast-review'
     | '/forecast-workspace'
-    | '/model-comparison'
     | '/model-lab'
     | '/performance'
+    | '/project'
     | '/sitemap.xml'
+    | '/validation-setup'
     | '/what-if'
   id:
     | '__root__'
     | '/'
     | '/assistant'
     | '/audit-log'
+    | '/baseline'
     | '/data-readiness'
     | '/event-intelligence'
     | '/forecast-review'
     | '/forecast-workspace'
-    | '/model-comparison'
     | '/model-lab'
     | '/performance'
+    | '/project'
     | '/sitemap.xml'
+    | '/validation-setup'
     | '/what-if'
   fileRoutesById: FileRoutesById
 }
@@ -175,14 +199,16 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AssistantRoute: typeof AssistantRoute
   AuditLogRoute: typeof AuditLogRoute
+  BaselineRoute: typeof BaselineRoute
   DataReadinessRoute: typeof DataReadinessRoute
   EventIntelligenceRoute: typeof EventIntelligenceRoute
   ForecastReviewRoute: typeof ForecastReviewRoute
   ForecastWorkspaceRoute: typeof ForecastWorkspaceRoute
-  ModelComparisonRoute: typeof ModelComparisonRoute
   ModelLabRoute: typeof ModelLabRoute
   PerformanceRoute: typeof PerformanceRoute
+  ProjectRoute: typeof ProjectRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  ValidationSetupRoute: typeof ValidationSetupRoute
   WhatIfRoute: typeof WhatIfRoute
 }
 
@@ -195,11 +221,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WhatIfRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/validation-setup': {
+      id: '/validation-setup'
+      path: '/validation-setup'
+      fullPath: '/validation-setup'
+      preLoaderRoute: typeof ValidationSetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap.xml': {
       id: '/sitemap.xml'
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/project': {
+      id: '/project'
+      path: '/project'
+      fullPath: '/project'
+      preLoaderRoute: typeof ProjectRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/performance': {
@@ -214,13 +254,6 @@ declare module '@tanstack/react-router' {
       path: '/model-lab'
       fullPath: '/model-lab'
       preLoaderRoute: typeof ModelLabRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/model-comparison': {
-      id: '/model-comparison'
-      path: '/model-comparison'
-      fullPath: '/model-comparison'
-      preLoaderRoute: typeof ModelComparisonRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forecast-workspace': {
@@ -251,6 +284,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DataReadinessRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/baseline': {
+      id: '/baseline'
+      path: '/baseline'
+      fullPath: '/baseline'
+      preLoaderRoute: typeof BaselineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/audit-log': {
       id: '/audit-log'
       path: '/audit-log'
@@ -279,14 +319,16 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AssistantRoute: AssistantRoute,
   AuditLogRoute: AuditLogRoute,
+  BaselineRoute: BaselineRoute,
   DataReadinessRoute: DataReadinessRoute,
   EventIntelligenceRoute: EventIntelligenceRoute,
   ForecastReviewRoute: ForecastReviewRoute,
   ForecastWorkspaceRoute: ForecastWorkspaceRoute,
-  ModelComparisonRoute: ModelComparisonRoute,
   ModelLabRoute: ModelLabRoute,
   PerformanceRoute: PerformanceRoute,
+  ProjectRoute: ProjectRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  ValidationSetupRoute: ValidationSetupRoute,
   WhatIfRoute: WhatIfRoute,
 }
 export const routeTree = rootRouteImport

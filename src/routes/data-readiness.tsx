@@ -28,6 +28,7 @@ import {
   type CheckResult,
   type FieldTier,
 } from "@/lib/forecast-domain";
+import { IssueResolutionPanel, SignalRolePanel } from "@/components/data-issues";
 import { usePlatform } from "@/lib/platform-state";
 import { cn } from "@/lib/utils";
 
@@ -442,6 +443,10 @@ function DataReadiness() {
           </table>
         </div>
       </Panel>
+
+      <SignalRolePanel />
+
+      <IssueResolutionPanel />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Panel
