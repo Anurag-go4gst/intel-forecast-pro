@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, PlayCircle, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, PlayCircle, RotateCcw, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { demoSteps } from "@/lib/demo-tour";
@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 
 export function DemoTour() {
   const navigate = useNavigate();
-  const { setFilter, completeStage, resetWorkflow } = usePlatform();
+  const { setFilter, completeStage, resetWorkflow, resetFilters } = usePlatform();
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
 
@@ -51,8 +51,24 @@ export function DemoTour() {
         <span className="hidden sm:inline">Start guided demo</span>
       </button>
 
+      <button
+        type="button"
+        onClick={() => {
+          resetWorkflow();
+          resetFilters();
+          setOpen(false);
+          setIndex(0);
+          void navigate({ to: "/" });
+        }}
+        title="Reset guided demo — restores the original seeded state"
+        className="flex shrink-0 items-center gap-1.5 rounded-md border border-input px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-accent"
+      >
+        <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+        <span className="hidden lg:inline">Reset demo</span>
+      </button>
+
       {open && mounted && createPortal(
-        <div className="fixed inset-x-0 bottom-0 z-50 px-3 pb-3 sm:inset-x-auto sm:right-4 sm:bottom-4 sm:w-[430px] sm:px-0">
+        <div className="fixed inset-x-0 bottom-[5.5rem] z-30 px-3 sm:inset-x-auto sm:right-4 sm:bottom-[5.5rem] sm:w-[400px] sm:px-0">
           <div className="rounded-lg border border-border bg-surface shadow-lg">
             <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
               <div className="min-w-0">
@@ -74,7 +90,7 @@ export function DemoTour() {
               </button>
             </div>
 
-            <div className="max-h-[46vh] overflow-y-auto px-4 py-3">
+            <div className="max-h-[38vh] overflow-y-auto px-4 py-3">
               <p className="text-sm font-medium">{step.headline}</p>
               <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{step.body}</p>
               <div className="mt-3 space-y-2 rounded-md border border-border bg-surface-muted/60 p-2.5">

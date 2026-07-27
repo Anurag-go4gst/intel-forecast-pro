@@ -5,7 +5,7 @@ import { navGroups, navItems } from "@/components/app-nav";
 import { DemoTour } from "@/components/demo-tour";
 import { GlobalFilters } from "@/components/global-filters";
 import { StatusPill } from "@/components/primitives";
-import { StageActions, WorkflowRail } from "@/components/workflow-rail";
+import { StageActions, StageGuard, WorkflowRail } from "@/components/workflow-rail";
 import { usePlatform } from "@/lib/platform-state";
 import { forecastVersions } from "@/lib/demo-data";
 import { cn } from "@/lib/utils";
@@ -192,7 +192,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         <main className="min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-6">
-          {children}
+          <StageGuard>{children}</StageGuard>
           <StageActions />
         </main>
 

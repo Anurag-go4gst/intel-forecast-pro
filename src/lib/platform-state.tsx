@@ -48,6 +48,7 @@ import {
   type IssueResolution,
   type StageId,
 } from "@/lib/workflow";
+import { clearPersistedState, usePersistentState } from "@/lib/persist";
 
 export type UploadedFile = {
   name: string;
@@ -156,15 +157,15 @@ let idCounter = 0;
 const nextId = (prefix: string) => `${prefix}-${++idCounter}-${Date.now().toString(36)}`;
 
 export function PlatformProvider({ children }: { children: ReactNode }) {
-  const [filters, setFilters] = useState<Filters>(defaultFilters);
-  const [events, setEvents] = useState<DemandEvent[]>(seedEvents);
-  const [scenarios, setScenarios] = useState<SavedScenario[]>(seedScenarios);
-  const [drivers, setDrivers] = useState<ScenarioDriver>(defaultDrivers);
-  const [reviewLines, setReviewLines] = useState<ReviewLine[]>(seedReviewLines);
-  const [published, setPublished] = useState(false);
+  const [filters, setFilters] = usePersistentState<Filters>("filters", defaultFilters);
+  const [events, setEvents] = usePersistentState<DemandEvent[]>("events", seedEvents);
+  const [scenarios, setScenarios] = usePersistentState<SavedScenario[]>("scenarios", seedScenarios);
+  const [drivers, setDrivers] = usePersistentState<ScenarioDriver>("drivers", defaultDrivers);
+  const [reviewLines, setReviewLines] = usePersistentState<ReviewLine[]>("reviewLines", seedReviewLines);
+  const [published, setPublished] = usePersistentState("published", false);
   const [runState, setRunState] = useState<ForecastRunState>("idle");
   const [runProgress, setRunProgress] = useState(0);
-  const [selectedModelBySku, setSelectedModelBySku] = useState<Record<string, string>>({});
+  const [selectedModelBySku, setSelectedModelBySku] = usePersistentState<Record<string, string>>("selectedModelBySku", {});
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "seed-1",
@@ -278,11 +279,11 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     setMessages((prev) => [...prev, message]);
   }, []);
 
-  const [upload, setUpload] = useState<UploadedFile | null>(null);
-  const [mapping, setMappingState] = useState<Record<string, string>>({});
-  const [validationRun, setValidationRun] = useState(false);
+  const [upload, setUpload] = usePersistentState<UploadedFile | null>("upload", null);
+  const [mapping, setMappingState] = usePersistentState<Record<string, string>>("mapping", {});
+  const [validationRun, setValidationRun] = usePersistentState("validationRun", false);
   const [transformations, setTransformations] =
-    useState<TransformationEntry[]>(seedTransformations);
+    usePersistentState<TransformationEntry[]>("transformations", seedTransformations);
 
   const setMapping = useCallback((fieldId: string, column: string) => {
     setMappingState((prev) => ({ ...prev, [fieldId]: column }));
@@ -300,11 +301,11 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   );
 
 
-  const [intelEvents, setIntelEvents] = useState<IntelEvent[]>(seedIntelEvents);
-  const [scenarioSpecs, setScenarioSpecs] = useState<ScenarioSpec[]>(seedScenarioSpecs);
-  const [compareIds, setCompareIds] = useState<string[]>(["ss-1", "ss-2"]);
+  const [intelEvents, setIntelEvents] = usePersistentState<IntelEvent[]>("intelEvents", seedIntelEvents);
+  const [scenarioSpecs, setScenarioSpecs] = usePersistentState<ScenarioSpec[]>("scenarioSpecs", seedScenarioSpecs);
+  const [compareIds, setCompareIds] = usePersistentState<string[]>("compareIds", ["ss-1", "ss-2"]);
   const [adjustmentRequests, setAdjustmentRequests] =
-    useState<AdjustmentRequest[]>(seedAdjustmentRequests);
+    usePersistentState<AdjustmentRequest[]>("adjustmentRequests", seedAdjustmentRequests);
 
   const stamp = () => "Today (prototype session)";
 
@@ -377,10 +378,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const [approvals, setApprovals] = useState<ApprovalItem[]>(seedApprovalQueue);
-  const [versions, setVersions] = useState<ForecastVersionRecord[]>(seedVersions);
-  const [activeVersionId, setActiveVersionId] = useState("v-2026-07");
-  const [auditLog, setAuditLog] = useState<AuditEntry[]>(seedAuditLog);
+  const [approvals, setApprovals] = usePersistentState<ApprovalItem[]>("approvals", seedApprovalQueue);
+  const [versions, setVersions] = usePersistentState<ForecastVersionRecord[]>("versions", seedVersions);
+  const [activeVersionId, setActiveVersionId] = usePersistentState("activeVersionId", "v-2026-07");
+  const [auditLog, setAuditLog] = usePersistentState<AuditEntry[]>("auditLog", seedAuditLog);
 
   const logAudit = useCallback((entry: Omit<AuditEntry, "id" | "at" | "date">) => {
     setAuditLog((prev) => [
@@ -479,11 +480,11 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       Object.fromEntries(workflowStages.map((s) => [s.id, false])) as Record<StageId, boolean>,
     [],
   );
-  const [stageDone, setStageDone] = useState<Record<StageId, boolean>>(emptyStages);
-  const [issueActions, setIssueActions] = useState<Record<string, IssueResolution>>({});
-  const [rolesConfirmed, setRolesConfirmed] = useState(false);
-  const [validationMode, setValidationMode] = useState<"auto" | "manual">("auto");
-  const [championOverrideReason, setChampionOverrideReason] = useState("");
+  const [stageDone, setStageDone] = usePersistentState<Record<StageId, boolean>>("stageDone", emptyStages);
+  const [issueActions, setIssueActions] = usePersistentState<Record<string, IssueResolution>>("issueActions", {});
+  const [rolesConfirmed, setRolesConfirmed] = usePersistentState("rolesConfirmed", false);
+  const [validationMode, setValidationMode] = usePersistentState<"auto" | "manual">("validationMode", "auto");
+  const [championOverrideReason, setChampionOverrideReason] = usePersistentState("championOverrideReason", "");
 
   const completeStage = useCallback((id: StageId) => {
     setStageDone((prev) => (prev[id] ? prev : { ...prev, [id]: true }));
@@ -493,11 +494,41 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     setStageDone((prev) => ({ ...prev, [id]: false }));
   }, []);
 
+  /**
+   * Restores the original seeded state: every stage reopened, every recorded
+   * decision, approval, version, event, scenario and audit entry returned to
+   * the shipped demonstration baseline, and persisted storage wiped.
+   */
   const resetWorkflow = useCallback(() => {
+    clearPersistedState();
     setStageDone(emptyStages);
     setIssueActions({});
     setRolesConfirmed(false);
+    setValidationMode("auto");
+    setChampionOverrideReason("");
+    setFilters(defaultFilters);
+    setEvents(seedEvents);
+    setScenarios(seedScenarios);
+    setDrivers(defaultDrivers);
+    setReviewLines(seedReviewLines);
+    setPublished(false);
+    setSelectedModelBySku({});
+    setUpload(null);
+    setMappingState({});
+    setValidationRun(false);
+    setTransformations(seedTransformations);
+    setIntelEvents(seedIntelEvents);
+    setScenarioSpecs(seedScenarioSpecs);
+    setCompareIds(["ss-1", "ss-2"]);
+    setAdjustmentRequests(seedAdjustmentRequests);
+    setApprovals(seedApprovalQueue);
+    setVersions(seedVersions);
+    setActiveVersionId("v-2026-07");
+    setAuditLog(seedAuditLog);
+    setRunState("idle");
+    setRunProgress(0);
   }, [emptyStages]);
+
 
   const setIssueAction = useCallback((issueId: string, action: IssueResolution) => {
     setIssueActions((prev) => ({ ...prev, [issueId]: action }));

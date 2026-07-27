@@ -99,6 +99,55 @@ export function WorkflowRail() {
 }
 
 /**
+ * Blocks a locked stage reached by direct URL or browser history. A stage is
+ * locked when it sits more than one step ahead of the stage the project is
+ * actually on, which is exactly the rule the workflow rail renders.
+ */
+export function StageGuard({ children }: { children: React.ReactNode }) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { stageDone } = usePlatform();
+  const current = useCurrentStageIndex();
+  const matches = workflowStages.filter((s) => s.route === pathname);
+
+  // A route is only locked when every stage mapped to it is locked.
+  const reachable =
+    matches.length === 0 ||
+    matches.some((s) => {
+      const index = workflowStages.findIndex((w) => w.id === s.id);
+      return stageDone[s.id] || index <= current + 1;
+    });
+
+  if (reachable) return <>{children}</>;
+
+  const target = workflowStages[current];
+  const blocked = matches[0];
+
+  return (
+    <div className="mx-auto max-w-xl rounded-lg border border-border bg-surface p-6 text-center">
+      <span className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-muted">
+        <Lock className="h-4.5 w-4.5 text-muted-foreground" aria-hidden />
+      </span>
+      <h1 className="mt-3 text-base font-semibold">
+        Step {blocked.step} · {blocked.label} is locked
+      </h1>
+      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+        This stage cannot be opened yet because the forecasting workflow is still on step{" "}
+        {target.step} — {target.label}. Stages are unlocked in sequence so no forecast can be
+        produced from uncertified data or an unconfirmed model.
+      </p>
+      <Link
+        to={target.route}
+        search={target.search as never}
+        className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+      >
+        Go to step {target.step}: {target.short}
+        <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+      </Link>
+    </div>
+  );
+}
+
+/**
  * One clear primary next action plus a secondary Back action, derived from the
  * authoritative workflow rather than declared per screen.
  */
@@ -106,7 +155,11 @@ export function StageActions() {
   const navigate = useNavigate();
   const { completeStage, blockingOpen } = usePlatform();
   const stage = useActiveStage();
+  const current = useCurrentStageIndex();
   if (!stage) return null;
+  const stageIndex = workflowStages.findIndex((s) => s.id === stage.id);
+  if (stageIndex > current + 1) return null;
+
 
   const index = workflowStages.findIndex((s) => s.id === stage.id);
   const prev = index > 0 ? workflowStages[index - 1] : null;
@@ -120,7 +173,7 @@ export function StageActions() {
   };
 
   return (
-    <div className="sticky bottom-0 z-20 mt-6 border-t border-border bg-surface/95 px-4 py-3 backdrop-blur-sm sm:px-6">
+    <div className="sticky bottom-0 z-40 mt-6 border-t border-border bg-surface/95 px-4 py-3 backdrop-blur-sm sm:px-6">
       <div className="grid grid-cols-1 items-center gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
         <div className="min-w-0">
           <p className="text-xs font-semibold">
