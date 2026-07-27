@@ -44,6 +44,7 @@ import {
   seriesQuality,
   seriesScaleFactor,
 } from "@/lib/forecast-domain";
+import { portfolioMix } from "@/lib/model-lab";
 import { usePlatform } from "@/lib/platform-state";
 import { cn } from "@/lib/utils";
 
