@@ -1,11 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
+  Beaker,
   CalendarRange,
+  GitCompare,
+  History,
   Layers,
   Play,
   RotateCcw,
   Save,
   Sparkles,
+  Trophy,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
