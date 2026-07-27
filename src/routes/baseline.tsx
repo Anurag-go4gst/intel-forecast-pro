@@ -136,7 +136,7 @@ function BaselineForecast() {
           <MetricRow label="Selected model" value={profile.champion} />
           <MetricRow label="Model category" value={profile.category} />
           <MetricRow label="Demand behaviour" value={demoCaseRow.behaviour} />
-          <MetricRow label="Validation WAPE" value={`Tournament rank 1 · score ${profile.weighted.toFixed(1)}`} />
+          <MetricRow label="Tournament result" value={`Rank 1 · score ${profile.weighted.toFixed(1)}`} />
           <MetricRow label="Holdout confirmation" value={profile.confidence} tone="positive" />
           <MetricRow label="Runner-up" value={profile.runnerUp} />
         </Panel>
