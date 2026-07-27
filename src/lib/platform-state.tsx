@@ -42,6 +42,12 @@ import {
   seedTransformations,
   type TransformationEntry,
 } from "@/lib/forecast-domain";
+import {
+  dataIssues,
+  workflowStages,
+  type IssueResolution,
+  type StageId,
+} from "@/lib/workflow";
 
 export type UploadedFile = {
   name: string;
@@ -127,6 +133,21 @@ type PlatformContextValue = {
   adjustmentRequests: AdjustmentRequest[];
   promoteToReview: (request: Omit<AdjustmentRequest, "id" | "submittedAt" | "status">) => void;
   setRequestStatus: (id: string, status: AdjustmentRequest["status"]) => void;
+
+  // ------------------------------------------------ guided workflow lifecycle
+  stageDone: Record<StageId, boolean>;
+  completeStage: (id: StageId) => void;
+  reopenStage: (id: StageId) => void;
+  resetWorkflow: () => void;
+  issueActions: Record<string, IssueResolution>;
+  setIssueAction: (issueId: string, action: IssueResolution) => void;
+  blockingOpen: number;
+  rolesConfirmed: boolean;
+  confirmRoles: () => void;
+  validationMode: "auto" | "manual";
+  setValidationMode: (mode: "auto" | "manual") => void;
+  championOverrideReason: string;
+  setChampionOverrideReason: (reason: string) => void;
 };
 
 const PlatformContext = createContext<PlatformContextValue | null>(null);
@@ -452,6 +473,42 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     setAdjustmentRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
   }, []);
 
+  // ---------------------------------------------- guided workflow lifecycle
+  const emptyStages = useMemo(
+    () =>
+      Object.fromEntries(workflowStages.map((s) => [s.id, false])) as Record<StageId, boolean>,
+    [],
+  );
+  const [stageDone, setStageDone] = useState<Record<StageId, boolean>>(emptyStages);
+  const [issueActions, setIssueActions] = useState<Record<string, IssueResolution>>({});
+  const [rolesConfirmed, setRolesConfirmed] = useState(false);
+  const [validationMode, setValidationMode] = useState<"auto" | "manual">("auto");
+  const [championOverrideReason, setChampionOverrideReason] = useState("");
+
+  const completeStage = useCallback((id: StageId) => {
+    setStageDone((prev) => (prev[id] ? prev : { ...prev, [id]: true }));
+  }, []);
+
+  const reopenStage = useCallback((id: StageId) => {
+    setStageDone((prev) => ({ ...prev, [id]: false }));
+  }, []);
+
+  const resetWorkflow = useCallback(() => {
+    setStageDone(emptyStages);
+    setIssueActions({});
+    setRolesConfirmed(false);
+  }, [emptyStages]);
+
+  const setIssueAction = useCallback((issueId: string, action: IssueResolution) => {
+    setIssueActions((prev) => ({ ...prev, [issueId]: action }));
+  }, []);
+
+  const confirmRoles = useCallback(() => setRolesConfirmed(true), []);
+
+  const blockingOpen = dataIssues.filter(
+    (i) => i.severity === "Blocking" && !issueActions[i.id],
+  ).length;
+
   const value = useMemo<PlatformContextValue>(
     () => ({
       filters,
@@ -510,6 +567,19 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       adjustmentRequests,
       promoteToReview,
       setRequestStatus,
+      stageDone,
+      completeStage,
+      reopenStage,
+      resetWorkflow,
+      issueActions,
+      setIssueAction,
+      blockingOpen,
+      rolesConfirmed,
+      confirmRoles,
+      validationMode,
+      setValidationMode,
+      championOverrideReason,
+      setChampionOverrideReason,
     }),
     [
       filters,
@@ -568,6 +638,19 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       adjustmentRequests,
       promoteToReview,
       setRequestStatus,
+      stageDone,
+      completeStage,
+      reopenStage,
+      resetWorkflow,
+      issueActions,
+      setIssueAction,
+      blockingOpen,
+      rolesConfirmed,
+      confirmRoles,
+      validationMode,
+      setValidationMode,
+      championOverrideReason,
+      setChampionOverrideReason,
     ],
   );
 

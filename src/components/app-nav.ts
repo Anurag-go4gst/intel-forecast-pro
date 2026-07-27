@@ -4,101 +4,147 @@ import {
   ClipboardCheck,
   DatabaseZap,
   FlaskConical,
-  GitCompareArrows,
+  FolderPlus,
   Gauge,
-  ScrollText,
   LayoutDashboard,
   LineChart,
+  ScrollText,
   SlidersHorizontal,
+  SplitSquareHorizontal,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
+
+export type NavGroup =
+  | "Prepare data"
+  | "Build baseline"
+  | "Apply judgement"
+  | "Govern & monitor"
+  | "Support";
 
 export type NavItem = {
   to: string;
   label: string;
   icon: LucideIcon;
-  group: "Plan" | "Analyse" | "Govern";
+  group: NavGroup;
   description: string;
+  /** Workflow steps covered by this screen, if any. */
+  steps?: string;
+  search?: Record<string, string>;
 };
 
+/**
+ * Navigation follows the authoritative forecasting workflow: every step in the
+ * lifecycle appears in order, and screens that support the workflow without
+ * being part of the sequence are grouped separately.
+ */
 export const navItems: NavItem[] = [
   {
-    to: "/",
-    label: "Executive Overview",
-    icon: LayoutDashboard,
-    group: "Plan",
-    description: "Demand signal, accuracy and risk at a glance",
+    to: "/project",
+    label: "Forecasting Project",
+    icon: FolderPlus,
+    group: "Prepare data",
+    steps: "1",
+    description: "Define granularity, bucket and horizon for the cycle",
   },
   {
     to: "/data-readiness",
-    label: "Data Readiness",
+    label: "Data Upload & Readiness",
     icon: DatabaseZap,
-    group: "Plan",
-    description: "Upload, validate and certify demand inputs",
+    group: "Prepare data",
+    steps: "2–4",
+    description: "Upload, map signals, resolve issues, certify the dataset",
   },
   {
-    to: "/forecast-workspace",
-    label: "Forecast Workspace",
-    icon: LineChart,
-    group: "Plan",
-    description: "Generate and adjust the baseline forecast",
+    to: "/validation-setup",
+    label: "Validation Setup",
+    icon: SplitSquareHorizontal,
+    group: "Build baseline",
+    steps: "5",
+    description: "Chronological training, validation and holdout periods",
   },
   {
     to: "/model-lab",
     label: "Model Lab",
     icon: FlaskConical,
-    group: "Plan",
-    description: "Train, backtest and select champion models",
+    group: "Build baseline",
+    steps: "6–7",
+    description: "Run the tournament and select the champion model",
   },
   {
-    to: "/model-comparison",
-    label: "Model Comparison",
-    icon: GitCompareArrows,
-    group: "Analyse",
-    description: "Compare model fit and select per combination",
+    to: "/baseline",
+    label: "Baseline Forecast",
+    icon: TrendingUp,
+    group: "Build baseline",
+    steps: "8",
+    description: "Statistical baseline before any business event",
   },
   {
     to: "/event-intelligence",
     label: "Event Intelligence",
     icon: CalendarClock,
-    group: "Analyse",
-    description: "Capture future events absent from history",
+    group: "Apply judgement",
+    steps: "9",
+    description: "Qualify events and apply residual impact only",
   },
   {
     to: "/what-if",
     label: "What-if Scenarios",
     icon: SlidersHorizontal,
-    group: "Analyse",
-    description: "Simulate drivers without touching the plan",
+    group: "Apply judgement",
+    steps: "10",
+    description: "Simulation only — never changes the official forecast",
   },
   {
     to: "/forecast-review",
-    label: "Forecast Review",
+    label: "Forecast Review & Approval",
     icon: ClipboardCheck,
-    group: "Govern",
-    description: "Consensus, approval and publication",
+    group: "Govern & monitor",
+    steps: "11–12",
+    description: "Bridge, approval queue, versions and publication",
   },
   {
     to: "/performance",
     label: "Performance Monitoring",
     icon: Gauge,
-    group: "Govern",
-    description: "Accuracy, bias, stockout and excess risk",
+    group: "Govern & monitor",
+    steps: "13",
+    description: "Forecast value added of every layer versus actuals",
+  },
+  {
+    to: "/",
+    label: "Executive Overview",
+    icon: LayoutDashboard,
+    group: "Support",
+    description: "Portfolio summary and the guided demo",
+  },
+  {
+    to: "/forecast-workspace",
+    label: "Forecast Workspace",
+    icon: LineChart,
+    group: "Support",
+    description: "Series-level detail for any SKU-customer-plant",
   },
   {
     to: "/audit-log",
     label: "Audit Log",
     icon: ScrollText,
-    group: "Govern",
+    group: "Support",
     description: "Traceable record of every planning action",
   },
   {
     to: "/assistant",
     label: "AI Assistant",
     icon: Bot,
-    group: "Govern",
-    description: "Ask questions about the current forecast",
+    group: "Support",
+    description: "Grounded answers about the current forecast",
   },
 ];
 
-export const navGroups: Array<NavItem["group"]> = ["Plan", "Analyse", "Govern"];
+export const navGroups: NavGroup[] = [
+  "Prepare data",
+  "Build baseline",
+  "Apply judgement",
+  "Govern & monitor",
+  "Support",
+];

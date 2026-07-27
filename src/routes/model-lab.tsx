@@ -56,6 +56,7 @@ import {
   type ScoreWeights,
   type TournamentRow,
 } from "@/lib/model-lab";
+import { usePlatform } from "@/lib/platform-state";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/model-lab")({
@@ -132,6 +133,7 @@ type SortKey =
 
 function ModelLab() {
   const search = Route.useSearch();
+  const { blockingOpen, completeStage } = usePlatform();
   const [tab, setTab] = useState<TabId>(search.tab ?? "catalogue");
   const [customerId, setCustomerId] = useState(search.customer ?? demoCaseRow.customerId);
   const [sku, setSku] = useState(search.sku ?? DEMO_SKU);
@@ -188,6 +190,7 @@ function ModelLab() {
   const running = stage >= 0 && stage < tournamentStages.length;
 
   function runNow() {
+    completeStage("tournament");
     setHasRun(false);
     setStage(0);
   }
@@ -347,11 +350,15 @@ function ModelLab() {
               <button
                 type="button"
                 onClick={runNow}
-                disabled={running}
+                disabled={running || blockingOpen > 0}
                 className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
               >
                 <Play className="h-3.5 w-3.5" aria-hidden />
-                {running ? "Running…" : "Run Model Tournament"}
+                {blockingOpen > 0
+                  ? "Locked — resolve data issues"
+                  : running
+                    ? "Running…"
+                    : "Run Baseline Model Tournament"}
               </button>
             </div>
           </div>

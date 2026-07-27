@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 
 export function DemoTour() {
   const navigate = useNavigate();
-  const { setFilter } = usePlatform();
+  const { setFilter, completeStage, resetWorkflow } = usePlatform();
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
 
@@ -17,9 +17,11 @@ export function DemoTour() {
     (next: number) => {
       const clamped = Math.max(0, Math.min(demoSteps.length - 1, next));
       setIndex(clamped);
-      void navigate({ to: demoSteps[clamped].route });
+      // Walking the demo forward completes each workflow stage it leaves behind.
+      demoSteps.slice(0, clamped).forEach((s) => completeStage(s.id));
+      void navigate({ to: demoSteps[clamped].route, search: (demoSteps[clamped].search ?? {}) as never });
     },
-    [navigate],
+    [navigate, completeStage],
   );
 
   const start = useCallback(() => {
@@ -27,10 +29,11 @@ export function DemoTour() {
     setFilter("family", demoCaseMeta.familyId);
     setFilter("plant", demoCaseMeta.plantId);
     setFilter("sku", DEMO_SKU);
+    resetWorkflow();
     setOpen(true);
     setIndex(0);
     void navigate({ to: demoSteps[0].route });
-  }, [navigate, setFilter]);
+  }, [navigate, setFilter, resetWorkflow]);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -45,7 +48,7 @@ export function DemoTour() {
         className="flex shrink-0 items-center gap-1.5 rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
       >
         <PlayCircle className="h-3.5 w-3.5" aria-hidden />
-        <span className="hidden sm:inline">Run demo</span>
+        <span className="hidden sm:inline">Start guided demo</span>
       </button>
 
       {open && mounted && createPortal(
@@ -74,6 +77,20 @@ export function DemoTour() {
             <div className="max-h-[46vh] overflow-y-auto px-4 py-3">
               <p className="text-sm font-medium">{step.headline}</p>
               <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{step.body}</p>
+              <div className="mt-3 space-y-2 rounded-md border border-border bg-surface-muted/60 p-2.5">
+                <p className="text-[11px] leading-relaxed">
+                  <span className="font-semibold">Why this matters: </span>
+                  <span className="text-muted-foreground">{step.why}</span>
+                </p>
+                <p className="text-[11px] leading-relaxed">
+                  <span className="font-semibold">Decision required: </span>
+                  <span className="text-muted-foreground">{step.decision}</span>
+                </p>
+                <p className="text-[11px] leading-relaxed">
+                  <span className="font-semibold">Next step: </span>
+                  <span className="text-muted-foreground">{step.next}</span>
+                </p>
+              </div>
               <p className="mt-3 text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
                 What to look at on this screen
               </p>
@@ -115,7 +132,10 @@ export function DemoTour() {
                 {index === demoSteps.length - 1 ? (
                   <button
                     type="button"
-                    onClick={() => setOpen(false)}
+                    onClick={() => {
+                      demoSteps.forEach((s) => completeStage(s.id));
+                      setOpen(false);
+                    }}
                     className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground"
                   >
                     Finish

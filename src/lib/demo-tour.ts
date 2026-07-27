@@ -1,122 +1,125 @@
 import { DEMO_SKU, demoCaseMeta } from "@/lib/demo-data";
+import { workflowStages, type StageId } from "@/lib/workflow";
 
 export type DemoStep = {
-  id: string;
+  id: StageId;
   step: number;
   title: string;
   route: string;
+  search?: Record<string, string>;
   headline: string;
+  /** What the user is seeing. */
   body: string;
+  /** Why this step matters. */
+  why: string;
+  /** What decision is required. */
+  decision: string;
+  /** What the next step will be. */
+  next: string;
   lookFor: string[];
 };
 
 /**
- * The guided walkthrough of the prominent demonstration case:
+ * The guided walkthrough follows the authoritative 13-stage workflow using the
+ * prominent demonstration case:
  * Apex Motors · CLT-1048 Clutch Friction Assembly · North Plant — Coimbatore.
  */
-export const demoSteps: DemoStep[] = [
-  {
-    id: "ds-1",
-    step: 1,
-    title: "Data readiness",
-    route: "/data-readiness",
-    headline: `${DEMO_SKU} history is certified before any model runs`,
-    body: `54 months of monthly history for ${demoCaseMeta.customer} at ${demoCaseMeta.plant} pass completeness, outlier and stockout-censoring checks. The series is classified High confidence, so it is eligible for automated forecasting.`,
-    lookFor: [
-      "Validation results panel — no blocking errors on the clutch series",
-      "Series confidence classification: High",
-      "Transformation log records every adjusted value and can be undone",
-    ],
-  },
-  {
-    id: "ds-2",
-    step: 2,
-    title: "Baseline forecast",
-    route: "/forecast-workspace",
-    headline: "The statistical baseline repeats last year's September dip",
-    body: "The selected model learned a recurring September shutdown from history. It therefore plans a deep September trough and a normal October — which is exactly the wrong shape for this year.",
-    lookFor: [
-      "Baseline line dips sharply in September 2026",
-      "Model rationale tab: seasonality detected at lag 12",
-      "No event adjustment is applied yet",
-    ],
-  },
-  {
-    id: "ds-3",
-    step: 3,
-    title: "Event detection",
-    route: "/event-intelligence",
-    headline: "A confirmed OEM schedule moves the shutdown to October",
-    body: "Apex schedule revision R-14 confirms the annual shutdown moves from September to October. The event passes all six qualification checks, so the event-aware forecast restores September, applies an October dip and adds a November recovery.",
-    lookFor: [
-      "Event: Apex Motors shutdown moved from September to October",
-      "Qualification checklist fully satisfied, reliability: confirmed document",
-      "Impact curve: September +82%, October -38%, November +14%",
-    ],
-  },
-  {
-    id: "ds-4",
-    step: 4,
-    title: "Double-counting check",
-    route: "/event-intelligence",
-    headline: "Open orders already carry part of the October reduction",
-    body: "Before applying the event, the platform verifies open orders, customer schedules, backlog and recent demand. 31% of the October reduction is already visible in the order book, so only the residual impact is applied to the forecast.",
-    lookFor: [
-      "Reflection status: partially reflected",
-      "Source verification grid — open orders and OEM schedules show a clear signal",
-      "Residual impact is smaller than the raw expected impact",
-    ],
-  },
-  {
-    id: "ds-5",
-    step: 5,
-    title: "What-if comparison",
-    route: "/what-if",
-    headline: "An upside recovery scenario sits beside — not inside — the forecast",
-    body: "The Apex upside recovery scenario models a faster November catch-up. It is displayed against the baseline and the approved forecast for comparison only and never becomes the official plan unless it is promoted and approved.",
-    lookFor: [
-      "Scenario: Apex upside recovery (CLT-1048)",
-      "Assumptions and implications for stockout, excess and service level",
-      "Promote for review creates an adjustment request — it does not approve anything",
-    ],
-  },
-  {
-    id: "ds-6",
-    step: 6,
-    title: "Approval",
-    route: "/forecast-review",
-    headline: "The planner decision is captured with a reason and evidence",
-    body: `The ${DEMO_SKU} request shows the baseline, the residual event adjustment and the planner override side by side. Every manual override requires a reason, and the evidence trail links back to the OEM schedule and the double-counting check.`,
-    lookFor: [
-      "Queue row: CLT-1048 · Apex Motors · North Plant",
-      "Reason required before approve, reject or return for clarification",
-      "Evidence panel cites schedule R-14 and the residual impact calculation",
-    ],
-  },
-  {
-    id: "ds-7",
-    step: 7,
-    title: "Final operational forecast",
-    route: "/forecast-review",
-    headline: "Model baseline + event adjustment + planner override = approved forecast",
-    body: "The bridge shows exactly how the approved operational forecast was built. Only one version is marked as the current official forecast, and unapproved what-if scenarios are excluded from it.",
-    lookFor: [
-      "Forecast bridge totals reconcile to the approved operational forecast",
-      "Version list: only one record is the current official forecast",
-      "Scenario volume is absent from the approved figures",
-    ],
-  },
-  {
-    id: "ds-8",
-    step: 8,
-    title: "Performance monitoring",
-    route: "/performance",
-    headline: "Did each layer actually improve accuracy?",
-    body: "Forecast value added compares the naive baseline, the selected model, the event-aware forecast and the planner-approved forecast against actuals, showing whether each layer improved or worsened performance. Drift alerts and the champion/challenger board close the loop.",
-    lookFor: [
-      "Forecast value added by layer, including any negative contribution",
-      "Event-adjustment performance and planner-override effectiveness",
-      "Champion/challenger board and simulated retraining alerts",
-    ],
-  },
-];
+const headlines: Record<StageId, string> = {
+  project: "One forecasting cycle, one agreed granularity",
+  upload: `${DEMO_SKU} history arrives and every demand signal is identified`,
+  resolve: "Nothing is corrected silently",
+  dataset: "The dataset is certified before a single model runs",
+  validation: "Time series are validated chronologically, never randomly",
+  tournament: "Eligible models compete on the same windows",
+  champion: "The champion is chosen on a weighted score, not on MAPE alone",
+  baseline: "The statistical baseline repeats last year's September dip",
+  events: "A confirmed OEM schedule moves the shutdown to October",
+  scenarios: "An upside recovery sits beside — not inside — the forecast",
+  review: "Baseline + residual event + planner override, reconciled",
+  approve: "Only one version can be the official operational forecast",
+  monitor: "Did each layer actually improve accuracy?",
+};
+
+const lookFor: Record<StageId, string[]> = {
+  project: [
+    "Granularity SKU × customer × plant — 500 demand series in scope",
+    "Monthly buckets and a 12-month operational horizon",
+    "54 months of history available: 4.5 seasonal cycles",
+  ],
+  upload: [
+    "Drag-and-drop upload, file preview and the data template",
+    "Signal roles: customer demand, confirmed orders, dispatch, billing, backlog, lost demand, inventory, stockout",
+    "Mapping demand to dispatch would forecast what you shipped, not what was asked for",
+  ],
+  resolve: [
+    "Issues grouped as Blocking, Important, Warning and Informational",
+    "Each issue states its forecasting consequence if left unresolved",
+    "Seven decisions available, including exclude series and mark as exceptional event",
+  ],
+  dataset: [
+    "Approve Forecast-Ready Dataset is disabled while blocking issues remain",
+    "Series confidence classification: CLT-1048 is High",
+    "Every decision is written to the audit log",
+  ],
+  validation: [
+    "Chronological split: training teaches, validation compares, holdout verifies",
+    "Automatic rolling backtesting is the recommended default",
+    "Advanced period configuration exists but is not mandatory",
+  ],
+  tournament: [
+    "Only models eligible for this demand behaviour are entered",
+    "Weighted score: WAPE 30, MASE 20, Bias 20, Stability 20, Suitability 10",
+    "Validation metrics are shown separately from the untouched holdout",
+  ],
+  champion: [
+    "Why this model was selected, and why each alternative was not",
+    "Champion, challenger, ensemble member or rejected status per model",
+    "An override is possible only with a recorded reason",
+  ],
+  baseline: [
+    "Banner: future business events have not yet been applied",
+    "Baseline dips in September 2026 — the wrong shape for this year",
+    "Accept the baseline to unlock event review",
+  ],
+  events: [
+    "Apex schedule revision R-14 moves the shutdown from September to October",
+    "Six-point qualification checklist and evidence reliability",
+    "Open orders already carry part of the reduction, so only the residual is applied",
+  ],
+  scenarios: [
+    "Simulation only — does not affect the official forecast",
+    "Assumptions and implications for stockout, excess and service level",
+    "Promote for review creates an adjustment request; it approves nothing",
+  ],
+  review: [
+    "Forecast bridge: baseline, residual event impact, planner override, proposed final",
+    "What-if scenarios are displayed separately and excluded from the total",
+    "Every manual override requires a reason and evidence",
+  ],
+  approve: [
+    "Version list: exactly one record is the current official forecast",
+    "Approve, reject, return for clarification, edit recommendation, add comment",
+    "Publication is recorded in the audit log",
+  ],
+  monitor: [
+    "Forecast value added: naive → model → event-aware → planner-approved",
+    "Layers that worsened accuracy are shown as negative contributions",
+    "Champion/challenger board, drift alerts and simulated retraining",
+  ],
+};
+
+export const demoSteps: DemoStep[] = workflowStages.map((stage) => ({
+  id: stage.id,
+  step: stage.step,
+  title: stage.label,
+  route: stage.route,
+  search: stage.search,
+  headline: headlines[stage.id],
+  body: stage.whatYouSee,
+  why: stage.whyItMatters,
+  decision: stage.decision,
+  next: stage.nextStep,
+  lookFor: lookFor[stage.id],
+}));
+
+export const demoCaseLabel = `${DEMO_SKU} · ${demoCaseMeta.description} · ${demoCaseMeta.customer}`;

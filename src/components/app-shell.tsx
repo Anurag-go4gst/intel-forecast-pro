@@ -5,6 +5,7 @@ import { navGroups, navItems } from "@/components/app-nav";
 import { DemoTour } from "@/components/demo-tour";
 import { GlobalFilters } from "@/components/global-filters";
 import { StatusPill } from "@/components/primitives";
+import { StageActions, WorkflowRail } from "@/components/workflow-rail";
 import { usePlatform } from "@/lib/platform-state";
 import { forecastVersions } from "@/lib/demo-data";
 import { cn } from "@/lib/utils";
@@ -41,7 +42,16 @@ function NavList({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: (
                       )}
                     >
                       <item.icon className="h-4 w-4 shrink-0" aria-hidden />
-                      {!collapsed && <span className="truncate">{item.label}</span>}
+                      {!collapsed && (
+                        <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                          <span className="truncate">{item.label}</span>
+                          {item.steps && (
+                            <span className="ml-auto shrink-0 rounded bg-sidebar-accent/60 px-1 text-[9px] font-semibold text-sidebar-foreground/70">
+                              {item.steps}
+                            </span>
+                          )}
+                        </span>
+                      )}
                     </Link>
                   </li>
                 );
@@ -178,9 +188,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
           <GlobalFilters />
+          <WorkflowRail />
         </header>
 
-        <main className="min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-6">{children}</main>
+        <main className="min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-6">
+          {children}
+          <StageActions />
+        </main>
 
         <footer className="border-t border-border px-4 py-3 text-[11px] text-muted-foreground sm:px-6">
           Frontend prototype · forecast generation, model comparison, event evaluation and assistant
