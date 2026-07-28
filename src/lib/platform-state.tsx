@@ -707,7 +707,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       setVersions(seedVersions);
       setActiveVersionId("v-2026-07");
       setAuditLog(seedAuditLog);
-      setStageDone({ ...emptyStages, project: true, upload: true });
+      setStageDone(emptyStages);
       setUpload({
         name: "apex-motors-demand-history.csv",
         sizeLabel: "3.4 MB",

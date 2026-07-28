@@ -219,7 +219,7 @@ function expectCleanDemoSeed(api: PlatformApi) {
   expect(api.versions).toEqual(seedVersions);
   expect(api.auditLog).toEqual(seedAuditLog);
   expect(api.activeVersionId).toBe("v-2026-07");
-  expect(api.stageDone).toEqual(emptyStageDone({ project: true, upload: true }));
+  expect(api.stageDone).toEqual(emptyStageDone());
 }
 
 function renderGuardedPath(path: string) {
@@ -527,6 +527,8 @@ describe("authoritative application behaviours", () => {
 
     await act(async () => {
       harness.api.startDemo();
+      harness.api.completeStage("project");
+      harness.api.completeStage("upload");
     });
     await waitFor(() => expect(harness.api.mode).toBe("demo"));
 
@@ -562,6 +564,8 @@ describe("authoritative application behaviours", () => {
 
     await act(async () => {
       harness.api.startDemo();
+      harness.api.completeStage("project");
+      harness.api.completeStage("upload");
     });
     await waitFor(() => expect(harness.api.mode).toBe("demo"));
     fireEvent.click(screen.getByRole("button", { name: /^Guide$/i }));
@@ -587,6 +591,8 @@ describe("authoritative application behaviours", () => {
 
     await act(async () => {
       harness.api.startDemo();
+      harness.api.completeStage("project");
+      harness.api.completeStage("upload");
       harness.api.completeStage("resolve");
       harness.api.completeStage("dataset");
       harness.api.completeStage("validation");
@@ -600,9 +606,31 @@ describe("authoritative application behaviours", () => {
     const resetButtons = screen.getAllByRole("button", { name: /Reset guide/i });
     fireEvent.click(resetButtons[resetButtons.length - 1]);
 
-    await waitFor(() => expect(harness.api.stageDone).toEqual(emptyStageDone({ project: true, upload: true })));
+    await waitFor(() => expect(harness.api.stageDone).toEqual(emptyStageDone()));
     expect(await screen.findByText(/Guide · step 1 of 13/i)).toBeInTheDocument();
     expect(harness.api.activeVersionId).toBe("v-2026-07");
+  });
+
+  it("advances the seeded guide through project and upload without leaving the rail static", async () => {
+    const harness = renderDemoTourHarness();
+    await screen.findByTestId("tour-mode");
+
+    await act(async () => {
+      harness.api.startDemo();
+    });
+    await waitFor(() => expect(harness.api.stageDone).toEqual(emptyStageDone()));
+
+    fireEvent.click(screen.getByRole("button", { name: /^Guide$/i }));
+    expect(await screen.findByText(/Guide · step 1 of 13/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Next/i }));
+    await waitFor(() => expect(harness.api.stageDone.project).toBe(true));
+    expect(await screen.findByText(/Guide · step 2 of 13/i)).toBeInTheDocument();
+    expect(harness.api.stageDone.upload).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: /Next/i }));
+    await waitFor(() => expect(harness.api.stageDone.upload).toBe(true));
+    expect(await screen.findByText(/Guide · step 3 of 13/i)).toBeInTheDocument();
   });
 
   it("allows the guide to skip optional what-if scenarios", async () => {
@@ -611,6 +639,8 @@ describe("authoritative application behaviours", () => {
 
     await act(async () => {
       harness.api.startDemo();
+      harness.api.completeStage("project");
+      harness.api.completeStage("upload");
       harness.api.completeStage("resolve");
       harness.api.completeStage("dataset");
       harness.api.completeStage("validation");
@@ -723,8 +753,8 @@ describe("authoritative application behaviours", () => {
     expect(harness.api.dataset).toBeNull();
     expect(harness.api.modelSelections).toEqual({});
     expect(harness.api.stageDone.tournament).toBe(false);
-    expect(harness.api.stageDone.project).toBe(true);
-    expect(harness.api.stageDone.upload).toBe(true);
+    expect(harness.api.stageDone.project).toBe(false);
+    expect(harness.api.stageDone.upload).toBe(false);
   });
 });
 
