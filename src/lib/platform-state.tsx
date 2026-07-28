@@ -80,11 +80,21 @@ export type ChatMessage = {
   content: string;
 };
 
+const initialMessages: ChatMessage[] = [
+  {
+    id: "seed-1",
+    role: "assistant",
+    content:
+      "I can explain forecast movements, accuracy, bias and inventory risk for the current filter selection. Try asking about stockout exposure, why a forecast changed, or which model was selected for a SKU.\n\nAll answers in this prototype come from seeded demonstration data.",
+  },
+];
+
 export type DatasetState = {
   fileName: string;
   sizeLabel: string;
   uploadedAt: string;
   columns: string[];
+  records?: DatasetRecord[];
   preview: DatasetRecord[];
   stats: DatasetStats;
 };
@@ -227,14 +237,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const [runState, setRunState] = useState<ForecastRunState>("idle");
   const [runProgress, setRunProgress] = useState(0);
   const [selectedModelBySku, setSelectedModelBySku] = usePersistentState<Record<string, string>>("selectedModelBySku", {});
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "seed-1",
-      role: "assistant",
-      content:
-        "I can explain forecast movements, accuracy, bias and inventory risk for the current filter selection. Try asking about stockout exposure, why a forecast changed, or which model was selected for a SKU.\n\nAll answers in this prototype come from seeded demonstration data.",
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
 
   const setFilter = useCallback((key: keyof Filters, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -660,6 +663,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     setModelSelections({});
     setRunState("idle");
     setRunProgress(0);
+    setMessages(initialMessages);
     setDataset(null);
 
     if (target === "demo") {
@@ -758,6 +762,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         sizeLabel: input.sizeLabel,
         uploadedAt: new Date().toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }),
         columns: input.columns,
+        records: input.records,
         preview: input.records.slice(0, 12),
         stats,
       });
@@ -788,7 +793,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
 
   const recomputeStats = useCallback((mapping: StatsMapping) => {
     setDataset((prev) =>
-      prev ? { ...prev, stats: { ...prev.stats, ...computeDatasetStats(prev.preview, mapping), rows: prev.stats.rows } } : prev,
+      prev ? { ...prev, stats: computeDatasetStats(prev.records ?? prev.preview, mapping) } : prev,
     );
   }, []);
 
