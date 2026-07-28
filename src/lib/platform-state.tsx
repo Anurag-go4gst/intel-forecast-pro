@@ -47,9 +47,20 @@ import type { ModelSelection } from "@/lib/model-selection";
 import {
   dataIssues,
   workflowStages,
+  type DataIssue,
   type IssueResolution,
   type StageId,
 } from "@/lib/workflow";
+import {
+  computeDatasetStats,
+  deriveIssues,
+  qualityScore,
+  type AppMode,
+  type DatasetRecord,
+  type DatasetStats,
+  type ProjectConfig,
+  type StatsMapping,
+} from "@/lib/app-mode";
 import { clearPersistedState, usePersistentState } from "@/lib/persist";
 
 
@@ -60,6 +71,7 @@ export type UploadedFile = {
   uploadedAt: string;
 };
 
+
 export type ForecastRunState = "idle" | "running" | "complete";
 
 export type ChatMessage = {
@@ -68,7 +80,39 @@ export type ChatMessage = {
   content: string;
 };
 
+export type DatasetState = {
+  fileName: string;
+  sizeLabel: string;
+  uploadedAt: string;
+  columns: string[];
+  preview: DatasetRecord[];
+  stats: DatasetStats;
+};
+
 type PlatformContextValue = {
+  // ------------------------------------------------------- operating modes
+  mode: AppMode;
+  project: ProjectConfig | null;
+  createProject: (config: Omit<ProjectConfig, "createdAt" | "source">) => void;
+  dataset: DatasetState | null;
+  ingestDataset: (input: {
+    fileName: string;
+    sizeLabel: string;
+    columns: string[];
+    records: DatasetRecord[];
+    mapping: StatsMapping;
+  }) => void;
+  recomputeStats: (mapping: StatsMapping) => void;
+  /** Loads the fictional Apex Motors seeded dataset. */
+  startDemo: () => void;
+  /** Restores the Apex Motors demo to its original seeded starting point. */
+  resetDemo: () => void;
+  /** Wipes every artefact and returns to an empty Create Project screen. */
+  exitToNewProject: () => void;
+  activeIssues: DataIssue[];
+  dataQualityScore: number;
+
+
   filters: Filters;
   setFilter: (key: keyof Filters, value: string) => void;
   resetFilters: () => void;
@@ -168,12 +212,18 @@ let idCounter = 0;
 const nextId = (prefix: string) => `${prefix}-${++idCounter}-${Date.now().toString(36)}`;
 
 export function PlatformProvider({ children }: { children: ReactNode }) {
+  // Nothing is seeded at start-up. Seeds are only installed by startDemo().
+  const [mode, setMode] = usePersistentState<AppMode>("mode", "empty");
+  const [project, setProject] = usePersistentState<ProjectConfig | null>("project", null);
+  const [dataset, setDataset] = usePersistentState<DatasetState | null>("dataset", null);
+
   const [filters, setFilters] = usePersistentState<Filters>("filters", defaultFilters);
-  const [events, setEvents] = usePersistentState<DemandEvent[]>("events", seedEvents);
-  const [scenarios, setScenarios] = usePersistentState<SavedScenario[]>("scenarios", seedScenarios);
+  const [events, setEvents] = usePersistentState<DemandEvent[]>("events", []);
+  const [scenarios, setScenarios] = usePersistentState<SavedScenario[]>("scenarios", []);
   const [drivers, setDrivers] = usePersistentState<ScenarioDriver>("drivers", defaultDrivers);
-  const [reviewLines, setReviewLines] = usePersistentState<ReviewLine[]>("reviewLines", seedReviewLines);
+  const [reviewLines, setReviewLines] = usePersistentState<ReviewLine[]>("reviewLines", []);
   const [published, setPublished] = usePersistentState("published", false);
+
   const [runState, setRunState] = useState<ForecastRunState>("idle");
   const [runProgress, setRunProgress] = useState(0);
   const [selectedModelBySku, setSelectedModelBySku] = usePersistentState<Record<string, string>>("selectedModelBySku", {});
@@ -294,7 +344,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const [mapping, setMappingState] = usePersistentState<Record<string, string>>("mapping", {});
   const [validationRun, setValidationRun] = usePersistentState("validationRun", false);
   const [transformations, setTransformations] =
-    usePersistentState<TransformationEntry[]>("transformations", seedTransformations);
+    usePersistentState<TransformationEntry[]>("transformations", []);
 
   const setMapping = useCallback((fieldId: string, column: string) => {
     setMappingState((prev) => ({ ...prev, [fieldId]: column }));
@@ -312,11 +362,11 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   );
 
 
-  const [intelEvents, setIntelEvents] = usePersistentState<IntelEvent[]>("intelEvents", seedIntelEvents);
-  const [scenarioSpecs, setScenarioSpecs] = usePersistentState<ScenarioSpec[]>("scenarioSpecs", seedScenarioSpecs);
-  const [compareIds, setCompareIds] = usePersistentState<string[]>("compareIds", ["ss-1", "ss-2"]);
+  const [intelEvents, setIntelEvents] = usePersistentState<IntelEvent[]>("intelEvents", []);
+  const [scenarioSpecs, setScenarioSpecs] = usePersistentState<ScenarioSpec[]>("scenarioSpecs", []);
+  const [compareIds, setCompareIds] = usePersistentState<string[]>("compareIds", []);
   const [adjustmentRequests, setAdjustmentRequests] =
-    usePersistentState<AdjustmentRequest[]>("adjustmentRequests", seedAdjustmentRequests);
+    usePersistentState<AdjustmentRequest[]>("adjustmentRequests", []);
 
   const stamp = () => "Today (prototype session)";
 
@@ -389,10 +439,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const [approvals, setApprovals] = usePersistentState<ApprovalItem[]>("approvals", seedApprovalQueue);
-  const [versions, setVersions] = usePersistentState<ForecastVersionRecord[]>("versions", seedVersions);
-  const [activeVersionId, setActiveVersionId] = usePersistentState("activeVersionId", "v-2026-07");
-  const [auditLog, setAuditLog] = usePersistentState<AuditEntry[]>("auditLog", seedAuditLog);
+  const [approvals, setApprovals] = usePersistentState<ApprovalItem[]>("approvals", []);
+  const [versions, setVersions] = usePersistentState<ForecastVersionRecord[]>("versions", []);
+  const [activeVersionId, setActiveVersionId] = usePersistentState("activeVersionId", "");
+  const [auditLog, setAuditLog] = usePersistentState<AuditEntry[]>("auditLog", []);
 
   const logAudit = useCallback((entry: Omit<AuditEntry, "id" | "at" | "date">) => {
     setAuditLog((prev) => [
@@ -590,11 +640,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /**
-   * Restores the original seeded state: every stage reopened, every recorded
-   * decision, approval, version, event, scenario and audit entry returned to
-   * the shipped demonstration baseline, and persisted storage wiped.
+   * The single authoritative reset. Every persisted slice is cleared, then the
+   * requested mode is installed. Nothing else in the app may reset state.
    */
-  const resetWorkflow = useCallback(() => {
+  const resetAll = useCallback((target: AppMode) => {
     clearPersistedState();
     setStageDone(emptyStages);
     setIssueActions({});
@@ -602,29 +651,146 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     setValidationMode("auto");
     setChampionOverrideReason("");
     setFilters(defaultFilters);
-    setEvents(seedEvents);
-    setScenarios(seedScenarios);
     setDrivers(defaultDrivers);
-    setReviewLines(seedReviewLines);
     setPublished(false);
     setSelectedModelBySku({});
     setUpload(null);
     setMappingState({});
     setValidationRun(false);
-    setTransformations(seedTransformations);
     setModelSelections({});
-    setIntelEvents(seedIntelEvents);
-    setScenarioSpecs(seedScenarioSpecs);
-    setCompareIds(["ss-1", "ss-2"]);
-    setAdjustmentRequests(seedAdjustmentRequests);
-    setApprovals(seedApprovalQueue);
-    setVersions(seedVersions);
-    setActiveVersionId("v-2026-07");
-    setAuditLog(seedAuditLog);
     setRunState("idle");
     setRunProgress(0);
+    setDataset(null);
+
+    if (target === "demo") {
+      setMode("demo");
+      setProject({
+        name: "Apex Motors guided demonstration cycle",
+        industry: "Auto ancillary manufacturing",
+        grain: "SKU × Customer × Plant",
+        frequency: "Monthly",
+        horizon: 12,
+        owner: "R. Iyer · Demand planning lead",
+        createdAt: "Guided demo",
+        source: "demo",
+      });
+      setEvents(seedEvents);
+      setScenarios(seedScenarios);
+      setReviewLines(seedReviewLines);
+      setTransformations(seedTransformations);
+      setIntelEvents(seedIntelEvents);
+      setScenarioSpecs(seedScenarioSpecs);
+      setCompareIds(["ss-1", "ss-2"]);
+      setAdjustmentRequests(seedAdjustmentRequests);
+      setApprovals(seedApprovalQueue);
+      setVersions(seedVersions);
+      setActiveVersionId("v-2026-07");
+      setAuditLog(seedAuditLog);
+      setUpload({
+        name: "apex-motors-demand-history.csv",
+        sizeLabel: "3.4 MB",
+        rows: 27_000,
+        uploadedAt: "Guided demo · fictional seeded extract",
+      });
+      setMappingState({ ...autoMapping });
+    } else {
+      setMode("empty");
+      setProject(null);
+      setEvents([]);
+      setScenarios([]);
+      setReviewLines([]);
+      setTransformations([]);
+      setIntelEvents([]);
+      setScenarioSpecs([]);
+      setCompareIds([]);
+      setAdjustmentRequests([]);
+      setApprovals([]);
+      setVersions([]);
+      setActiveVersionId("");
+      setAuditLog([]);
+    }
   }, [emptyStages]);
 
+  const startDemo = useCallback(() => resetAll("demo"), [resetAll]);
+  const resetDemo = useCallback(() => resetAll("demo"), [resetAll]);
+  const exitToNewProject = useCallback(() => resetAll("empty"), [resetAll]);
+  /** Backwards-compatible alias used by older call sites. */
+  const resetWorkflow = useCallback(() => resetAll("empty"), [resetAll]);
+
+  const createProject = useCallback(
+    (config: Omit<ProjectConfig, "createdAt" | "source">) => {
+      resetAll("empty");
+      setMode("user");
+      setProject({
+        ...config,
+        createdAt: new Date().toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }),
+        source: "user",
+      });
+      setAuditLog([
+        {
+          id: nextId("al"),
+          at: "Today (prototype session)",
+          date: new Date().toISOString().slice(0, 10),
+          user: config.owner || "You · Demand planning",
+          action: "Data upload" as AuditAction,
+          sku: "All",
+          customer: "All",
+          version: "Draft",
+          detail: `Project "${config.name}" created — grain ${config.grain}, ${config.frequency.toLowerCase()} buckets, ${config.horizon}-period horizon.`,
+        },
+      ]);
+      setStageDone({ ...emptyStages, project: true });
+    },
+    [resetAll, emptyStages],
+  );
+
+  const ingestDataset = useCallback(
+    (input: {
+      fileName: string;
+      sizeLabel: string;
+      columns: string[];
+      records: DatasetRecord[];
+      mapping: StatsMapping;
+    }) => {
+      const stats = computeDatasetStats(input.records, input.mapping);
+      setDataset({
+        fileName: input.fileName,
+        sizeLabel: input.sizeLabel,
+        uploadedAt: new Date().toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }),
+        columns: input.columns,
+        preview: input.records.slice(0, 12),
+        stats,
+      });
+      setUpload({
+        name: input.fileName,
+        sizeLabel: input.sizeLabel,
+        rows: stats.rows,
+        uploadedAt: new Date().toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }),
+      });
+      setIssueActions({});
+      setAuditLog((log) => [
+        {
+          id: nextId("al"),
+          at: "Today (prototype session)",
+          date: new Date().toISOString().slice(0, 10),
+          user: "You · Demand planning",
+          action: "Data upload" as AuditAction,
+          sku: "All",
+          customer: "All",
+          version: "Draft",
+          detail: `Uploaded ${input.fileName}: ${stats.rows} rows, ${stats.series} series, ${stats.periods} periods (${stats.frequency}).`,
+        },
+        ...log,
+      ]);
+    },
+    [],
+  );
+
+  const recomputeStats = useCallback((mapping: StatsMapping) => {
+    setDataset((prev) =>
+      prev ? { ...prev, stats: { ...prev.stats, ...computeDatasetStats(prev.preview, mapping), rows: prev.stats.rows } } : prev,
+    );
+  }, []);
 
   const setIssueAction = useCallback((issueId: string, action: IssueResolution) => {
     setIssueActions((prev) => ({ ...prev, [issueId]: action }));
@@ -632,12 +798,37 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
 
   const confirmRoles = useCallback(() => setRolesConfirmed(true), []);
 
-  const blockingOpen = dataIssues.filter(
+  /** Issues come from the seeded demo, from the uploaded file, or nowhere. */
+  const activeIssues = useMemo<DataIssue[]>(() => {
+    if (mode === "demo") return dataIssues;
+    if (mode === "user" && dataset) return deriveIssues(dataset.stats);
+    return [];
+  }, [mode, dataset]);
+
+  const blockingOpen = activeIssues.filter(
     (i) => i.severity === "Blocking" && !issueActions[i.id],
   ).length;
 
+  const dataQualityScore = useMemo(
+    () => (activeIssues.length ? qualityScore(activeIssues, issueActions) : 0),
+    [activeIssues, issueActions],
+  );
+
+
+
   const value = useMemo<PlatformContextValue>(
     () => ({
+      mode,
+      project,
+      createProject,
+      dataset,
+      ingestDataset,
+      recomputeStats,
+      startDemo,
+      resetDemo,
+      exitToNewProject,
+      activeIssues,
+      dataQualityScore,
       filters,
       setFilter,
       resetFilters,
@@ -713,6 +904,17 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       setChampionOverrideReason,
     }),
     [
+      mode,
+      project,
+      createProject,
+      dataset,
+      ingestDataset,
+      recomputeStats,
+      startDemo,
+      resetDemo,
+      exitToNewProject,
+      activeIssues,
+      dataQualityScore,
       filters,
       setFilter,
       resetFilters,

@@ -89,7 +89,7 @@ function SidebarBrand({ collapsed }: { collapsed: boolean }) {
 export function AppShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { filters, published } = usePlatform();
+  const { filters, published, mode, project } = usePlatform();
   const version = forecastVersions.find((v) => v.id === filters.version);
 
   return (
@@ -167,7 +167,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                   Demand Intelligence &amp; Forecasting Platform
                 </p>
                 <p className="truncate text-[11px] text-muted-foreground">
-                  Meridian Industries Group · Demonstration environment
+                  {mode === "demo"
+                    ? "Guided demo · Apex Motors fictional dataset"
+                    : mode === "user"
+                      ? `${project?.name ?? "Untitled project"} · your uploaded data`
+                      : "No active project"}
                 </p>
               </div>
             </div>
@@ -187,6 +191,21 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             </div>
           </div>
+          {mode === "demo" && (
+            <p className="border-t border-warning/30 bg-warning-soft px-4 py-1.5 text-[11px] font-semibold text-warning sm:px-6">
+              Guided Demo — Fictional seeded data
+            </p>
+          )}
+          {mode === "empty" && (
+            <p className="border-t border-border bg-surface-muted px-4 py-1.5 text-[11px] font-medium text-muted-foreground sm:px-6">
+              No active project — create a project or start the guided demo.
+            </p>
+          )}
+          {mode === "user" && (
+            <p className="border-t border-border bg-surface-muted px-4 py-1.5 text-[11px] font-medium text-muted-foreground sm:px-6">
+              Your data — every statistic is computed from your uploaded file.
+            </p>
+          )}
           <GlobalFilters />
           <WorkflowRail />
         </header>

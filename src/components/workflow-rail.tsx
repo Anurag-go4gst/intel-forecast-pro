@@ -103,11 +103,80 @@ export function WorkflowRail() {
  * locked when it sits more than one step ahead of the stage the project is
  * actually on, which is exactly the rule the workflow rail renders.
  */
+/** Routes that carry meaning before any dataset exists. */
+const alwaysOpenRoutes = ["/project", "/", "/audit-log"];
+/** Routes whose content is produced only by the seeded demo engine. */
+const demoOnlyRoutes = [
+  "/model-lab",
+  "/baseline",
+  "/event-intelligence",
+  "/what-if",
+  "/forecast-review",
+  "/performance",
+  "/forecast-workspace",
+  "/assistant",
+];
+
+function EmptyStatePanel({
+  title,
+  body,
+  action,
+}: {
+  title: string;
+  body: string;
+  action: { to: string; label: string };
+}) {
+  return (
+    <div className="mx-auto max-w-xl rounded-lg border border-border bg-surface p-6 text-center">
+      <span className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-muted">
+        <Lock className="h-4.5 w-4.5 text-muted-foreground" aria-hidden />
+      </span>
+      <h1 className="mt-3 text-base font-semibold">{title}</h1>
+      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{body}</p>
+      <Link
+        to={action.to}
+        className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+      >
+        {action.label}
+        <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+      </Link>
+    </div>
+  );
+}
+
 export function StageGuard({ children }: { children: React.ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { stageDone } = usePlatform();
+  const { stageDone, mode } = usePlatform();
   const current = useCurrentStageIndex();
   const matches = workflowStages.filter((s) => s.route === pathname);
+
+  // Mode 1 — no project exists. Nothing but Create Project is shown.
+  if (mode === "empty" && pathname !== "/project") {
+    return (
+      <EmptyStatePanel
+        title="No active project"
+        body="This workspace is empty. Create a forecasting project, or start the guided Apex Motors demonstration from the header, before any data, model or forecast screen becomes meaningful."
+        action={{ to: "/project", label: "Create a forecasting project" }}
+      />
+    );
+  }
+
+  // Mode 3 — real uploaded data. Forecast artefacts do not exist until the
+  // dataset has been approved and the model tournament has run.
+  if (
+    mode === "user" &&
+    demoOnlyRoutes.includes(pathname) &&
+    !(stageDone.dataset && stageDone.tournament)
+  ) {
+    return (
+      <EmptyStatePanel
+        title="No forecast results yet"
+        body="This screen shows results produced from your uploaded data. Approve the forecast-ready dataset and run the model tournament first — nothing here is pre-populated."
+        action={{ to: "/data-readiness", label: "Go to Data Readiness" }}
+      />
+    );
+  }
+  void alwaysOpenRoutes;
 
   // A route is only locked when every stage mapped to it is locked.
   const reachable =
