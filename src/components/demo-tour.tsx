@@ -70,10 +70,7 @@ export function DemoTour() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const firstActionableIndex = useMemo(
-    () => demoSteps.findIndex((s) => s.id === "resolve"),
-    [],
-  );
+  const guideStartIndex = 0;
   const step = demoSteps[index];
   const currentIndex = useMemo(() => {
     const firstIncomplete = workflowStages.findIndex((stage) => !stageDone[stage.id]);
@@ -140,6 +137,7 @@ export function DemoTour() {
 
   useEffect(() => {
     if (mode !== "demo" || !open || currentIndex <= index || !stageDone[step.id]) return;
+    if (step.id !== "resolve" && step.id !== "dataset") return;
     goto(currentIndex);
   }, [currentIndex, goto, index, mode, open, stageDone, step.id]);
 
@@ -150,11 +148,14 @@ export function DemoTour() {
     setFilter("plant", demoCaseMeta.plantId);
     setFilter("sku", DEMO_SKU);
     setOpen(true);
-    setIndex(firstActionableIndex);
+    setIndex(guideStartIndex);
     setConfirm(null);
-    void navigate({ to: "/data-readiness" });
-    focusStepTarget(firstActionableIndex);
-  }, [firstActionableIndex, focusStepTarget, navigate, setFilter, startDemo]);
+    void navigate({
+      to: demoSteps[guideStartIndex].route,
+      search: (demoSteps[guideStartIndex].search ?? {}) as never,
+    });
+    focusStepTarget(guideStartIndex);
+  }, [focusStepTarget, navigate, setFilter, startDemo]);
 
   const advance = useCallback(() => {
     if (gate) return;
@@ -235,13 +236,16 @@ export function DemoTour() {
           onConfirm={() => {
             setOpen(false);
             resetDemo();
-            setIndex(firstActionableIndex);
+            setIndex(guideStartIndex);
             setConfirm(null);
-            void navigate({ to: "/data-readiness" });
+            void navigate({
+              to: demoSteps[guideStartIndex].route,
+              search: (demoSteps[guideStartIndex].search ?? {}) as never,
+            });
             window.setTimeout(() => {
-              setIndex(firstActionableIndex);
+              setIndex(guideStartIndex);
               setOpen(true);
-              focusStepTarget(firstActionableIndex);
+              focusStepTarget(guideStartIndex);
             }, 120);
           }}
           onCancel={() => setConfirm(null)}

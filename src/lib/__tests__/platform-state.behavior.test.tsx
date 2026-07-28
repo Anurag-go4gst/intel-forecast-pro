@@ -601,7 +601,7 @@ describe("authoritative application behaviours", () => {
     fireEvent.click(resetButtons[resetButtons.length - 1]);
 
     await waitFor(() => expect(harness.api.stageDone).toEqual(emptyStageDone({ project: true, upload: true })));
-    expect(await screen.findByText(/Guide · step 3 of 13/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Guide · step 1 of 13/i)).toBeInTheDocument();
     expect(harness.api.activeVersionId).toBe("v-2026-07");
   });
 
