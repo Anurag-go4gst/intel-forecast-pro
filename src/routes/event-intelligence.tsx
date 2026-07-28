@@ -69,8 +69,16 @@ const signalTone = {
 } as const;
 
 function EventIntelligence() {
-  const { intelEvents, addIntelEvent, updateIntelEvent, setIntelEventStatus, promoteToReview, adjustmentRequests } =
-    usePlatform();
+  const {
+    intelEvents,
+    addIntelEvent,
+    updateIntelEvent,
+    setIntelEventStatus,
+    completeStage,
+    promoteToReview,
+    adjustmentRequests,
+    logAudit,
+  } = usePlatform();
   const [categoryFilter, setCategoryFilter] = useState<"all" | EventCategory>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | EventStatus>("all");
   const [selectedId, setSelectedId] = useState(intelEvents[0]?.id ?? "");
@@ -105,6 +113,7 @@ function EventIntelligence() {
   const residual = selected ? residualImpact(selected) : null;
   const canRouteToAdjustment = routing?.outcome === "Governed forecast adjustment" && (residual?.applied ?? 0) !== 0;
   const alreadyRequested = selected ? adjustmentRequests.some((r) => r.originId === selected.id) : false;
+  const eventAdjustmentRequests = adjustmentRequests.filter((r) => r.origin === "Event");
 
   const curveData = useMemo(
     () =>
@@ -131,6 +140,51 @@ function EventIntelligence() {
     const next = [...selected.curve];
     next[index] = value;
     updateIntelEvent(selected.id, { curve: next });
+  };
+
+  const setImpact = (expectedImpact: number) => {
+    if (!selected) return;
+    updateIntelEvent(selected.id, {
+      expectedImpact,
+      curve: patternCurve(selected.pattern, expectedImpact),
+    });
+  };
+
+  const setPlannerStatus = (status: EventStatus) => {
+    if (!selected) return;
+    setIntelEventStatus(selected.id, status);
+    logAudit({
+      user: selected.owner,
+      action: "Event modified",
+      sku: selected.skuScope,
+      customer: selected.customer,
+      version: "V2026.07 — Working draft",
+      detail: `Event decision changed to ${status}: ${selected.name}.`,
+    });
+  };
+
+  const applySelectedImpact = () => {
+    if (!selected || !routing || !residual || !canRouteToAdjustment || alreadyRequested) return;
+    setIntelEventStatus(selected.id, "Approved");
+    promoteToReview({
+      title: `${selected.name} — selected residual impact`,
+      origin: "Event",
+      originId: selected.id,
+      scope: `${selected.skuScope} · ${selected.plantScope}`,
+      requestedImpactPct: residual.applied,
+      monthlyImpactPct: patternCurve(selected.pattern, residual.applied),
+      owner: selected.owner,
+      note: `Planner selected this event for forecast review. Residual after ${reflectedShare(selected)}% of impact was found in checked sources.`,
+    });
+    logAudit({
+      user: selected.owner,
+      action: "Forecast adjustment",
+      sku: selected.skuScope,
+      customer: selected.customer,
+      version: "V2026.07 — Working draft",
+      detail: `Selected event impact for review: ${selected.name}; residual ${residual.applied > 0 ? "+" : ""}${residual.applied}%.`,
+    });
+    completeStage("events");
   };
 
   const submitForm = () => {
@@ -190,10 +244,10 @@ function EventIntelligence() {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <KpiTile label="Events in registry" value={String(counts.total)} delta="All categories" deltaTone="info" />
-        <KpiTile label="Approved" value={String(counts.approved)} delta="In official forecast path" deltaTone="positive" />
+        <KpiTile label="Approved" value={String(counts.approved)} delta="Planner approved" deltaTone="positive" />
         <KpiTile label="In review / recommended" value={String(counts.review)} delta="Awaiting decision" deltaTone="warning" />
         <KpiTile label="Watchlist & draft" value={String(counts.watchlist)} delta="No forecast change" deltaTone="neutral" />
-        <KpiTile label="Reflected in data" value={String(counts.doubleCount)} delta="Double-counting risk" deltaTone="warning" />
+        <KpiTile label="Applied to review" value={String(eventAdjustmentRequests.length)} delta="Explicitly selected" deltaTone="positive" />
       </div>
 
       {showForm && (
@@ -295,7 +349,7 @@ function EventIntelligence() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
         <Panel
           title="Event registry"
-          description="Select an event to qualify it, inspect the double-counting check and route it."
+          description="Select one event at a time. A recommended route is only a suggestion; no event enters the forecast path until you apply its selected impact."
           bodyClassName="p-0"
           actions={
             <div className="flex flex-wrap gap-2">
@@ -390,12 +444,60 @@ function EventIntelligence() {
                   <Link2 className="h-3 w-3" aria-hidden /> {selected.evidenceLink}
                 </span>
               </div>
+              <div className="mt-3 grid grid-cols-1 gap-3 rounded-md border border-border bg-surface-muted p-3 md:grid-cols-3">
+                <label className="block">
+                  <span className="label-caps">Selected impact</span>
+                  <div className="mt-1 flex items-center gap-1">
+                    <input
+                      type="number"
+                      step={selected.impactUnit === "Percentage" ? 0.5 : 1}
+                      value={selected.expectedImpact}
+                      onChange={(e) => setImpact(Number(e.target.value))}
+                      className="num h-8 w-full rounded-md border border-input bg-surface px-2 text-right text-xs"
+                    />
+                    <span className="text-[11px] text-muted-foreground">{selected.impactUnit === "Percentage" ? "%" : "u"}</span>
+                  </div>
+                </label>
+                <label className="block">
+                  <span className="label-caps">Planner decision</span>
+                  <select
+                    value={selected.status}
+                    onChange={(e) => setPlannerStatus(e.target.value as EventStatus)}
+                    className="mt-1 h-8 w-full rounded-md border border-input bg-surface px-2 text-xs"
+                  >
+                    {eventStatuses.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="flex items-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPlannerStatus("Watchlist")}
+                    className="inline-flex h-8 flex-1 items-center justify-center rounded-md border border-input px-2 text-xs font-medium hover:bg-accent"
+                  >
+                    Watchlist
+                  </button>
+                  <button
+                    type="button"
+                    onClick={applySelectedImpact}
+                    disabled={!canRouteToAdjustment || alreadyRequested}
+                    className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md bg-primary px-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    <Send className="h-3.5 w-3.5" aria-hidden />
+                    {alreadyRequested ? "Applied" : "Apply"}
+                  </button>
+                </div>
+                <p className="text-[11px] leading-relaxed text-muted-foreground md:col-span-3">
+                  Applying submits only this selected event's residual impact to Forecast Review. Other registry events remain recommendations, watchlist items or rejected signals until you decide.
+                </p>
+              </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 {(["Watchlist", "Under review", "Recommended", "Approved", "Rejected", "Expired"] as EventStatus[]).map((s) => (
                   <button
                     key={s}
                     type="button"
-                    onClick={() => setIntelEventStatus(selected.id, s)}
+                    onClick={() => setPlannerStatus(s)}
                     disabled={selected.status === s}
                     className="rounded-md border border-input px-2.5 py-1 text-[11px] font-medium hover:bg-accent disabled:opacity-40"
                   >
@@ -539,22 +641,11 @@ function EventIntelligence() {
                   <button
                     type="button"
                     disabled={!canRouteToAdjustment || alreadyRequested}
-                    onClick={() =>
-                      promoteToReview({
-                        title: `${selected.name} — residual adjustment`,
-                        origin: "Event",
-                        originId: selected.id,
-                        scope: `${selected.skuScope} · ${selected.plantScope}`,
-                        requestedImpactPct: residual.applied,
-                        monthlyImpactPct: patternCurve(selected.pattern, residual.applied),
-                        owner: selected.owner,
-                        note: `Residual after ${reflectedShare(selected)}% of impact was found in checked sources.`,
-                      })
-                    }
+                    onClick={applySelectedImpact}
                     className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                   >
                     <Send className="h-3.5 w-3.5" aria-hidden />
-                    {alreadyRequested ? "Adjustment request submitted" : "Create adjustment request"}
+                    {alreadyRequested ? "Selected impact applied" : "Apply selected residual impact"}
                   </button>
                   {!canRouteToAdjustment && !alreadyRequested && (
                     <p className="mt-1.5 text-[11px] text-muted-foreground">

@@ -36,7 +36,7 @@ const headlines: Record<StageId, string> = {
   tournament: "Eligible models compete on the same windows",
   champion: "The champion is chosen on a weighted score, not on MAPE alone",
   baseline: "The statistical baseline repeats last year's September dip",
-  events: "A confirmed OEM schedule moves the shutdown to October",
+  events: "Select the OEM schedule event before it affects the forecast",
   scenarios: "An upside recovery sits beside — not inside — the forecast",
   review: "Baseline + residual event + planner override, reconciled",
   approve: "Only one version can be the official operational forecast",
@@ -86,8 +86,8 @@ const lookFor: Record<StageId, string[]> = {
   ],
   events: [
     "Apex schedule revision R-14 moves the shutdown from September to October",
-    "Six-point qualification checklist and evidence reliability",
-    "Open orders already carry part of the reduction, so only the residual is applied",
+    "Six-point qualification checklist, evidence reliability and selected impact",
+    "Only the selected event's residual impact is submitted for forecast review",
   ],
   scenarios: [
     "Simulation only — does not affect the official forecast",
