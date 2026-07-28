@@ -345,7 +345,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const [mapping, setMappingState] = usePersistentState<Record<string, string>>("mapping", {});
   const [validationRun, setValidationRun] = usePersistentState("validationRun", false);
   const [transformations, setTransformations] =
-    usePersistentState<TransformationEntry[]>("transformations", seedTransformations);
+    usePersistentState<TransformationEntry[]>("transformations", []);
 
   const setMapping = useCallback((fieldId: string, column: string) => {
     setMappingState((prev) => ({ ...prev, [fieldId]: column }));
@@ -363,11 +363,11 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   );
 
 
-  const [intelEvents, setIntelEvents] = usePersistentState<IntelEvent[]>("intelEvents", seedIntelEvents);
-  const [scenarioSpecs, setScenarioSpecs] = usePersistentState<ScenarioSpec[]>("scenarioSpecs", seedScenarioSpecs);
-  const [compareIds, setCompareIds] = usePersistentState<string[]>("compareIds", ["ss-1", "ss-2"]);
+  const [intelEvents, setIntelEvents] = usePersistentState<IntelEvent[]>("intelEvents", []);
+  const [scenarioSpecs, setScenarioSpecs] = usePersistentState<ScenarioSpec[]>("scenarioSpecs", []);
+  const [compareIds, setCompareIds] = usePersistentState<string[]>("compareIds", []);
   const [adjustmentRequests, setAdjustmentRequests] =
-    usePersistentState<AdjustmentRequest[]>("adjustmentRequests", seedAdjustmentRequests);
+    usePersistentState<AdjustmentRequest[]>("adjustmentRequests", []);
 
   const stamp = () => "Today (prototype session)";
 
@@ -440,10 +440,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const [approvals, setApprovals] = usePersistentState<ApprovalItem[]>("approvals", seedApprovalQueue);
-  const [versions, setVersions] = usePersistentState<ForecastVersionRecord[]>("versions", seedVersions);
-  const [activeVersionId, setActiveVersionId] = usePersistentState("activeVersionId", "v-2026-07");
-  const [auditLog, setAuditLog] = usePersistentState<AuditEntry[]>("auditLog", seedAuditLog);
+  const [approvals, setApprovals] = usePersistentState<ApprovalItem[]>("approvals", []);
+  const [versions, setVersions] = usePersistentState<ForecastVersionRecord[]>("versions", []);
+  const [activeVersionId, setActiveVersionId] = usePersistentState("activeVersionId", "");
+  const [auditLog, setAuditLog] = usePersistentState<AuditEntry[]>("auditLog", []);
 
   const logAudit = useCallback((entry: Omit<AuditEntry, "id" | "at" | "date">) => {
     setAuditLog((prev) => [
