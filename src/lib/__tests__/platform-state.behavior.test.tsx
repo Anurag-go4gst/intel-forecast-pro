@@ -661,6 +661,88 @@ describe("authoritative application behaviours", () => {
     expect(await screen.findByText(/Guide · step 11 of 13/i)).toBeInTheDocument();
   });
 
+  it("blocks the guide event step until the Apex event impact is explicitly applied", async () => {
+    const harness = renderDemoTourHarness();
+    await screen.findByTestId("tour-mode");
+
+    await act(async () => {
+      harness.api.startDemo();
+      harness.api.completeStage("project");
+      harness.api.completeStage("upload");
+      harness.api.completeStage("resolve");
+      harness.api.completeStage("dataset");
+      harness.api.completeStage("validation");
+      harness.api.completeStage("tournament");
+      harness.api.completeStage("champion");
+      harness.api.completeStage("baseline");
+    });
+    await waitFor(() => expect(harness.api.mode).toBe("demo"));
+
+    fireEvent.click(screen.getByRole("button", { name: /^Guide$/i }));
+    expect(await screen.findByText(/Guide · step 9 of 13/i)).toBeInTheDocument();
+    expect(screen.getByText(/Select the Apex shutdown event/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Next/i })).toBeDisabled();
+    expect(harness.api.adjustmentRequests.some((request) => request.origin === "Event" && request.originId === "ie-1")).toBe(true);
+    expect(harness.api.adjustmentRequests.some((request) => request.origin === "Event" && request.originId === "ie-0")).toBe(false);
+
+    await act(async () => {
+      harness.api.promoteToReview({
+        title: "Apex shutdown moved — selected residual impact",
+        origin: "Event",
+        originId: "ie-0",
+        scope: "CLT-1048 · North Plant — Coimbatore",
+        requestedImpactPct: -26.2,
+        monthlyImpactPct: [0, 0, 56.6, -26.2, 9.7, 0],
+        owner: "Customer account team · Apex",
+        note: "Planner selected this event for forecast review.",
+      });
+    });
+
+    await waitFor(() => expect(screen.queryByText(/Select the Apex shutdown event/i)).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /Next/i }));
+
+    await waitFor(() => expect(harness.api.stageDone.events).toBe(true));
+    expect(await screen.findByText(/Guide · step 10 of 13/i)).toBeInTheDocument();
+  });
+
+  it("records event decisions and event-origin adjustment requests separately", async () => {
+    const harness = await renderPlatform();
+    await act(async () => {
+      harness.api.startDemo();
+      harness.api.setIntelEventStatus("ie-0", "Watchlist");
+      harness.api.logAudit({
+        user: "Customer account team · Apex",
+        action: "Event modified",
+        sku: "CLT-1048 · Clutch Friction Assembly",
+        customer: "Apex Motors (OEM)",
+        version: "V2026.07 — Working draft",
+        detail: "Event decision changed to Watchlist: Apex Motors shutdown moved from September to October.",
+      });
+      harness.api.promoteToReview({
+        title: "Apex shutdown moved — selected residual impact",
+        origin: "Event",
+        originId: "ie-0",
+        scope: "CLT-1048 · North Plant — Coimbatore",
+        requestedImpactPct: -26.2,
+        monthlyImpactPct: [0, 0, 56.6, -26.2, 9.7, 0],
+        owner: "Customer account team · Apex",
+        note: "Planner selected this event for forecast review.",
+      });
+    });
+
+    expect(harness.api.intelEvents.find((event) => event.id === "ie-0")?.status).toBe("Watchlist");
+    expect(harness.api.adjustmentRequests[0]).toMatchObject({
+      origin: "Event",
+      originId: "ie-0",
+      requestedImpactPct: -26.2,
+      status: "Awaiting approval",
+    });
+    expect(harness.api.auditLog[0]).toMatchObject({
+      action: "Event modified",
+      detail: expect.stringContaining("Watchlist"),
+    });
+  });
+
   it("resets guided demo modifications and preserves clean demo state after refresh", async () => {
     let harness = await renderPlatform();
     await act(async () => {

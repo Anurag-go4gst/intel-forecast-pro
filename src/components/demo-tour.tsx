@@ -63,6 +63,7 @@ export function DemoTour() {
     stageDone,
     completeStage,
     blockingOpen,
+    adjustmentRequests,
   } = usePlatform();
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
@@ -71,6 +72,9 @@ export function DemoTour() {
   useEffect(() => setMounted(true), []);
 
   const guideStartIndex = 0;
+  const guideEventApplied = adjustmentRequests.some(
+    (request) => request.origin === "Event" && request.originId === "ie-0",
+  );
   const step = demoSteps[index];
   const currentIndex = useMemo(() => {
     const firstIncomplete = workflowStages.findIndex((stage) => !stageDone[stage.id]);
@@ -81,8 +85,9 @@ export function DemoTour() {
     if (id === "project" || id === "upload") return true;
     if (id === "scenarios") return true;
     if (id === "resolve") return blockingOpen === 0;
+    if (id === "events") return guideEventApplied;
     return stageDone[id];
-  }, [blockingOpen, stageDone]);
+  }, [blockingOpen, guideEventApplied, stageDone]);
 
   const focusStepTarget = useCallback((next: number) => {
     const targetId = demoSteps[next].targetId;
@@ -108,6 +113,9 @@ export function DemoTour() {
     }
     if (step.id === "dataset" && !stageDone.dataset) {
       return "Approve the forecast-ready dataset on this screen before continuing.";
+    }
+    if (step.id === "events" && !guideEventApplied) {
+      return "Select the Apex shutdown event, adjust its impact if needed, then use Apply selected residual impact before continuing.";
     }
     if (!canAdvanceAfterAction(step.id)) {
       return `Use the primary action on this screen: ${step.primaryLabel}.`;
@@ -161,8 +169,9 @@ export function DemoTour() {
     if (gate) return;
     if (step.id === "project" || step.id === "upload") completeStage(step.id);
     if (step.id === "resolve") completeStage("resolve");
+    if (step.id === "events") completeStage("events");
     if (step.id === "scenarios") completeStage("scenarios");
-    goto(index + 1);
+    window.setTimeout(() => goto(index + 1), 60);
   }, [completeStage, gate, goto, index, step.id]);
 
   return (

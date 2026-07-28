@@ -225,7 +225,7 @@ export function StageActions() {
   const stageIndex = workflowStages.findIndex((s) => s.id === stage.id);
   if (stageIndex > current + 1) return null;
 
-  const domainActionStages = new Set(["upload", "resolve", "dataset", "tournament", "champion"]);
+  const domainActionStages = new Set(["upload", "resolve", "dataset", "tournament", "champion", "events"]);
   if (domainActionStages.has(stage.id)) return null;
 
   const index = workflowStages.findIndex((s) => s.id === stage.id);

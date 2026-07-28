@@ -175,18 +175,18 @@ export const workflowStages: WorkflowStage[] = [
   {
     id: "events",
     step: 9,
-    label: "Add and approve future business events",
+    label: "Select and apply applicable events",
     short: "Events",
     route: "/event-intelligence",
     phase: "Apply judgement",
-    purpose: "Qualify events, check for double counting and calculate residual impact.",
+    purpose: "Select applicable events, check for double counting and calculate residual impact.",
     whatYouSee:
       "The event registry, the qualification checklist, the evidence sources already reflecting the impact, and the residual adjustment actually applied.",
     whyItMatters:
       "If open orders already carry part of an event, applying the full impact double counts it. Only the residual reaches the forecast.",
-    decision: "Approve qualified events, watchlist uncertain ones, and submit residual adjustments for review.",
+    decision: "Choose which events apply, set the impact, watchlist uncertain ones, and submit selected residual adjustments for review.",
     nextStep: "Explore uncertain outcomes as scenarios, separate from the plan.",
-    primaryLabel: "Submit approved events and continue to scenarios",
+    primaryLabel: "Apply selected event impact",
   },
   {
     id: "scenarios",
