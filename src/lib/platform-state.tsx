@@ -47,9 +47,21 @@ import type { ModelSelection } from "@/lib/model-selection";
 import {
   dataIssues,
   workflowStages,
+  type DataIssue,
   type IssueResolution,
   type StageId,
 } from "@/lib/workflow";
+import {
+  computeDatasetStats,
+  deriveIssues,
+  emptyStats,
+  qualityScore,
+  type AppMode,
+  type DatasetRecord,
+  type DatasetStats,
+  type ProjectConfig,
+  type StatsMapping,
+} from "@/lib/app-mode";
 import { clearPersistedState, usePersistentState } from "@/lib/persist";
 
 
@@ -59,6 +71,7 @@ export type UploadedFile = {
   rows: number;
   uploadedAt: string;
 };
+
 
 export type ForecastRunState = "idle" | "running" | "complete";
 
