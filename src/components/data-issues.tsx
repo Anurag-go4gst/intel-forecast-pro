@@ -4,7 +4,6 @@ import { Panel, StatusPill } from "@/components/primitives";
 import { sourceColumns } from "@/lib/forecast-domain";
 import { usePlatform } from "@/lib/platform-state";
 import {
-  dataIssues,
   issueResolutions,
   severityOrder,
   severityTone,
@@ -108,10 +107,25 @@ export function IssueResolutionPanel() {
     stageDone,
     completeStage,
     logAudit,
+    activeIssues: dataIssues,
+    dataQualityScore,
   } = usePlatform();
-  const [open, setOpen] = useState<string | null>(dataIssues[0]?.id ?? null);
+  const [open, setOpen] = useState<string | null>(null);
 
   const resolved = dataIssues.filter((i) => issueActions[i.id]).length;
+
+  if (dataIssues.length === 0) {
+    return (
+      <Panel
+        title="Resolve data-quality issues"
+        description="Data-quality issues appear once a dataset has been loaded. Nothing is pre-populated."
+      >
+        <p className="text-xs text-muted-foreground">
+          No dataset loaded — upload a file, or start the guided demo, to run the data-quality gate.
+        </p>
+      </Panel>
+    );
+  }
 
   return (
     <Panel
@@ -124,6 +138,9 @@ export function IssueResolutionPanel() {
           </StatusPill>
           <StatusPill tone="neutral">
             {resolved} / {dataIssues.length} decided
+          </StatusPill>
+          <StatusPill tone={dataQualityScore >= 80 ? "positive" : dataQualityScore >= 50 ? "warning" : "risk"}>
+            Data-quality score {dataQualityScore} / 100
           </StatusPill>
           <button
             type="button"
@@ -150,8 +167,8 @@ export function IssueResolutionPanel() {
     >
       {blockingOpen > 0 && (
         <p className="border-b border-border bg-risk-soft px-4 py-2 text-xs font-medium text-risk sm:px-5">
-          Model execution is locked. {blockingOpen} blocking issue
-          {blockingOpen === 1 ? "" : "s"} must be resolved before the tournament can run.
+          Resolve {blockingOpen} blocking issue{blockingOpen === 1 ? "" : "s"} before approving this
+          dataset.
         </p>
       )}
       <div className="divide-y divide-border">

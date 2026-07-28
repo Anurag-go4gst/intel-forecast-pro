@@ -30,6 +30,7 @@ import {
 } from "@/lib/forecast-domain";
 import { IssueResolutionPanel, SignalRolePanel } from "@/components/data-issues";
 import { usePlatform } from "@/lib/platform-state";
+import { parseDelimited } from "@/lib/app-mode";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/data-readiness")({
@@ -67,6 +68,9 @@ const tierOrder: FieldTier[] = ["mandatory", "recommended", "optional"];
 
 function DataReadiness() {
   const {
+    mode,
+    dataset,
+    ingestDataset,
     upload,
     setUpload,
     mapping,
@@ -83,19 +87,37 @@ function DataReadiness() {
   const [confidenceFilter, setConfidenceFilter] = useState<string>("all");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const acceptFile = (file: File | null) => {
+  const acceptFile = async (file: File | null) => {
     if (!file) return;
-    const ok = /\.(csv|xlsx|xls)$/i.test(file.name);
+    const ok = /\.(csv|txt|tsv)$/i.test(file.name);
     if (!ok) {
-      setUploadError(`${file.name} is not a CSV or XLSX file.`);
+      setUploadError(
+        `${file.name} cannot be parsed in the browser. Upload a delimited .csv export so every statistic can be calculated from the real rows.`,
+      );
       return;
     }
     setUploadError(null);
-    setUpload({
-      name: file.name,
+    const text = await file.text();
+    const { columns, records } = parseDelimited(text);
+    if (records.length === 0) {
+      setUploadError(`${file.name} contains no data rows.`);
+      return;
+    }
+    const find = (...needles: string[]) =>
+      columns.find((c) => needles.some((n) => c.toLowerCase().replace(/[^a-z]/g, "").includes(n)));
+    ingestDataset({
+      fileName: file.name,
       sizeLabel: `${Math.max(1, Math.round(file.size / 1024))} KB`,
-      rows: 1000 + (file.name.length * 977) % 48000,
-      uploadedAt: new Date().toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }),
+      columns,
+      records,
+      mapping: {
+        date: find("date", "period", "month"),
+        sku: find("sku", "item", "material", "part"),
+        customer: find("customer", "cust", "account"),
+        plant: find("plant", "location", "site", "depot"),
+        quantity: find("qty", "quantity", "demand", "volume"),
+        stockout: find("stockout", "stockedout"),
+      },
     });
     autoMap();
   };
@@ -153,8 +175,14 @@ function DataReadiness() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiTile
           label="Series analysed"
-          value={formatNumber(seriesQuality.length)}
-          delta="SKU × customer × location"
+          value={
+            mode === "demo"
+              ? formatNumber(seriesQuality.length)
+              : dataset
+                ? formatNumber(dataset.stats.series)
+                : "—"
+          }
+          delta={mode === "demo" ? "Fictional demo data" : dataset ? `${formatNumber(dataset.stats.rows)} rows · ${dataset.stats.periods} periods (${dataset.stats.frequency})` : "Calculated after upload"}
           deltaTone="neutral"
           icon={Table2}
         />
@@ -198,7 +226,7 @@ function DataReadiness() {
             onDrop={(e) => {
               e.preventDefault();
               setDragActive(false);
-              acceptFile(e.dataTransfer.files?.[0] ?? null);
+              void acceptFile(e.dataTransfer.files?.[0] ?? null);
             }}
             className={cn(
               "flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed px-4 py-8 text-center transition-colors",
@@ -233,7 +261,7 @@ function DataReadiness() {
               type="file"
               accept=".csv,.xlsx,.xls"
               className="hidden"
-              onChange={(e) => acceptFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => void acceptFile(e.target.files?.[0] ?? null)}
             />
           </div>
 
