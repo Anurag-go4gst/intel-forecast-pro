@@ -81,7 +81,39 @@ export type ChatMessage = {
   content: string;
 };
 
+export type DatasetState = {
+  fileName: string;
+  sizeLabel: string;
+  uploadedAt: string;
+  columns: string[];
+  preview: DatasetRecord[];
+  stats: DatasetStats;
+};
+
 type PlatformContextValue = {
+  // ------------------------------------------------------- operating modes
+  mode: AppMode;
+  project: ProjectConfig | null;
+  createProject: (config: Omit<ProjectConfig, "createdAt" | "source">) => void;
+  dataset: DatasetState | null;
+  ingestDataset: (input: {
+    fileName: string;
+    sizeLabel: string;
+    columns: string[];
+    records: DatasetRecord[];
+    mapping: StatsMapping;
+  }) => void;
+  recomputeStats: (mapping: StatsMapping) => void;
+  /** Loads the fictional Apex Motors seeded dataset. */
+  startDemo: () => void;
+  /** Restores the Apex Motors demo to its original seeded starting point. */
+  resetDemo: () => void;
+  /** Wipes every artefact and returns to an empty Create Project screen. */
+  exitToNewProject: () => void;
+  activeIssues: DataIssue[];
+  dataQualityScore: number;
+
+
   filters: Filters;
   setFilter: (key: keyof Filters, value: string) => void;
   resetFilters: () => void;
