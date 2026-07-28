@@ -116,7 +116,7 @@ export const navItems: NavItem[] = [
     label: "Executive Overview",
     icon: LayoutDashboard,
     group: "Support",
-    description: "Portfolio summary and the guided demo",
+    description: "Portfolio summary and the guide",
   },
   {
     to: "/forecast-workspace",
