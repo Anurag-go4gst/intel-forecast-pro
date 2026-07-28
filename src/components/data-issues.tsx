@@ -121,7 +121,7 @@ export function IssueResolutionPanel() {
         description="Data-quality issues appear once a dataset has been loaded. Nothing is pre-populated."
       >
         <p className="text-xs text-muted-foreground">
-          No dataset loaded — upload a file, or start the guided demo, to run the data-quality gate.
+          No dataset loaded — upload a file, or start the guide, to run the data-quality gate.
         </p>
       </Panel>
     );
