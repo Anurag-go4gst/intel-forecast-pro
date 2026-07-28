@@ -18,6 +18,7 @@ export function usePersistentState<T>(
   initial: T,
 ): [T, Dispatch<SetStateAction<T>>] {
   if (!persistKeys.includes(key)) persistKeys.push(key);
+  const initialJson = JSON.stringify(initial);
   const [value, setValue] = useState<T>(initial);
   const hydrated = useRef(false);
 
@@ -35,11 +36,13 @@ export function usePersistentState<T>(
   useEffect(() => {
     if (!hydrated.current) return;
     try {
-      window.localStorage.setItem(PREFIX + key, JSON.stringify(value));
+      const next = JSON.stringify(value);
+      if (next === initialJson) window.localStorage.removeItem(PREFIX + key);
+      else window.localStorage.setItem(PREFIX + key, next);
     } catch {
       /* quota or private mode — persistence is best effort */
     }
-  }, [key, value]);
+  }, [initialJson, key, value]);
 
   return [value, setValue];
 }
