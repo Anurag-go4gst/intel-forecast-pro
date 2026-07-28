@@ -103,8 +103,6 @@ export function WorkflowRail() {
  * locked when it sits more than one step ahead of the stage the project is
  * actually on, which is exactly the rule the workflow rail renders.
  */
-/** Routes that carry meaning before any dataset exists. */
-const alwaysOpenRoutes = ["/project", "/", "/audit-log"];
 /** Routes whose content is produced only by the seeded demo engine. */
 const demoOnlyRoutes = [
   "/model-lab",
@@ -176,8 +174,6 @@ export function StageGuard({ children }: { children: React.ReactNode }) {
       />
     );
   }
-  void alwaysOpenRoutes;
-
   // A route is only locked when every stage mapped to it is locked.
   const reachable =
     matches.length === 0 ||

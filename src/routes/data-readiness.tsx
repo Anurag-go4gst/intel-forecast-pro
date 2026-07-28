@@ -214,7 +214,7 @@ function DataReadiness() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Panel
           title="Upload demand history"
-          description="CSV or XLSX. Files are parsed in the browser for this prototype and never leave the session."
+          description="Delimited text files are parsed in the browser for this prototype and never leave the session."
           className="xl:col-span-2"
         >
           <div
@@ -238,7 +238,7 @@ function DataReadiness() {
               Drag and drop your demand history file here
             </p>
             <p className="text-xs text-muted-foreground">
-              Accepted formats: .csv, .xlsx, .xls · one row per period, SKU, customer and location
+              Accepted formats: .csv, .tsv, .txt · one row per period, SKU, customer and location
             </p>
             <div className="mt-2 flex flex-wrap justify-center gap-2">
               <button
@@ -259,7 +259,7 @@ function DataReadiness() {
             <input
               ref={inputRef}
               type="file"
-              accept=".csv,.xlsx,.xls"
+              accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"
               className="hidden"
               onChange={(e) => void acceptFile(e.target.files?.[0] ?? null)}
             />
