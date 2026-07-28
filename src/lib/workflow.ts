@@ -191,18 +191,18 @@ export const workflowStages: WorkflowStage[] = [
   {
     id: "scenarios",
     step: 10,
-    label: "Run separate what-if scenarios",
+    label: "Review optional what-if scenarios",
     short: "What-if",
     route: "/what-if",
     phase: "Apply judgement",
-    purpose: "Simulate uncertain outcomes without touching the official forecast.",
+    purpose: "Optionally simulate uncertain outcomes without touching the official forecast.",
     whatYouSee:
       "Baseline, approved forecast and scenarios plotted together, with stockout, excess and service-level implications for each.",
     whyItMatters:
       "Scenarios are simulation only. They never modify the operational forecast — they can only be promoted into the approval queue as a request.",
-    decision: "Decide whether any scenario should be promoted for review.",
+    decision: "Decide whether a what-if scenario is needed. If not, continue directly to forecast review.",
     nextStep: "Review the complete forecast build-up before approval.",
-    primaryLabel: "Continue to complete forecast review",
+    primaryLabel: "Skip what-if and continue to forecast review",
   },
   {
     id: "review",
