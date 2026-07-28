@@ -797,10 +797,6 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  const setIssueAction = useCallback((issueId: string, action: IssueResolution) => {
-    setIssueActions((prev) => ({ ...prev, [issueId]: action }));
-  }, []);
-
   const confirmRoles = useCallback(() => setRolesConfirmed(true), []);
 
   /** Issues come from the seeded demo, from the uploaded file, or nowhere. */
@@ -809,6 +805,25 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     if (mode === "user" && dataset) return deriveIssues(dataset.stats);
     return [];
   }, [mode, dataset]);
+
+  const setIssueAction = useCallback((issueId: string, action: IssueResolution) => {
+    setIssueActions((prev) => ({ ...prev, [issueId]: action }));
+    const issue = activeIssues.find((item) => item.id === issueId);
+    setAuditLog((log) => [
+      {
+        id: nextId("al"),
+        at: "Today (prototype session)",
+        date: new Date().toISOString().slice(0, 10),
+        user: "You · Demand planning",
+        action: "Data upload" as AuditAction,
+        sku: "All",
+        customer: "All",
+        version: mode === "demo" ? "V2026.07" : "Draft",
+        detail: `Resolved data-quality issue${issue ? ` "${issue.title}"` : ""} with action: ${action}.`,
+      },
+      ...log,
+    ]);
+  }, [activeIssues, mode]);
 
   const blockingOpen = activeIssues.filter(
     (i) => i.severity === "Blocking" && !issueActions[i.id],
