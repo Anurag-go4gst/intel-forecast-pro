@@ -54,7 +54,6 @@ import {
 import {
   computeDatasetStats,
   deriveIssues,
-  emptyStats,
   qualityScore,
   type AppMode,
   type DatasetRecord,
@@ -815,8 +814,6 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     [activeIssues, issueActions],
   );
 
-  const datasetStats = dataset?.stats ?? emptyStats;
-  void datasetStats;
 
 
   const value = useMemo<PlatformContextValue>(
