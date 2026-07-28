@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertOctagon, CheckCircle2, Info, ShieldAlert, Signal } from "lucide-react";
 import { Panel, StatusPill } from "@/components/primitives";
 import { sourceColumns } from "@/lib/forecast-domain";
@@ -107,12 +107,19 @@ export function IssueResolutionPanel() {
     stageDone,
     completeStage,
     logAudit,
+    mode,
     activeIssues: dataIssues,
     dataQualityScore,
   } = usePlatform();
   const [open, setOpen] = useState<string | null>(null);
 
   const resolved = dataIssues.filter((i) => issueActions[i.id]).length;
+  const blockingIssues = dataIssues.filter((i) => i.severity === "Blocking");
+
+  useEffect(() => {
+    if (mode !== "demo" || stageDone.resolve || blockingIssues.length === 0 || blockingOpen > 0) return;
+    completeStage("resolve");
+  }, [blockingIssues.length, blockingOpen, completeStage, mode, stageDone.resolve]);
 
   if (dataIssues.length === 0) {
     return (
@@ -142,25 +149,35 @@ export function IssueResolutionPanel() {
           <StatusPill tone={dataQualityScore >= 80 ? "positive" : dataQualityScore >= 50 ? "warning" : "risk"}>
             Data-quality score {dataQualityScore} / 100
           </StatusPill>
-          <button
-            type="button"
-            disabled={blockingOpen > 0}
-            onClick={() => {
-              completeStage("resolve");
-              completeStage("dataset");
-              logAudit({
-                user: "You · Demand planning lead",
-                action: "Data transformation",
-                sku: "All",
-                customer: "All",
-                version: "V2026.07",
-                detail: `Forecast-ready dataset approved with ${resolved} recorded data-quality decisions.`,
-              });
-            }}
-            className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {stageDone.dataset ? "Dataset approved" : "Approve Forecast-Ready Dataset"}
-          </button>
+          {!stageDone.resolve ? (
+            <button
+              type="button"
+              disabled={blockingOpen > 0}
+              onClick={() => completeStage("resolve")}
+              className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Continue to dataset approval
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={blockingOpen > 0 || stageDone.dataset}
+              onClick={() => {
+                completeStage("dataset");
+                logAudit({
+                  user: "You · Demand planning lead",
+                  action: "Data transformation",
+                  sku: "All",
+                  customer: "All",
+                  version: "V2026.07",
+                  detail: `Forecast-ready dataset approved with ${resolved} recorded data-quality decisions.`,
+                });
+              }}
+              className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {stageDone.dataset ? "Dataset approved" : "Approve Forecast-Ready Dataset"}
+            </button>
+          )}
         </div>
       }
       bodyClassName="p-0"

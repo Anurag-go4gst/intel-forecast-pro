@@ -70,6 +70,10 @@ export function DemoTour() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
+  const firstActionableIndex = useMemo(
+    () => demoSteps.findIndex((s) => s.id === "resolve"),
+    [],
+  );
   const step = demoSteps[index];
   const currentIndex = useMemo(() => {
     const firstIncomplete = workflowStages.findIndex((stage) => !stageDone[stage.id]);
@@ -78,6 +82,7 @@ export function DemoTour() {
 
   const canAdvanceAfterAction = useCallback((id: StageId) => {
     if (id === "project" || id === "upload") return true;
+    if (id === "scenarios") return true;
     if (id === "resolve") return blockingOpen === 0;
     return stageDone[id];
   }, [blockingOpen, stageDone]);
@@ -133,6 +138,11 @@ export function DemoTour() {
     [focusStepTarget, navigate],
   );
 
+  useEffect(() => {
+    if (mode !== "demo" || !open || currentIndex <= index || !stageDone[step.id]) return;
+    goto(currentIndex);
+  }, [currentIndex, goto, index, mode, open, stageDone, step.id]);
+
   const beginDemo = useCallback(() => {
     startDemo();
     setFilter("customer", demoCaseMeta.customerId);
@@ -140,15 +150,16 @@ export function DemoTour() {
     setFilter("plant", demoCaseMeta.plantId);
     setFilter("sku", DEMO_SKU);
     setOpen(true);
-    setIndex(demoSteps.findIndex((s) => s.id === "resolve"));
+    setIndex(firstActionableIndex);
     setConfirm(null);
     void navigate({ to: "/data-readiness" });
-    focusStepTarget(demoSteps.findIndex((s) => s.id === "resolve"));
-  }, [focusStepTarget, navigate, setFilter, startDemo]);
+    focusStepTarget(firstActionableIndex);
+  }, [firstActionableIndex, focusStepTarget, navigate, setFilter, startDemo]);
 
   const advance = useCallback(() => {
     if (gate) return;
     if (step.id === "resolve") completeStage("resolve");
+    if (step.id === "scenarios") completeStage("scenarios");
     goto(index + 1);
   }, [completeStage, gate, goto, index, step.id]);
 
@@ -222,11 +233,16 @@ export function DemoTour() {
           body="This restores the complete Apex Motors demonstration to its original seeded starting point. You stay in guide mode."
           confirmLabel="Reset guide"
           onConfirm={() => {
+            setOpen(false);
             resetDemo();
-            setIndex(demoSteps.findIndex((s) => s.id === "resolve"));
+            setIndex(firstActionableIndex);
             setConfirm(null);
             void navigate({ to: "/data-readiness" });
-            focusStepTarget(demoSteps.findIndex((s) => s.id === "resolve"));
+            window.setTimeout(() => {
+              setIndex(firstActionableIndex);
+              setOpen(true);
+              focusStepTarget(firstActionableIndex);
+            }, 120);
           }}
           onCancel={() => setConfirm(null)}
         />
@@ -289,6 +305,14 @@ export function DemoTour() {
                   <span className="font-semibold">Decision required: </span>
                   <span className="text-muted-foreground">{step.decision}</span>
                 </p>
+                {step.id === "scenarios" && (
+                  <p className="text-[11px] leading-relaxed">
+                    <span className="font-semibold">Optional: </span>
+                    <span className="text-muted-foreground">
+                      Continue without a what-if scenario when no alternate outcome needs review.
+                    </span>
+                  </p>
+                )}
                 <p className="text-[11px] leading-relaxed">
                   <span className="font-semibold">Next step: </span>
                   <span className="text-muted-foreground">{step.next}</span>
@@ -351,7 +375,7 @@ export function DemoTour() {
                     title={gate ?? undefined}
                     className="flex items-center gap-1 rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Next
+                    {step.id === "scenarios" ? "Skip what-if" : "Next"}
                     <ChevronRight className="h-3.5 w-3.5" aria-hidden />
                   </button>
                 )}

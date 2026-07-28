@@ -9,6 +9,7 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router";
+import { IssueResolutionPanel } from "@/components/data-issues";
 import { DemoTour } from "@/components/demo-tour";
 import { StageGuard } from "@/components/workflow-rail";
 import {
@@ -278,9 +279,53 @@ function renderDemoTourHarness() {
   const dataRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/data-readiness",
-    component: () => <div>Data readiness</div>,
+    component: () => (
+      <div>
+        Data readiness
+        <IssueResolutionPanel />
+      </div>
+    ),
   });
-  const routeTree = rootRoute.addChildren([projectRoute, dataRoute]);
+  const validationRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/validation-setup",
+    component: () => <div>Validation setup</div>,
+  });
+  const modelLabRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/model-lab",
+    component: () => <div>Model lab</div>,
+  });
+  const baselineRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/baseline",
+    component: () => <div>Baseline</div>,
+  });
+  const eventsRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/event-intelligence",
+    component: () => <div>Event intelligence</div>,
+  });
+  const whatIfRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/what-if",
+    component: () => <div>What-if</div>,
+  });
+  const reviewRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/forecast-review",
+    component: () => <div>Forecast review</div>,
+  });
+  const routeTree = rootRoute.addChildren([
+    projectRoute,
+    dataRoute,
+    validationRoute,
+    modelLabRoute,
+    baselineRoute,
+    eventsRoute,
+    whatIfRoute,
+    reviewRoute,
+  ]);
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({ initialEntries: ["/project"] }),
@@ -507,7 +552,83 @@ describe("authoritative application behaviours", () => {
     await act(async () => {
       harness.api.completeStage("dataset");
     });
-    await waitFor(() => expect(screen.getByRole("button", { name: /Next/i })).not.toBeDisabled());
+    expect(await screen.findByText(/Guide · step 5 of 13/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Next/i })).toBeDisabled();
+  });
+
+  it("moves the open guide from issue resolution to dataset approval when blockers are cleared", async () => {
+    const harness = renderDemoTourHarness();
+    await screen.findByTestId("tour-mode");
+
+    await act(async () => {
+      harness.api.startDemo();
+    });
+    await waitFor(() => expect(harness.api.mode).toBe("demo"));
+    fireEvent.click(screen.getByRole("button", { name: /^Guide$/i }));
+
+    await act(async () => {
+      for (const issue of harness.api.activeIssues.filter((item) => item.severity === "Blocking")) {
+        harness.api.setIssueAction(issue.id, "Accept suggested correction");
+      }
+    });
+
+    await waitFor(() => expect(harness.api.stageDone.resolve).toBe(true));
+    expect(await screen.findByText(/Guide · step 4 of 13/i)).toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole("button", { name: /Approve Forecast-Ready Dataset/i })
+        .some((button) => button.textContent === "Approve Forecast-Ready Dataset"),
+    ).toBe(true);
+  });
+
+  it("resets the open guide back to the clean seeded starting step", async () => {
+    const harness = renderDemoTourHarness();
+    await screen.findByTestId("tour-mode");
+
+    await act(async () => {
+      harness.api.startDemo();
+      harness.api.completeStage("resolve");
+      harness.api.completeStage("dataset");
+      harness.api.completeStage("validation");
+    });
+    await waitFor(() => expect(harness.api.mode).toBe("demo"));
+
+    fireEvent.click(screen.getByRole("button", { name: /^Guide$/i }));
+    expect(await screen.findByText(/Guide · step 6 of 13/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Reset guide/i }));
+    const resetButtons = screen.getAllByRole("button", { name: /Reset guide/i });
+    fireEvent.click(resetButtons[resetButtons.length - 1]);
+
+    await waitFor(() => expect(harness.api.stageDone).toEqual(emptyStageDone({ project: true, upload: true })));
+    expect(await screen.findByText(/Guide · step 3 of 13/i)).toBeInTheDocument();
+    expect(harness.api.activeVersionId).toBe("v-2026-07");
+  });
+
+  it("allows the guide to skip optional what-if scenarios", async () => {
+    const harness = renderDemoTourHarness();
+    await screen.findByTestId("tour-mode");
+
+    await act(async () => {
+      harness.api.startDemo();
+      harness.api.completeStage("resolve");
+      harness.api.completeStage("dataset");
+      harness.api.completeStage("validation");
+      harness.api.completeStage("tournament");
+      harness.api.completeStage("champion");
+      harness.api.completeStage("baseline");
+      harness.api.completeStage("events");
+    });
+    await waitFor(() => expect(harness.api.mode).toBe("demo"));
+
+    fireEvent.click(screen.getByRole("button", { name: /^Guide$/i }));
+    expect(await screen.findByText(/Guide · step 10 of 13/i)).toBeInTheDocument();
+    expect(screen.getByText(/Optional:/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Skip what-if/i }));
+
+    await waitFor(() => expect(harness.api.stageDone.scenarios).toBe(true));
+    expect(await screen.findByText(/Guide · step 11 of 13/i)).toBeInTheDocument();
   });
 
   it("resets guided demo modifications and preserves clean demo state after refresh", async () => {
