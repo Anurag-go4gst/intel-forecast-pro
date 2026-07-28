@@ -168,7 +168,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </p>
                 <p className="truncate text-[11px] text-muted-foreground">
                   {mode === "demo"
-                    ? "Guided demo · Apex Motors fictional dataset"
+                    ? "Guide · Apex Motors"
                     : mode === "user"
                       ? `${project?.name ?? "Untitled project"} · your uploaded data`
                       : "No active project"}
@@ -191,14 +191,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             </div>
           </div>
-          {mode === "demo" && (
-            <p className="border-t border-warning/30 bg-warning-soft px-4 py-1.5 text-[11px] font-semibold text-warning sm:px-6">
-              Guided Demo — Fictional seeded data
-            </p>
-          )}
           {mode === "empty" && (
             <p className="border-t border-border bg-surface-muted px-4 py-1.5 text-[11px] font-medium text-muted-foreground sm:px-6">
-              No active project — create a project or start the guided demo.
+              No active project — create a project or start the guide.
             </p>
           )}
           {mode === "user" && (
