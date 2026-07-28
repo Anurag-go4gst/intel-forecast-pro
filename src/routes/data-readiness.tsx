@@ -211,6 +211,7 @@ function DataReadiness() {
         />
       </div>
 
+      <div id="guide-upload" tabIndex={-1} className="scroll-mt-28 outline-none">
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Panel
           title="Upload demand history"
@@ -340,6 +341,7 @@ function DataReadiness() {
             })}
           </div>
         </Panel>
+      </div>
       </div>
 
       <Panel
@@ -474,7 +476,9 @@ function DataReadiness() {
 
       <SignalRolePanel />
 
+      <div id="guide-issues" tabIndex={-1} className="scroll-mt-28 outline-none">
       <IssueResolutionPanel />
+      </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Panel

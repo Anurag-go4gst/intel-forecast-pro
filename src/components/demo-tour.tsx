@@ -1,10 +1,11 @@
 import { useNavigate } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, LogOut, PlayCircle, RotateCcw, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { demoSteps } from "@/lib/demo-tour";
 import { usePlatform } from "@/lib/platform-state";
 import { DEMO_SKU, demoCaseMeta } from "@/lib/demo-data";
+import { workflowStages, type StageId } from "@/lib/workflow";
 import { cn } from "@/lib/utils";
 
 type Confirm = "start" | "reset" | "exit" | null;
@@ -60,6 +61,7 @@ export function DemoTour() {
     resetDemo,
     exitToNewProject,
     stageDone,
+    completeStage,
     blockingOpen,
   } = usePlatform();
   const [open, setOpen] = useState(false);
@@ -69,28 +71,66 @@ export function DemoTour() {
   useEffect(() => setMounted(true), []);
 
   const step = demoSteps[index];
+  const currentIndex = useMemo(() => {
+    const firstIncomplete = workflowStages.findIndex((stage) => !stageDone[stage.id]);
+    return firstIncomplete === -1 ? demoSteps.length - 1 : firstIncomplete;
+  }, [stageDone]);
+
+  const canAdvanceAfterAction = useCallback((id: StageId) => {
+    if (id === "project" || id === "upload") return true;
+    if (id === "resolve") return blockingOpen === 0;
+    return stageDone[id];
+  }, [blockingOpen, stageDone]);
+
+  const focusStepTarget = useCallback((next: number) => {
+    const targetId = demoSteps[next].targetId;
+    if (!targetId) return;
+    window.setTimeout(() => {
+      const node = document.getElementById(targetId);
+      if (!node) return;
+      node.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (node instanceof HTMLElement) node.focus({ preventScroll: true });
+    }, 120);
+  }, []);
 
   /**
-   * Each step waits for the planner's own action. The guided demo never
+   * Each step waits for the planner's own action. The guide never
    * completes a decision on the user's behalf.
    */
   const gate = (() => {
     if (step.id === "resolve" && blockingOpen > 0) {
-      return `Resolve ${blockingOpen} blocking issue${blockingOpen === 1 ? "" : "s"} on this screen before continuing.`;
+      return `Resolve ${blockingOpen} blocking issue${blockingOpen === 1 ? "" : "s"} in the data-quality list on this screen. Expand each Blocking issue and choose a resolution.`;
+    }
+    if (step.id === "dataset" && blockingOpen > 0) {
+      return `Go back to Resolve data-quality issues and clear ${blockingOpen} blocking issue${blockingOpen === 1 ? "" : "s"} before dataset approval.`;
     }
     if (step.id === "dataset" && !stageDone.dataset) {
       return "Approve the forecast-ready dataset on this screen before continuing.";
     }
+    if (!canAdvanceAfterAction(step.id)) {
+      return `Use the primary action on this screen: ${step.primaryLabel}.`;
+    }
     return null;
   })();
+
+  const openAtCurrentStep = useCallback(() => {
+    setIndex(currentIndex);
+    setOpen(true);
+    void navigate({
+      to: demoSteps[currentIndex].route,
+      search: (demoSteps[currentIndex].search ?? {}) as never,
+    });
+    focusStepTarget(currentIndex);
+  }, [currentIndex, focusStepTarget, navigate]);
 
   const goto = useCallback(
     (next: number) => {
       const clamped = Math.max(0, Math.min(demoSteps.length - 1, next));
       setIndex(clamped);
       void navigate({ to: demoSteps[clamped].route, search: (demoSteps[clamped].search ?? {}) as never });
+      focusStepTarget(clamped);
     },
-    [navigate],
+    [focusStepTarget, navigate],
   );
 
   const beginDemo = useCallback(() => {
@@ -100,10 +140,17 @@ export function DemoTour() {
     setFilter("plant", demoCaseMeta.plantId);
     setFilter("sku", DEMO_SKU);
     setOpen(true);
-    setIndex(0);
+    setIndex(demoSteps.findIndex((s) => s.id === "resolve"));
     setConfirm(null);
-    void navigate({ to: demoSteps[0].route });
-  }, [navigate, setFilter, startDemo]);
+    void navigate({ to: "/data-readiness" });
+    focusStepTarget(demoSteps.findIndex((s) => s.id === "resolve"));
+  }, [focusStepTarget, navigate, setFilter, startDemo]);
+
+  const advance = useCallback(() => {
+    if (gate) return;
+    if (step.id === "resolve") completeStage("resolve");
+    goto(index + 1);
+  }, [completeStage, gate, goto, index, step.id]);
 
   return (
     <>
@@ -114,7 +161,7 @@ export function DemoTour() {
           className="flex shrink-0 items-center gap-1.5 rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
           <PlayCircle className="h-3.5 w-3.5" aria-hidden />
-          <span className="hidden sm:inline">Start guided demo</span>
+          <span className="hidden sm:inline">Start guide</span>
         </button>
       )}
 
@@ -122,20 +169,27 @@ export function DemoTour() {
         <>
           <button
             type="button"
-            onClick={() => setOpen(true)}
+            onClick={openAtCurrentStep}
             className="flex shrink-0 items-center gap-1.5 rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             <PlayCircle className="h-3.5 w-3.5" aria-hidden />
-            <span className="hidden sm:inline">Guided demo panel</span>
+            <span className="hidden sm:inline">Guide</span>
+          </button>
+          <button
+            type="button"
+            onClick={openAtCurrentStep}
+            className="hidden shrink-0 items-center gap-1.5 rounded-md border border-input px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-accent xl:flex"
+          >
+            Resume current step
           </button>
           <button
             type="button"
             onClick={() => setConfirm("reset")}
-            title="Reset Guided Demo — restore the Apex Motors demonstration to its original seeded starting point"
+            title="Reset guide — restore the Apex Motors demonstration to its original seeded starting point"
             className="flex shrink-0 items-center gap-1.5 rounded-md border border-input px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-accent"
           >
             <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-            <span className="hidden lg:inline">Reset guided demo</span>
+            <span className="hidden lg:inline">Reset guide</span>
           </button>
         </>
       )}
@@ -154,8 +208,8 @@ export function DemoTour() {
 
       {confirm === "start" && (
         <ConfirmDialog
-          title="Start the Apex Motors guided demo?"
-          body="Start the Apex Motors guided demo? This will load a fictional dataset containing 500 demand series and 54 months of history. Any project or uploaded data currently in this workspace will be cleared."
+          title="Start the Apex Motors guide?"
+          body="Start the Apex Motors guide? This will load a fictional dataset containing 500 demand series and 54 months of history. Any project or uploaded data currently in this workspace will be cleared."
           confirmLabel="Load fictional demo dataset"
           onConfirm={beginDemo}
           onCancel={() => setConfirm(null)}
@@ -164,14 +218,15 @@ export function DemoTour() {
 
       {confirm === "reset" && (
         <ConfirmDialog
-          title="Reset guided demo?"
-          body="This restores the complete Apex Motors demonstration to its original seeded starting point. You stay in guided demo mode."
-          confirmLabel="Reset guided demo"
+          title="Reset guide?"
+          body="This restores the complete Apex Motors demonstration to its original seeded starting point. You stay in guide mode."
+          confirmLabel="Reset guide"
           onConfirm={() => {
             resetDemo();
-            setIndex(0);
+            setIndex(demoSteps.findIndex((s) => s.id === "resolve"));
             setConfirm(null);
-            void navigate({ to: demoSteps[0].route });
+            void navigate({ to: "/data-readiness" });
+            focusStepTarget(demoSteps.findIndex((s) => s.id === "resolve"));
           }}
           onCancel={() => setConfirm(null)}
         />
@@ -181,7 +236,7 @@ export function DemoTour() {
         <ConfirmDialog
           tone="risk"
           title={mode === "demo" ? "Exit demo and start a new project?" : "Delete current project and start again?"}
-          body="This clears the project configuration, uploaded file, column mappings, dataset statistics, data-quality issues and resolutions, dataset approval, validation configuration, tournament results, champion selection, baseline, events, scenarios, overrides, approvals, performance results, audit entries, completed workflow stages, guided-demo state and all stored session keys. It cannot be undone."
+          body="This clears the project configuration, uploaded file, column mappings, dataset statistics, data-quality issues and resolutions, dataset approval, validation configuration, tournament results, champion selection, baseline, events, scenarios, overrides, approvals, performance results, audit entries, completed workflow stages, guide state and all stored session keys. It cannot be undone."
           confirmLabel={mode === "demo" ? "Exit demo" : "Delete project"}
           onConfirm={() => {
             exitToNewProject();
@@ -200,7 +255,7 @@ export function DemoTour() {
             <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
               <div className="min-w-0">
                 <p className="text-[10px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">
-                  Guided demo · step {step.step} of {demoSteps.length}
+                  Guide · step {step.step} of {demoSteps.length}
                 </p>
                 <p className="truncate text-sm font-semibold">{step.title}</p>
                 <p className="truncate text-[11px] text-muted-foreground">
@@ -210,7 +265,7 @@ export function DemoTour() {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                aria-label="Close guided demo"
+                aria-label="Close guide"
                 className="rounded-md p-1 text-muted-foreground hover:bg-muted"
               >
                 <X className="h-4 w-4" aria-hidden />
@@ -259,7 +314,7 @@ export function DemoTour() {
                     key={s.id}
                     type="button"
                     aria-label={`Go to step ${s.step}: ${s.title}`}
-                    disabled={i > index && Boolean(gate)}
+                    disabled={i > currentIndex}
                     onClick={() => goto(i)}
                     className={cn(
                       "h-1.5 w-4 rounded-full transition-colors",
@@ -282,14 +337,16 @@ export function DemoTour() {
                   <button
                     type="button"
                     onClick={() => setOpen(false)}
-                    className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground"
+                    disabled={Boolean(gate)}
+                    title={gate ?? undefined}
+                    className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Finish
                   </button>
                 ) : (
                   <button
                     type="button"
-                    onClick={() => goto(index + 1)}
+                    onClick={advance}
                     disabled={Boolean(gate)}
                     title={gate ?? undefined}
                     className="flex items-center gap-1 rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"

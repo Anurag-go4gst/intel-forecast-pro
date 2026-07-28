@@ -7,6 +7,7 @@ export type DemoStep = {
   title: string;
   route: string;
   search?: Record<string, string>;
+  targetId?: string;
   headline: string;
   /** What the user is seeing. */
   body: string;
@@ -16,6 +17,8 @@ export type DemoStep = {
   decision: string;
   /** What the next step will be. */
   next: string;
+  /** The page action that completes this step. */
+  primaryLabel: string;
   lookFor: string[];
 };
 
@@ -108,17 +111,27 @@ const lookFor: Record<StageId, string[]> = {
   ],
 };
 
+const targetId: Partial<Record<StageId, string>> = {
+  upload: "guide-upload",
+  resolve: "guide-issues",
+  dataset: "guide-issues",
+  tournament: "guide-tournament",
+  champion: "guide-champion",
+};
+
 export const demoSteps: DemoStep[] = workflowStages.map((stage) => ({
   id: stage.id,
   step: stage.step,
   title: stage.label,
   route: stage.route,
   search: stage.search,
+  targetId: targetId[stage.id],
   headline: headlines[stage.id],
   body: stage.whatYouSee,
   why: stage.whyItMatters,
   decision: stage.decision,
   next: stage.nextStep,
+  primaryLabel: stage.primaryLabel,
   lookFor: lookFor[stage.id],
 }));
 

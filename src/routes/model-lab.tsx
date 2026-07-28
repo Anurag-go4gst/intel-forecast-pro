@@ -325,6 +325,7 @@ function ModelLab() {
       status: "Active",
       materialBreaches: [],
     });
+    completeStage("champion");
   }
 
   function commitSelection(input: {
@@ -431,6 +432,7 @@ function ModelLab() {
       {tab === "catalogue" && <Catalogue />}
 
       {tab !== "catalogue" && (
+        <div id="guide-tournament" tabIndex={-1} className="scroll-mt-28 outline-none">
         <Panel
           title="Series selection"
           description="Every result below is computed for this SKU / customer / location / horizon combination."
@@ -526,6 +528,7 @@ function ModelLab() {
             </ol>
           )}
         </Panel>
+        </div>
       )}
 
       {tab === "tournament" && hasRun && (
@@ -564,17 +567,19 @@ function ModelLab() {
             />
           </div>
 
-          <SelectionIdentityPanel
-            champion={result.champion}
-            selection={selection}
-            selectedRow={selectedRow}
-            ensemble={result.ensemble}
-            onAcceptChampion={acceptChampion}
-            onSelectEnsemble={() => result.ensemble && setOverrideId(result.ensemble.id)}
-            onSelectChallenger={() => result.runnerUp && setOverrideId(result.runnerUp.id)}
-            onApprove={() => approveModelSelection(key)}
-            onClear={() => clearModelSelection(key)}
-          />
+          <div id="guide-champion" tabIndex={-1} className="scroll-mt-28 outline-none">
+            <SelectionIdentityPanel
+              champion={result.champion}
+              selection={selection}
+              selectedRow={selectedRow}
+              ensemble={result.ensemble}
+              onAcceptChampion={acceptChampion}
+              onSelectEnsemble={() => result.ensemble && setOverrideId(result.ensemble.id)}
+              onSelectChallenger={() => result.runnerUp && setOverrideId(result.runnerUp.id)}
+              onApprove={() => approveModelSelection(key)}
+              onClear={() => clearModelSelection(key)}
+            />
+          </div>
 
           <Panel
             title="Tournament results"
