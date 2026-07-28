@@ -159,6 +159,7 @@ export function DemoTour() {
 
   const advance = useCallback(() => {
     if (gate) return;
+    if (step.id === "project" || step.id === "upload") completeStage(step.id);
     if (step.id === "resolve") completeStage("resolve");
     if (step.id === "scenarios") completeStage("scenarios");
     goto(index + 1);
