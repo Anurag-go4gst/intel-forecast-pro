@@ -635,8 +635,25 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const [championOverrideReason, setChampionOverrideReason] = usePersistentState("championOverrideReason", "");
 
   const completeStage = useCallback((id: StageId) => {
+    if (!stageDone[id]) {
+      const stage = workflowStages.find((item) => item.id === id);
+      setAuditLog((log) => [
+        {
+          id: nextId("al"),
+          at: "Today (prototype session)",
+          date: new Date().toISOString().slice(0, 10),
+          user: "You · Demand planning",
+          action: "Data transformation" as AuditAction,
+          sku: "All",
+          customer: "All",
+          version: mode === "demo" ? "V2026.07" : "Draft",
+          detail: `Workflow step completed: ${stage ? `Step ${stage.step} — ${stage.label}` : id}.`,
+        },
+        ...log,
+      ]);
+    }
     setStageDone((prev) => (prev[id] ? prev : { ...prev, [id]: true }));
-  }, []);
+  }, [mode, stageDone]);
 
   const reopenStage = useCallback((id: StageId) => {
     setStageDone((prev) => ({ ...prev, [id]: false }));
@@ -669,13 +686,13 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     if (target === "demo") {
       setMode("demo");
       setProject({
-        name: "Apex Motors guided demonstration cycle",
+        name: "Apex Motors guide cycle",
         industry: "Auto ancillary manufacturing",
         grain: "SKU × Customer × Plant",
         frequency: "Monthly",
         horizon: 12,
         owner: "R. Iyer · Demand planning lead",
-        createdAt: "Guided demo",
+        createdAt: "Guide",
         source: "demo",
       });
       setEvents(seedEvents);
@@ -690,11 +707,12 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       setVersions(seedVersions);
       setActiveVersionId("v-2026-07");
       setAuditLog(seedAuditLog);
+      setStageDone({ ...emptyStages, project: true, upload: true });
       setUpload({
         name: "apex-motors-demand-history.csv",
         sizeLabel: "3.4 MB",
         rows: 27_000,
-        uploadedAt: "Guided demo · fictional seeded extract",
+        uploadedAt: "Guide · seeded extract",
       });
       setMappingState({ ...autoMapping });
     } else {

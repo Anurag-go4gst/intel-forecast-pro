@@ -56,7 +56,7 @@ function ProjectSetup() {
         subtitle={stage.purpose}
         actions={
           <StatusPill tone={project ? "positive" : "info"}>
-            {demo ? "Guided demo project" : project ? "Project created" : "Step 1 of 13"}
+            {demo ? "Guide project" : project ? "Project created" : "Step 1 of 13"}
           </StatusPill>
         }
       />

@@ -199,7 +199,7 @@ function expectEmptyWorkspace(api: PlatformApi) {
 function expectCleanDemoSeed(api: PlatformApi) {
   expect(api.mode).toBe("demo");
   expect(api.project).toMatchObject({
-    name: "Apex Motors guided demonstration cycle",
+    name: "Apex Motors guide cycle",
     source: "demo",
   });
   expect(api.dataset).toBeNull();
@@ -218,7 +218,7 @@ function expectCleanDemoSeed(api: PlatformApi) {
   expect(api.versions).toEqual(seedVersions);
   expect(api.auditLog).toEqual(seedAuditLog);
   expect(api.activeVersionId).toBe("v-2026-07");
-  expect(api.stageDone).toEqual(emptyStageDone());
+  expect(api.stageDone).toEqual(emptyStageDone({ project: true, upload: true }));
 }
 
 function renderGuardedPath(path: string) {
@@ -485,9 +485,7 @@ describe("authoritative application behaviours", () => {
     });
     await waitFor(() => expect(harness.api.mode).toBe("demo"));
 
-    fireEvent.click(screen.getByRole("button", { name: /Guided demo panel/i }));
-    fireEvent.click(await screen.findByRole("button", { name: /Next/i }));
-    fireEvent.click(screen.getByRole("button", { name: /Next/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Guide$/i }));
 
     expect(await screen.findByText(/Resolve \d+ blocking issue/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Next/i })).toBeDisabled();
@@ -499,6 +497,7 @@ describe("authoritative application behaviours", () => {
     });
     await waitFor(() => expect(harness.api.blockingOpen).toBe(0));
     fireEvent.click(screen.getByRole("button", { name: /Next/i }));
+    await waitFor(() => expect(harness.api.stageDone.resolve).toBe(true));
 
     expect(
       await screen.findByText(/Your action is required: Approve the forecast-ready dataset/i),
@@ -603,6 +602,8 @@ describe("authoritative application behaviours", () => {
     expect(harness.api.dataset).toBeNull();
     expect(harness.api.modelSelections).toEqual({});
     expect(harness.api.stageDone.tournament).toBe(false);
+    expect(harness.api.stageDone.project).toBe(true);
+    expect(harness.api.stageDone.upload).toBe(true);
   });
 });
 
