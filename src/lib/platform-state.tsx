@@ -213,12 +213,18 @@ let idCounter = 0;
 const nextId = (prefix: string) => `${prefix}-${++idCounter}-${Date.now().toString(36)}`;
 
 export function PlatformProvider({ children }: { children: ReactNode }) {
+  // Nothing is seeded at start-up. Seeds are only installed by startDemo().
+  const [mode, setMode] = usePersistentState<AppMode>("mode", "empty");
+  const [project, setProject] = usePersistentState<ProjectConfig | null>("project", null);
+  const [dataset, setDataset] = usePersistentState<DatasetState | null>("dataset", null);
+
   const [filters, setFilters] = usePersistentState<Filters>("filters", defaultFilters);
-  const [events, setEvents] = usePersistentState<DemandEvent[]>("events", seedEvents);
-  const [scenarios, setScenarios] = usePersistentState<SavedScenario[]>("scenarios", seedScenarios);
+  const [events, setEvents] = usePersistentState<DemandEvent[]>("events", []);
+  const [scenarios, setScenarios] = usePersistentState<SavedScenario[]>("scenarios", []);
   const [drivers, setDrivers] = usePersistentState<ScenarioDriver>("drivers", defaultDrivers);
-  const [reviewLines, setReviewLines] = usePersistentState<ReviewLine[]>("reviewLines", seedReviewLines);
+  const [reviewLines, setReviewLines] = usePersistentState<ReviewLine[]>("reviewLines", []);
   const [published, setPublished] = usePersistentState("published", false);
+
   const [runState, setRunState] = useState<ForecastRunState>("idle");
   const [runProgress, setRunProgress] = useState(0);
   const [selectedModelBySku, setSelectedModelBySku] = usePersistentState<Record<string, string>>("selectedModelBySku", {});
