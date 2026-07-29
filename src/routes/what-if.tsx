@@ -200,7 +200,11 @@ function WhatIfScenarios() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+      <div
+        id="guide-scenario-decision"
+        tabIndex={-1}
+        className="grid scroll-mt-28 grid-cols-1 gap-4 outline-none xl:grid-cols-[minmax(0,360px)_minmax(0,1fr)]"
+      >
         <div className="space-y-4">
           <Panel title="Create a scenario" description="Pick a scenario type to start from a preset monthly impact curve.">
             <div className="space-y-3">

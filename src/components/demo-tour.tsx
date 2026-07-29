@@ -10,7 +10,18 @@ import { cn } from "@/lib/utils";
 
 type Confirm = "start" | "reset" | "exit" | null;
 
-const autoFollowStages: StageId[] = ["resolve", "dataset", "validation", "tournament", "champion", "baseline"];
+const autoFollowStages: StageId[] = [
+  "resolve",
+  "dataset",
+  "validation",
+  "tournament",
+  "champion",
+  "baseline",
+  "events",
+  "scenarios",
+  "review",
+  "approve",
+];
 
 function ConfirmDialog({
   title,
@@ -131,6 +142,9 @@ export function DemoTour() {
     }
     if (step.id === "events" && !guideEventApplied) {
       return "Select the Apex shutdown event, adjust its impact if needed, then use Apply selected residual impact before continuing.";
+    }
+    if (step.id === "approve" && !stageDone.approve) {
+      return "Clear the approval queue if needed, then click Publish new version in the page header. The guide will open Monitor after publication completes.";
     }
     if (!canAdvanceAfterAction(step.id)) {
       return `Use the primary action on this screen: ${step.primaryLabel}.`;

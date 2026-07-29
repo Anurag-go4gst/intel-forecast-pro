@@ -697,10 +697,8 @@ describe("authoritative application behaviours", () => {
         owner: "Customer account team · Apex",
         note: "Planner selected this event for forecast review.",
       });
+      harness.api.completeStage("events");
     });
-
-    await waitFor(() => expect(screen.getByRole("button", { name: /Next/i })).toBeEnabled());
-    fireEvent.click(screen.getByRole("button", { name: /Next/i }));
 
     await waitFor(() => expect(harness.api.stageDone.events).toBe(true));
     expect(await screen.findByText(/Guide · step 10 of 13/i)).toBeInTheDocument();
