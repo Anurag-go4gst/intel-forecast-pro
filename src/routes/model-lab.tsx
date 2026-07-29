@@ -547,6 +547,45 @@ function ModelLab() {
         </div>
       )}
 
+      {hasRun && (tab === "tournament" || tab === "comparison") && (
+        <div id="guide-champion" tabIndex={-1} className="scroll-mt-28 space-y-3 outline-none">
+          <SelectionIdentityPanel
+            champion={result.champion}
+            selection={selection}
+            selectedRow={selectedRow}
+            ensemble={result.ensemble}
+            onAcceptChampion={acceptChampion}
+            onSelectEnsemble={() => result.ensemble && setOverrideId(result.ensemble.id)}
+            onSelectChallenger={() => result.runnerUp && setOverrideId(result.runnerUp.id)}
+            onApprove={() => approveModelSelection(key)}
+            onClear={resetSelection}
+          />
+          {selection && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-surface-muted px-3 py-2">
+              <p className="text-[11px] text-muted-foreground">
+                Step 7 decision recorded — {selection.selectedModelName} ({selection.method}). Deselect above to choose a different model.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={resetSelection}
+                  className="inline-flex h-8 items-center rounded-md border border-input px-3 text-xs font-medium hover:bg-accent"
+                >
+                  Deselect model
+                </button>
+                <button
+                  type="button"
+                  onClick={continueToBaseline}
+                  className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                >
+                  Continue to step 8 — Baseline forecast
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {tab === "tournament" && hasRun && (
         <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -583,19 +622,6 @@ function ModelLab() {
             />
           </div>
 
-          <div id="guide-champion" tabIndex={-1} className="scroll-mt-28 outline-none">
-            <SelectionIdentityPanel
-              champion={result.champion}
-              selection={selection}
-              selectedRow={selectedRow}
-              ensemble={result.ensemble}
-              onAcceptChampion={acceptChampion}
-              onSelectEnsemble={() => result.ensemble && setOverrideId(result.ensemble.id)}
-              onSelectChallenger={() => result.runnerUp && setOverrideId(result.runnerUp.id)}
-              onApprove={() => approveModelSelection(key)}
-              onClear={() => clearModelSelection(key)}
-            />
-          </div>
 
           <Panel
             title="Tournament results"
