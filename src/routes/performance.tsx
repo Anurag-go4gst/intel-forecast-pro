@@ -14,8 +14,21 @@ import {
   YAxis,
 } from "recharts";
 import { KpiTile, Panel, PageHeading, PrototypeNote, StatusPill } from "@/components/primitives";
-import { accuracyTrend, biasByFamily, filterSkus, formatNumber, riskBuckets, riskRows } from "@/lib/demo-data";
+import {
+  accuracyTrend,
+  biasByFamily,
+  DEMO_SKU,
+  demoCaseMeta,
+  demoCaseRow,
+  filterSkus,
+  formatNumber,
+  formatSigned,
+  riskBuckets,
+  riskRows,
+} from "@/lib/demo-data";
+import { residualImpact } from "@/lib/event-domain";
 import { championChallenger, fvaAgainst } from "@/lib/governance-domain";
+import { modelProfileFor } from "@/lib/model-lab";
 import { usePlatform } from "@/lib/platform-state";
 import { cn } from "@/lib/utils";
 
@@ -39,9 +52,31 @@ export const Route = createFileRoute("/performance")({
 });
 
 function PerformanceMonitoring() {
-  const { filters } = usePlatform();
+  const { filters, modelSelections, intelEvents, approvals, versions, published } = usePlatform();
   const rows = filterSkus(filters);
   const latest = accuracyTrend[accuracyTrend.length - 1];
+
+  const championKey = `${DEMO_SKU}|${demoCaseMeta.customerId}|${demoCaseMeta.plantId}`;
+  const selection = modelSelections[championKey];
+  const recommendedProfile = modelProfileFor(demoCaseRow);
+  const championName = selection?.selectedModelName ?? recommendedProfile.champion;
+  const championIsOverride = Boolean(selection) && selection.method !== "Champion accepted";
+  const championAwaitingApproval = selection?.status === "Awaiting approval";
+
+  const approvedEvent = intelEvents.find((e) => e.status === "Approved");
+  const eventResidual = approvedEvent ? residualImpact(approvedEvent) : null;
+
+  const approvedOverrides = approvals.filter((a) => a.status === "Approved").length;
+  const rejectedOverrides = approvals.filter((a) => a.status === "Rejected").length;
+  const returnedOverrides = approvals.filter((a) => a.status === "Returned for clarification").length;
+  const pendingOverrides = approvals.filter((a) => a.status === "Awaiting approval").length;
+
+  const currentVersion = versions.find((v) => v.id === "v-2026-07");
+  const previousVersion = versions.find((v) => v.id === "v-2026-06");
+  const publishedDeltaPct =
+    currentVersion && previousVersion && previousVersion.totalUnits
+      ? ((currentVersion.totalUnits - previousVersion.totalUnits) / previousVersion.totalUnits) * 100
+      : null;
 
   return (
     <div className="space-y-5">
@@ -59,43 +94,91 @@ function PerformanceMonitoring() {
       </div>
 
       <Panel
-        title="Business review for the next cycle"
-        description="The owner view: what improved, what still needs action and which decision carries into the next forecasting cycle."
+        title="What happened this cycle"
+        description="A record of the decisions actually made in this session, not a fixed script."
       >
         <div
           id="guide-monitor-summary"
           tabIndex={-1}
           className="grid scroll-mt-28 grid-cols-1 gap-3 outline-none lg:grid-cols-3"
         >
-          <div className="rounded-md border border-positive/25 bg-positive-soft/45 p-3">
+          <div className="rounded-md border border-border bg-surface-muted/60 p-3">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-semibold">Keep in operation</p>
-              <StatusPill tone="positive">Model + event layer</StatusPill>
+              <p className="text-xs font-semibold">What we decided</p>
+              <StatusPill tone={championAwaitingApproval ? "warning" : "positive"}>
+                {championAwaitingApproval ? "Override pending" : "Champion set"}
+              </StatusPill>
             </div>
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              Event-aware forecasting is the best current layer at 12.8% WAPE, beating the
-              naive reference and the pure model baseline.
-            </p>
+            <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
+              <li>
+                {championIsOverride
+                  ? `${championName} selected over the recommended ${selection?.recommendedChampionName ?? "system champion"}${selection?.reason ? ` — ${selection.reason}` : "."}`
+                  : `${championName} kept as champion — no override.`}
+              </li>
+              <li>
+                {approvedEvent && eventResidual
+                  ? `${approvedEvent.name} applied at ${eventResidual.applied > 0 ? "+" : ""}${eventResidual.applied}%${
+                      eventResidual.alreadyReflected > 0
+                        ? ` (${eventResidual.alreadyReflected}% of it was already in open orders, so only the rest was added)`
+                        : ""
+                    }.`
+                  : "No business event has been applied to this forecast."}
+              </li>
+              <li>
+                {approvals.length > 0
+                  ? `${approvedOverrides} of ${approvals.length} planner overrides approved, ${rejectedOverrides} rejected, ${returnedOverrides} sent back for more evidence${
+                      pendingOverrides > 0 ? `, ${pendingOverrides} still waiting on a decision` : ""
+                    }.`
+                  : "No planner overrides recorded yet."}
+              </li>
+            </ul>
           </div>
-          <div className="rounded-md border border-warning/30 bg-warning-soft/45 p-3">
+          <div className="rounded-md border border-border bg-surface-muted/60 p-3">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-semibold">Tighten governance</p>
-              <StatusPill tone="warning">Planner overrides</StatusPill>
+              <p className="text-xs font-semibold">What it was worth</p>
+              <StatusPill tone={published ? "positive" : "warning"}>{published ? "Published" : "Draft"}</StatusPill>
             </div>
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              Low-evidence planner changes still add error before review. Keep the approval
-              gate strict and require evidence for material overrides.
-            </p>
+            <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
+              <li>
+                {published && currentVersion
+                  ? `${currentVersion.label} published at ${formatNumber(currentVersion.totalUnits)} units${
+                      publishedDeltaPct !== null ? `, ${formatSigned(publishedDeltaPct)} vs ${previousVersion?.label}` : ""
+                    }.`
+                  : currentVersion
+                    ? `Working draft currently totals ${formatNumber(currentVersion.totalUnits)} units — not published yet.`
+                    : "No forecast version recorded yet."}
+              </li>
+              <li>
+                Event-aware forecast is running at {fvaAgainst("fva-naive").find((l) => l.id === "fva-event")?.wape}% WAPE, down
+                from {fvaAgainst("fva-naive")[0]?.wape}% for a naive last-period guess.
+              </li>
+              {(approvedOverrides > 0 || rejectedOverrides > 0) && (
+                <li>
+                  Planner judgement this cycle: {approvedOverrides} approved override{approvedOverrides === 1 ? "" : "s"} added
+                  useful correction; {rejectedOverrides} rejected override{rejectedOverrides === 1 ? "" : "s"} would have added
+                  error instead.
+                </li>
+              )}
+            </ul>
           </div>
-          <div className="rounded-md border border-risk/25 bg-risk-soft/45 p-3">
+          <div className="rounded-md border border-border bg-surface-muted/60 p-3">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-semibold">Act before next load</p>
+              <p className="text-xs font-semibold">What to watch next cycle</p>
               <StatusPill tone="risk">Supply risk</StatusPill>
             </div>
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              High stockout and excess-risk combinations need owner actions before the next
-              cycle: resolve supply constraints, rebalance inventory or document exceptions.
-            </p>
+            <ul className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
+              <li>
+                {riskBuckets[0]?.high ?? 0} SKU-locations are at high stockout risk (cover below 15 days) and{" "}
+                {riskBuckets[1]?.high ?? 0} at high excess risk (cover above 90 days) — see the risk register below.
+              </li>
+              {returnedOverrides > 0 && (
+                <li>
+                  {returnedOverrides} override{returnedOverrides === 1 ? "" : "s"} sent back for more evidence — chase those
+                  down before they resurface next cycle.
+                </li>
+              )}
+              <li>Retrain any model a challenger has beaten on the majority of backtest folds — see the board below.</li>
+            </ul>
           </div>
         </div>
       </Panel>

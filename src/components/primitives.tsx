@@ -75,6 +75,7 @@ export function KpiTile({
   deltaTone = "neutral",
   hint,
   icon: Icon,
+  onClick,
 }: {
   label: string;
   value: string;
@@ -83,9 +84,15 @@ export function KpiTile({
   deltaTone?: Tone;
   hint?: string;
   icon?: LucideIcon;
+  onClick?: () => void;
 }) {
+  const Tag = onClick ? "button" : "div";
   return (
-    <div className="panel px-4 py-3.5">
+    <Tag
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
+      className={cn("panel px-4 py-3.5 text-left", onClick && "cursor-pointer transition-colors hover:bg-accent/50")}
+    >
       <div className="flex items-center justify-between gap-2">
         <span className="label-caps truncate">{label}</span>
         {Icon && <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />}
@@ -98,7 +105,7 @@ export function KpiTile({
         {delta && <StatusPill tone={deltaTone}>{delta}</StatusPill>}
         {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
       </div>
-    </div>
+    </Tag>
   );
 }
 

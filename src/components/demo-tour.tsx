@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Loader2, LogOut, PlayCircle, RotateCcw, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, LogOut, Minimize2, PlayCircle, RotateCcw, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { demoSteps } from "@/lib/demo-tour";
@@ -77,13 +77,19 @@ export function DemoTour() {
     completeStage,
     blockingOpen,
     adjustmentRequests,
+    approvals,
   } = usePlatform();
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [mounted, setMounted] = useState(false);
   const [transitionLabel, setTransitionLabel] = useState("");
+  const [minimized, setMinimized] = useState(false);
   useEffect(() => setMounted(true), []);
+  // A new step always opens in full view — the user re-minimizes if it's in the way.
+  useEffect(() => setMinimized(false), [index]);
+
+  const pendingApprovals = approvals.filter((a) => a.status === "Awaiting approval").length;
 
   const guideStartIndex = 0;
   const guideEventApplied = adjustmentRequests.some(
@@ -144,7 +150,10 @@ export function DemoTour() {
       return "Select the Apex shutdown event, adjust its impact if needed, then use Apply selected residual impact before continuing.";
     }
     if (step.id === "approve" && !stageDone.approve) {
-      return "Clear the approval queue if needed, then click Publish new version in the page header. The guide will open Monitor after publication completes.";
+      if (pendingApprovals > 0) {
+        return `${pendingApprovals} item${pendingApprovals === 1 ? "" : "s"} in the approval queue ${pendingApprovals === 1 ? "is" : "are"} still Awaiting approval. Open each one below and Approve, Reject or Return it for clarification — Publish new version stays disabled until none are left.`;
+      }
+      return "Every queue item has a decision recorded. Click Publish new version in the page header — the guide opens Monitor once publication completes.";
     }
     if (!canAdvanceAfterAction(step.id)) {
       return `Use the primary action on this screen: ${step.primaryLabel}.`;
@@ -312,7 +321,22 @@ export function DemoTour() {
         />
       )}
 
-      {open && mounted && mode === "demo" && createPortal(
+      {open && mounted && mode === "demo" && minimized && createPortal(
+        <div className="fixed right-4 bottom-[5.5rem] z-30">
+          <button
+            type="button"
+            onClick={() => setMinimized(false)}
+            className="flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-2 text-xs font-medium shadow-lg hover:bg-accent"
+          >
+            <PlayCircle className="h-3.5 w-3.5 text-primary" aria-hidden />
+            Step {step.step} of {demoSteps.length} · {step.title}
+            {gate && <span className="h-1.5 w-1.5 rounded-full bg-risk" aria-hidden />}
+          </button>
+        </div>,
+        document.body,
+      )}
+
+      {open && mounted && mode === "demo" && !minimized && createPortal(
         <div className="fixed inset-x-0 bottom-[5.5rem] z-30 px-3 sm:inset-x-auto sm:right-4 sm:bottom-[5.5rem] sm:w-[400px] sm:px-0">
           <div className="rounded-lg border border-border bg-surface shadow-lg">
             <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
@@ -325,14 +349,25 @@ export function DemoTour() {
                   {DEMO_SKU} · {demoCaseMeta.description} · {demoCaseMeta.customer}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                aria-label="Close guide"
-                className="rounded-md p-1 text-muted-foreground hover:bg-muted"
-              >
-                <X className="h-4 w-4" aria-hidden />
-              </button>
+              <div className="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setMinimized(true)}
+                  aria-label="Minimize guide — move it out of the way without losing your place"
+                  title="Minimize — get it out of the way without losing your place"
+                  className="rounded-md p-1 text-muted-foreground hover:bg-muted"
+                >
+                  <Minimize2 className="h-4 w-4" aria-hidden />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  aria-label="Close guide"
+                  className="rounded-md p-1 text-muted-foreground hover:bg-muted"
+                >
+                  <X className="h-4 w-4" aria-hidden />
+                </button>
+              </div>
             </div>
 
             <div className="max-h-[38vh] overflow-y-auto px-4 py-3">
@@ -358,10 +393,12 @@ export function DemoTour() {
                   <span className="font-semibold">Decision required: </span>
                   <span className="text-muted-foreground">{step.decision}</span>
                 </p>
-                <p className="text-[11px] leading-relaxed">
-                  <span className="font-semibold">Action to take: </span>
-                  <span className="text-muted-foreground">{step.action}</span>
-                </p>
+                {!gate && (
+                  <p className="text-[11px] leading-relaxed">
+                    <span className="font-semibold">Action to take: </span>
+                    <span className="text-muted-foreground">{step.action}</span>
+                  </p>
+                )}
                 {step.id === "scenarios" && (
                   <p className="text-[11px] leading-relaxed">
                     <span className="font-semibold">Optional: </span>
@@ -419,10 +456,10 @@ export function DemoTour() {
                     type="button"
                     onClick={() => setOpen(false)}
                     disabled={Boolean(gate) || Boolean(transitionLabel)}
-                    title={gate ?? undefined}
+                    title={gate ?? "Click Finish workflow in the bar at the bottom of the page first"}
                     className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Finish
+                    Close guide
                   </button>
                 ) : (
                   <button

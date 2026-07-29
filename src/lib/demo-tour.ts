@@ -126,7 +126,7 @@ const action: Record<StageId, string> = {
   scenarios: "If no what-if is needed, click Skip what-if in the guide or the bottom action bar. If a scenario matters, promote it for review first.",
   review: "Review the forecast bridge and approval queue, then use Continue to approval and publication in the bottom action bar.",
   approve: "Click Publish new version in the page header. Publication must happen before Monitor opens.",
-  monitor: "Review forecast value added and finish the guide.",
+  monitor: "Review the business summary, then click Finish workflow in the bar at the bottom of the page.",
 };
 
 const targetId: Partial<Record<StageId, string>> = {

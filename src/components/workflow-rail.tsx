@@ -219,7 +219,7 @@ export function StageGuard({ children }: { children: React.ReactNode }) {
  */
 export function StageActions() {
   const navigate = useNavigate();
-  const { completeStage, blockingOpen } = usePlatform();
+  const { completeStage, blockingOpen, approvals, project } = usePlatform();
   const [advancing, setAdvancing] = useState(false);
   const stage = useActiveStage();
   const current = useCurrentStageIndex();
@@ -234,7 +234,8 @@ export function StageActions() {
   const prev = index > 0 ? workflowStages[index - 1] : null;
   const next = workflowStages[index + 1] ?? null;
 
-  const gated = stage.id === "dataset" && blockingOpen > 0;
+  const gated = (stage.id === "dataset" && blockingOpen > 0) || (stage.id === "project" && !project);
+  const pendingApprovals = approvals.filter((a) => a.status === "Awaiting approval").length;
   const guideActionId =
     stage.id === "validation"
       ? "guide-validation-action"
@@ -264,9 +265,13 @@ export function StageActions() {
             Step {stage.step} of {workflowStages.length} · {stage.label}
           </p>
           <p className="truncate text-[11px] text-muted-foreground">
-            {gated
-              ? `${blockingOpen} blocking data issue${blockingOpen === 1 ? "" : "s"} must be resolved before model execution is unlocked.`
-              : `Next: ${stage.nextStep}`}
+            {stage.id === "project" && !project
+              ? "Fill in the project definition below first."
+              : gated
+                ? `${blockingOpen} blocking data issue${blockingOpen === 1 ? "" : "s"} must be resolved before model execution is unlocked.`
+                : stage.id === "review" && pendingApprovals > 0
+                  ? `${pendingApprovals} item${pendingApprovals === 1 ? "" : "s"} in the approval queue still ${pendingApprovals === 1 ? "needs" : "need"} a decision — publication stays blocked until they're cleared.`
+                  : `Next: ${stage.nextStep}`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

@@ -12,7 +12,7 @@ import {
   ShieldAlert,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { KpiTile, Panel, PageHeading, PrototypeNote, StatusPill } from "@/components/primitives";
 import { formatNumber, formatSigned } from "@/lib/demo-data";
 import { horizonMonths } from "@/lib/event-domain";
@@ -70,6 +70,7 @@ function ForecastReview() {
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [fullOpen, setFullOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const queueRef = useRef<HTMLDivElement>(null);
 
   const visible = useMemo(
     () => (statusFilter === "All" ? approvals : approvals.filter((a) => a.status === statusFilter)),
@@ -109,11 +110,29 @@ function ForecastReview() {
     if (pending > 0 || published || publishing) return;
     setPublishing(true);
     publish();
+    // Publishing implies the review stage's own work is done, even if the
+    // planner never touched the separate "Continue to approval and
+    // publication" bar for step 11 — otherwise step 13 stays locked forever.
+    completeStage("review");
     completeStage("approve");
     window.setTimeout(() => {
       void navigate({ to: "/performance" });
       window.setTimeout(() => setPublishing(false), 250);
     }, 160);
+  };
+
+  const jumpToPending = () => {
+    setStatusFilter("Awaiting approval");
+    queueRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const approvableNow = approvals.filter(
+    (a) => a.status === "Awaiting approval" && a.confidence === "High" && a.evidence.length > 0,
+  );
+  const approveHighConfidence = () => {
+    approvableNow.forEach((a) =>
+      setApprovalStatus(a.id, "Approved", "Approved in bulk — high confidence with supporting evidence attached."),
+    );
   };
 
   return (
@@ -136,6 +155,11 @@ function ForecastReview() {
               tabIndex={-1}
               onClick={publishAndContinue}
               disabled={pending > 0 || published || publishing}
+              title={
+                pending > 0
+                  ? `${pending} item${pending === 1 ? "" : "s"} still Awaiting approval — approve, reject or return each one before you can publish.`
+                  : undefined
+              }
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
                 published
@@ -155,7 +179,14 @@ function ForecastReview() {
       />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiTile label="Awaiting approval" value={String(pending)} delta={pending ? "Blocks publication" : "Queue cleared"} deltaTone={pending ? "warning" : "positive"} icon={BadgeCheck} />
+        <KpiTile
+          label="Awaiting approval"
+          value={String(pending)}
+          delta={pending ? "Click to jump to these items" : "Queue cleared"}
+          deltaTone={pending ? "warning" : "positive"}
+          icon={BadgeCheck}
+          onClick={pending ? jumpToPending : undefined}
+        />
         <KpiTile label="Returned for clarification" value={String(returned)} delta="Evidence requested" deltaTone={returned ? "info" : "neutral"} icon={CornerUpLeft} />
         <KpiTile label="Proposed final volume" value={formatNumber(finalTotal)} unit="units" delta={formatSigned(((finalTotal - baselineTotal) / (baselineTotal || 1)) * 100)} deltaTone="info" icon={GitBranch} />
         <KpiTile label="Adjustment requests" value={String(adjustmentRequests.length)} delta="From events and scenarios" deltaTone="neutral" icon={History} />
@@ -166,20 +197,32 @@ function ForecastReview() {
         description="Every line shows the full decomposition from statistical baseline to proposed final forecast."
         bodyClassName="p-0"
         actions={
-          <div className="flex flex-wrap gap-1">
-            {filterStatuses.map((s) => (
+          <div ref={queueRef} className="flex flex-wrap items-center gap-2 scroll-mt-28">
+            <div className="flex flex-wrap gap-1">
+              {filterStatuses.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setStatusFilter(s)}
+                  className={cn(
+                    "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                    statusFilter === s ? "border-primary bg-primary text-primary-foreground" : "border-input hover:bg-accent",
+                  )}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+            {approvableNow.length > 0 && (
               <button
-                key={s}
                 type="button"
-                onClick={() => setStatusFilter(s)}
-                className={cn(
-                  "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
-                  statusFilter === s ? "border-primary bg-primary text-primary-foreground" : "border-input hover:bg-accent",
-                )}
+                onClick={approveHighConfidence}
+                title="Approves only items with High confidence and at least one evidence record attached. Low-confidence or unsupported items still need a manual decision."
+                className="inline-flex items-center gap-1.5 rounded-md border border-positive/30 bg-positive-soft px-2.5 py-1 text-[11px] font-medium text-positive hover:bg-positive-soft/80"
               >
-                {s}
+                Approve {approvableNow.length} high-confidence item{approvableNow.length === 1 ? "" : "s"}
               </button>
-            ))}
+            )}
           </div>
         }
       >
