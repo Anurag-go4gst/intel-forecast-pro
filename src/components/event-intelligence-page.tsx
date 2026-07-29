@@ -525,6 +525,13 @@ export function EventIntelligence() {
                     <div className="flex flex-wrap items-start gap-2 md:justify-end">
                       <button
                         type="button"
+                        onClick={skipEvents}
+                        className="inline-flex h-8 items-center justify-center rounded-md border border-input px-3 text-xs font-medium hover:bg-accent"
+                      >
+                        Skip — no event applies
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setPlannerStatus("Watchlist")}
                         className="inline-flex h-8 items-center justify-center rounded-md border border-input px-3 text-xs font-medium hover:bg-accent"
                       >
