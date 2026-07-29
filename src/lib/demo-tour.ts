@@ -19,6 +19,8 @@ export type DemoStep = {
   next: string;
   /** The page action that completes this step. */
   primaryLabel: string;
+  /** Exact user action the guide expects on the screen. */
+  action: string;
   lookFor: string[];
 };
 
@@ -111,12 +113,31 @@ const lookFor: Record<StageId, string[]> = {
   ],
 };
 
+const action: Record<StageId, string> = {
+  project: "Review the seeded project scope, then click Next in the guide to continue.",
+  upload: "Review the mapped upload preview, then click Next in the guide to continue.",
+  resolve: "Open each Blocking issue in the data-quality list and choose a resolution until no blocking issues remain.",
+  dataset: "Click the Approve Forecast-Ready Dataset button in the data-quality panel. The guide stays here until dataset approval is complete.",
+  validation: "Use the sticky bottom action Confirm validation design and continue. The guide will show a loading state while step 6 opens.",
+  tournament: "Click Run tournament on the Model Lab tournament tab, wait for the run to complete, then continue to model results.",
+  champion: "On the comparison tab, click Accept champion and view baseline to confirm the recommended champion.",
+  baseline: "Review the baseline warning and chart, then click Accept baseline and continue to event review in the sticky bottom action bar.",
+  events: "Select the Apex shutdown event in the registry, adjust impact if needed, then click Apply selected impact.",
+  scenarios: "If no what-if is needed, click Skip what-if in the guide. Scenarios remain simulation-only.",
+  review: "Review the forecast bridge and approval queue, then use the screen action to continue to publication.",
+  approve: "Publish the approved operational forecast from Forecast Review.",
+  monitor: "Review forecast value added and finish the guide.",
+};
+
 const targetId: Partial<Record<StageId, string>> = {
   upload: "guide-upload",
   resolve: "guide-issues",
-  dataset: "guide-issues",
+  dataset: "guide-dataset-approval",
+  validation: "guide-validation-action",
   tournament: "guide-tournament",
   champion: "guide-champion",
+  baseline: "guide-baseline-decision",
+  events: "guide-event-decision",
 };
 
 export const demoSteps: DemoStep[] = workflowStages.map((stage) => ({
@@ -132,6 +153,7 @@ export const demoSteps: DemoStep[] = workflowStages.map((stage) => ({
   decision: stage.decision,
   next: stage.nextStep,
   primaryLabel: stage.primaryLabel,
+  action: action[stage.id],
   lookFor: lookFor[stage.id],
 }));
 

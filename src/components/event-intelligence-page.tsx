@@ -471,7 +471,7 @@ export function EventIntelligence() {
               </div>
 
               {activeTab === "decision" && (
-                <div className="mt-4 space-y-3">
+                <div id="guide-event-decision" tabIndex={-1} className="mt-4 space-y-3">
                   <div className="grid grid-cols-1 gap-3 rounded-md border border-border bg-surface-muted p-3 md:grid-cols-3">
                     <label className="block">
                       <span className="label-caps">Planner decision</span>

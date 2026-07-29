@@ -220,7 +220,6 @@ function ModelLab() {
   const running = stage >= 0 && stage < tournamentStages.length;
 
   function runNow() {
-    completeStage("tournament");
     setHasRun(false);
     setStage(0);
   }
@@ -231,12 +230,13 @@ function ModelLab() {
       if (stage === tournamentStages.length - 1) {
         setStage(-1);
         setHasRun(true);
+        completeStage("tournament");
       } else {
         setStage(stage + 1);
       }
     }, 420);
     return () => clearTimeout(t);
-  }, [stage]);
+  }, [completeStage, stage]);
 
   const sortedRows = useMemo(() => {
     const rows = [...result.rows];

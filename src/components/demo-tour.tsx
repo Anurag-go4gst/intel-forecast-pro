@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, LogOut, PlayCircle, RotateCcw, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, LogOut, PlayCircle, RotateCcw, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { demoSteps } from "@/lib/demo-tour";
@@ -9,6 +9,8 @@ import { workflowStages, type StageId } from "@/lib/workflow";
 import { cn } from "@/lib/utils";
 
 type Confirm = "start" | "reset" | "exit" | null;
+
+const autoFollowStages: StageId[] = ["resolve", "dataset", "validation", "tournament", "champion", "baseline"];
 
 function ConfirmDialog({
   title,
@@ -69,6 +71,7 @@ export function DemoTour() {
   const [index, setIndex] = useState(0);
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [mounted, setMounted] = useState(false);
+  const [transitionLabel, setTransitionLabel] = useState("");
   useEffect(() => setMounted(true), []);
 
   const guideStartIndex = 0;
@@ -114,6 +117,18 @@ export function DemoTour() {
     if (step.id === "dataset" && !stageDone.dataset) {
       return "Approve the forecast-ready dataset on this screen before continuing.";
     }
+    if (step.id === "validation" && !stageDone.validation) {
+      return "Click Confirm validation design and continue in the bottom action bar. The guide will open Model Lab after the transition finishes.";
+    }
+    if (step.id === "tournament" && !stageDone.tournament) {
+      return "Click Run Baseline Model Tournament, then wait until training, backtesting and scoring finish. The guide will continue when results are ready.";
+    }
+    if (step.id === "champion" && !stageDone.champion) {
+      return "Click Accept champion and view baseline in the champion comparison panel.";
+    }
+    if (step.id === "baseline" && !stageDone.baseline) {
+      return "Click Accept baseline and continue to event review in the bottom action bar.";
+    }
     if (step.id === "events" && !guideEventApplied) {
       return "Select the Apex shutdown event, adjust its impact if needed, then use Apply selected residual impact before continuing.";
     }
@@ -136,18 +151,20 @@ export function DemoTour() {
   const goto = useCallback(
     (next: number) => {
       const clamped = Math.max(0, Math.min(demoSteps.length - 1, next));
+      setTransitionLabel(`Loading step ${demoSteps[clamped].step}: ${demoSteps[clamped].title}`);
       setIndex(clamped);
       void navigate({ to: demoSteps[clamped].route, search: (demoSteps[clamped].search ?? {}) as never });
       focusStepTarget(clamped);
+      window.setTimeout(() => setTransitionLabel(""), 420);
     },
     [focusStepTarget, navigate],
   );
 
   useEffect(() => {
     if (mode !== "demo" || !open || currentIndex <= index || !stageDone[step.id]) return;
-    if (step.id !== "resolve" && step.id !== "dataset") return;
+    if (!autoFollowStages.includes(step.id)) return;
     goto(currentIndex);
-  }, [currentIndex, goto, index, mode, open, stageDone, step.id]);
+  }, [autoFollowStages, currentIndex, goto, index, mode, open, stageDone, step.id]);
 
   const beginDemo = useCallback(() => {
     startDemo();
@@ -166,13 +183,15 @@ export function DemoTour() {
   }, [focusStepTarget, navigate, setFilter, startDemo]);
 
   const advance = useCallback(() => {
-    if (gate) return;
+    if (gate || transitionLabel) return;
     if (step.id === "project" || step.id === "upload") completeStage(step.id);
     if (step.id === "resolve") completeStage("resolve");
     if (step.id === "events") completeStage("events");
     if (step.id === "scenarios") completeStage("scenarios");
-    window.setTimeout(() => goto(index + 1), 60);
-  }, [completeStage, gate, goto, index, step.id]);
+    const next = Math.min(demoSteps.length - 1, index + 1);
+    setTransitionLabel(`Loading step ${demoSteps[next].step}: ${demoSteps[next].title}`);
+    window.setTimeout(() => goto(next), 140);
+  }, [completeStage, gate, goto, index, step.id, transitionLabel]);
 
   return (
     <>
@@ -305,6 +324,12 @@ export function DemoTour() {
             <div className="max-h-[38vh] overflow-y-auto px-4 py-3">
               <p className="text-sm font-medium">{step.headline}</p>
               <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{step.body}</p>
+              {transitionLabel && (
+                <div className="mt-3 flex items-center gap-2 rounded-md border border-primary/25 bg-accent px-2.5 py-2 text-[11px] font-medium text-primary">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                  {transitionLabel}
+                </div>
+              )}
               {gate && (
                 <p className="mt-3 rounded-md border border-risk/25 bg-risk-soft px-2.5 py-2 text-[11px] font-medium text-risk">
                   Your action is required: {gate}
@@ -318,6 +343,10 @@ export function DemoTour() {
                 <p className="text-[11px] leading-relaxed">
                   <span className="font-semibold">Decision required: </span>
                   <span className="text-muted-foreground">{step.decision}</span>
+                </p>
+                <p className="text-[11px] leading-relaxed">
+                  <span className="font-semibold">Action to take: </span>
+                  <span className="text-muted-foreground">{step.action}</span>
                 </p>
                 {step.id === "scenarios" && (
                   <p className="text-[11px] leading-relaxed">
@@ -352,7 +381,7 @@ export function DemoTour() {
                     key={s.id}
                     type="button"
                     aria-label={`Go to step ${s.step}: ${s.title}`}
-                    disabled={i > currentIndex}
+                    disabled={i > currentIndex || Boolean(transitionLabel)}
                     onClick={() => goto(i)}
                     className={cn(
                       "h-1.5 w-4 rounded-full transition-colors",
@@ -365,7 +394,7 @@ export function DemoTour() {
                 <button
                   type="button"
                   onClick={() => goto(index - 1)}
-                  disabled={index === 0}
+                  disabled={index === 0 || Boolean(transitionLabel)}
                   className="flex items-center gap-1 rounded-md border border-input px-2 py-1.5 text-xs disabled:opacity-40"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
@@ -375,7 +404,7 @@ export function DemoTour() {
                   <button
                     type="button"
                     onClick={() => setOpen(false)}
-                    disabled={Boolean(gate)}
+                    disabled={Boolean(gate) || Boolean(transitionLabel)}
                     title={gate ?? undefined}
                     className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -385,7 +414,7 @@ export function DemoTour() {
                   <button
                     type="button"
                     onClick={advance}
-                    disabled={Boolean(gate)}
+                    disabled={Boolean(gate) || Boolean(transitionLabel)}
                     title={gate ?? undefined}
                     className="flex items-center gap-1 rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
                   >
