@@ -186,6 +186,14 @@ export function EventIntelligence() {
     setActiveTab("requests");
   };
 
+  /** Step 9 is a judgement stage: allow progression when no event applies. */
+  const skipEvents = () => {
+    completeStage("events");
+    window.setTimeout(() => void navigate({ to: "/what-if" }), 140);
+  };
+
+
+
   const submitForm = () => {
     if (!form.name.trim()) return;
     addIntelEvent({
