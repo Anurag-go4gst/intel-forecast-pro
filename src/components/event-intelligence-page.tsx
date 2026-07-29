@@ -55,6 +55,7 @@ const signalTone = {
 type EventWorkspaceTab = "decision" | "evidence" | "impact" | "requests";
 
 export function EventIntelligence() {
+  const navigate = useNavigate();
   const {
     intelEvents,
     addIntelEvent,
