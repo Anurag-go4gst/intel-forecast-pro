@@ -333,6 +333,10 @@ function ModelLab() {
 
   /** Step 7 → step 8. Used after accepting the champion or a recorded override. */
   function continueToBaseline() {
+    // A champion can only be chosen from a tournament result, so completing
+    // step 7 always implies step 6 is done too — even if this screen was
+    // reached directly (hasRun defaults to true) and Run was never clicked.
+    completeStage("tournament");
     completeStage("champion");
     window.setTimeout(() => void navigate({ to: "/baseline" }), 140);
   }
@@ -563,7 +567,9 @@ function ModelLab() {
           {selection && (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-surface-muted px-3 py-2">
               <p className="text-[11px] text-muted-foreground">
-                Step 7 decision recorded — {selection.selectedModelName} ({selection.method}). Deselect above to choose a different model.
+                {selection.status === "Awaiting approval"
+                  ? `Override recorded — ${selection.selectedModelName} (${selection.method}) still needs governance approval before it can be used as the baseline.`
+                  : `Step 7 decision recorded — ${selection.selectedModelName} (${selection.method}). Deselect above to choose a different model.`}
               </p>
               <div className="flex flex-wrap gap-2">
                 <button
@@ -576,7 +582,9 @@ function ModelLab() {
                 <button
                   type="button"
                   onClick={continueToBaseline}
-                  className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                  disabled={selection.status === "Awaiting approval"}
+                  title={selection.status === "Awaiting approval" ? "Approve the override above before continuing to the baseline." : undefined}
+                  className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Continue to step 8 — Baseline forecast
                 </button>

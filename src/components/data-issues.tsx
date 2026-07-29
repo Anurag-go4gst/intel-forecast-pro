@@ -28,7 +28,7 @@ const severityIntro: Record<IssueSeverity, string> = {
 
 /** Step 2b — semantic meaning of each demand signal, not just the column name. */
 export function SignalRolePanel() {
-  const { mapping, setMapping, rolesConfirmed, confirmRoles, logAudit } = usePlatform();
+  const { mapping, setMapping, rolesConfirmed, confirmRoles, logAudit, completeStage } = usePlatform();
   const answered = signalRoles.filter((r) => mapping[r.fieldId]).length;
 
   return (
@@ -42,9 +42,11 @@ export function SignalRolePanel() {
           </StatusPill>
           <button
             type="button"
-            disabled={!mapping[signalRoles[0].fieldId]}
+            disabled={answered < signalRoles.length}
+            title={answered < signalRoles.length ? `${signalRoles.length - answered} signal${signalRoles.length - answered === 1 ? "" : "s"} still need a field mapped before you can confirm.` : undefined}
             onClick={() => {
               confirmRoles();
+              completeStage("upload");
               logAudit({
                 user: "You · Demand planning lead",
                 action: "Data upload",

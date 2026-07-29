@@ -292,33 +292,6 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     setReviewLines((prev) => prev.map((l) => (l.status === "Pending" ? { ...l, status: "Approved" } : l)));
   }, []);
 
-  const publish = useCallback(() => {
-    setPublished(true);
-    setVersions((prev) =>
-      prev.map((v) =>
-        v.id === "v-2026-07"
-          ? { ...v, status: "Published" as const }
-          : v.status === "Published"
-            ? { ...v, status: "Superseded" as const }
-            : v,
-      ),
-    );
-    setAuditLog((log) => [
-      {
-        id: nextId("al"),
-        at: "Today (prototype session)",
-        date: "2026-07-26",
-        user: "You · Demand planning lead",
-        action: "Forecast publication" as AuditAction,
-        sku: "All",
-        customer: "All",
-        version: "V2026.07",
-        detail: "Published the July operational forecast to ERP, MRP and the supplier portal (prototype only).",
-      },
-      ...log,
-    ]);
-  }, []);
-
   const startRun = useCallback(() => {
     setRunState("running");
     setRunProgress(0);
@@ -446,6 +419,36 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const [versions, setVersions] = usePersistentState<ForecastVersionRecord[]>("versions", []);
   const [activeVersionId, setActiveVersionId] = usePersistentState("activeVersionId", "");
   const [auditLog, setAuditLog] = usePersistentState<AuditEntry[]>("auditLog", []);
+
+  const publish = useCallback(() => {
+    const approvedTotal = approvals
+      .filter((a) => a.status !== "Rejected")
+      .reduce((sum, a) => sum + proposedFinal(a), 0);
+    setPublished(true);
+    setVersions((prev) =>
+      prev.map((v) =>
+        v.id === "v-2026-07"
+          ? { ...v, status: "Published" as const, totalUnits: approvedTotal || v.totalUnits }
+          : v.status === "Published"
+            ? { ...v, status: "Superseded" as const }
+            : v,
+      ),
+    );
+    setAuditLog((log) => [
+      {
+        id: nextId("al"),
+        at: "Today (prototype session)",
+        date: "2026-07-26",
+        user: "You · Demand planning lead",
+        action: "Forecast publication" as AuditAction,
+        sku: "All",
+        customer: "All",
+        version: "V2026.07",
+        detail: `Published the July operational forecast (${approvedTotal.toLocaleString("en-IN")} units) to ERP, MRP and the supplier portal (prototype only).`,
+      },
+      ...log,
+    ]);
+  }, [approvals]);
 
   const logAudit = useCallback((entry: Omit<AuditEntry, "id" | "at" | "date">) => {
     setAuditLog((prev) => [
