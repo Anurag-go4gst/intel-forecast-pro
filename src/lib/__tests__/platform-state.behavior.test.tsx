@@ -627,6 +627,7 @@ describe("authoritative application behaviours", () => {
     await waitFor(() => expect(harness.api.stageDone.project).toBe(true));
     expect(await screen.findByText(/Guide · step 2 of 13/i)).toBeInTheDocument();
     expect(harness.api.stageDone.upload).toBe(false);
+    await waitFor(() => expect(screen.getByRole("button", { name: /Next/i })).toBeEnabled());
 
     fireEvent.click(screen.getByRole("button", { name: /Next/i }));
     await waitFor(() => expect(harness.api.stageDone.upload).toBe(true));
@@ -680,7 +681,7 @@ describe("authoritative application behaviours", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^Guide$/i }));
     expect(await screen.findByText(/Guide · step 9 of 13/i)).toBeInTheDocument();
-    expect(screen.getByText(/Select the Apex shutdown event/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Select the Apex shutdown event/i).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /Next/i })).toBeDisabled();
     expect(harness.api.adjustmentRequests.some((request) => request.origin === "Event" && request.originId === "ie-1")).toBe(true);
     expect(harness.api.adjustmentRequests.some((request) => request.origin === "Event" && request.originId === "ie-0")).toBe(false);
@@ -698,7 +699,7 @@ describe("authoritative application behaviours", () => {
       });
     });
 
-    await waitFor(() => expect(screen.queryByText(/Select the Apex shutdown event/i)).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: /Next/i })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: /Next/i }));
 
     await waitFor(() => expect(harness.api.stageDone.events).toBe(true));

@@ -1,5 +1,6 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Check, ChevronLeft, ChevronRight, Lock } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Loader2, Lock } from "lucide-react";
+import { useState } from "react";
 import { usePlatform } from "@/lib/platform-state";
 import { workflowStages, type WorkflowStage } from "@/lib/workflow";
 import { cn } from "@/lib/utils";
@@ -219,6 +220,7 @@ export function StageGuard({ children }: { children: React.ReactNode }) {
 export function StageActions() {
   const navigate = useNavigate();
   const { completeStage, blockingOpen } = usePlatform();
+  const [advancing, setAdvancing] = useState(false);
   const stage = useActiveStage();
   const current = useCurrentStageIndex();
   if (!stage) return null;
@@ -233,14 +235,25 @@ export function StageActions() {
   const next = workflowStages[index + 1] ?? null;
 
   const gated = stage.id === "dataset" && blockingOpen > 0;
+  const guideActionId =
+    stage.id === "validation"
+      ? "guide-validation-action"
+      : stage.id === "baseline"
+        ? "guide-baseline-decision"
+        : undefined;
 
   const advance = () => {
+    if (advancing) return;
+    setAdvancing(true);
     completeStage(stage.id);
-    if (next) void navigate({ to: next.route, search: (next.search ?? {}) as never });
+    window.setTimeout(() => {
+      if (next) void navigate({ to: next.route, search: (next.search ?? {}) as never });
+      window.setTimeout(() => setAdvancing(false), 250);
+    }, 120);
   };
 
   return (
-    <div className="sticky bottom-0 z-40 mt-6 border-t border-border bg-surface/95 px-4 py-3 backdrop-blur-sm sm:px-6">
+    <div id={guideActionId} tabIndex={guideActionId ? -1 : undefined} className="sticky bottom-0 z-40 mt-6 border-t border-border bg-surface/95 px-4 py-3 backdrop-blur-sm sm:px-6">
       <div className="grid grid-cols-1 items-center gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
         <div className="min-w-0">
           <p className="text-xs font-semibold">
@@ -265,11 +278,20 @@ export function StageActions() {
           <button
             type="button"
             onClick={advance}
-            disabled={gated}
+            disabled={gated || advancing}
             className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {stage.primaryLabel}
-            <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+            {advancing ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                Opening step {next?.step ?? stage.step}
+              </>
+            ) : (
+              <>
+                {stage.primaryLabel}
+                <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+              </>
+            )}
           </button>
         </div>
       </div>

@@ -161,6 +161,8 @@ export function IssueResolutionPanel() {
           ) : (
             <button
               type="button"
+              id="guide-dataset-approval"
+              tabIndex={-1}
               disabled={blockingOpen > 0 || stageDone.dataset}
               onClick={() => {
                 completeStage("dataset");
