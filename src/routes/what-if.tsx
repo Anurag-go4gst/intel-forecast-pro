@@ -66,7 +66,9 @@ const scenarioColors = [
 ];
 
 function WhatIfScenarios() {
+  const navigate = useNavigate();
   const {
+    completeStage,
     filters,
     scenarioSpecs,
     addScenarioSpec,
