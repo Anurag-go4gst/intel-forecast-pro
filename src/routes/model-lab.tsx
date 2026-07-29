@@ -328,6 +328,20 @@ function ModelLab() {
       materialBreaches: [],
     });
     completeStage("champion");
+    continueToBaseline();
+  }
+
+  /** Step 7 → step 8. Used after accepting the champion or a recorded override. */
+  function continueToBaseline() {
+    completeStage("champion");
+    window.setTimeout(() => void navigate({ to: "/baseline" }), 140);
+  }
+
+  /** Deselect: drop the recorded selection and reopen step 7 for a new decision. */
+  function resetSelection() {
+    clearModelSelection(key);
+    reopenStage("champion");
+    setOverrideId(null);
   }
 
   function commitSelection(input: {
