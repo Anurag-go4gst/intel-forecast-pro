@@ -124,7 +124,11 @@ function ForecastReview() {
         actions={
           <>
             <StatusPill tone={published ? "positive" : "warning"}>
-              {published ? "V2026.07 published" : "V2026.07 working draft"}
+              {published
+                ? "V2026.07 published — continue to step 13"
+                : pending > 0
+                  ? `${pending} item${pending === 1 ? "" : "s"} awaiting decision before publication`
+                  : "V2026.07 working draft — ready to publish"}
             </StatusPill>
             <button
               type="button"
