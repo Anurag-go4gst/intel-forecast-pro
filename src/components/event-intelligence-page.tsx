@@ -11,6 +11,7 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { KpiTile, MetricRow, Panel, PageHeading, PrototypeNote, StatusPill } from "@/components/primitives";
@@ -54,6 +55,7 @@ const signalTone = {
 type EventWorkspaceTab = "decision" | "evidence" | "impact" | "requests";
 
 export function EventIntelligence() {
+  const navigate = useNavigate();
   const {
     intelEvents,
     addIntelEvent,
@@ -183,6 +185,14 @@ export function EventIntelligence() {
     completeStage("events");
     setActiveTab("requests");
   };
+
+  /** Step 9 is a judgement stage: allow progression when no event applies. */
+  const skipEvents = () => {
+    completeStage("events");
+    window.setTimeout(() => void navigate({ to: "/what-if" }), 140);
+  };
+
+
 
   const submitForm = () => {
     if (!form.name.trim()) return;
@@ -522,6 +532,13 @@ export function EventIntelligence() {
                       )}
                     </div>
                     <div className="flex flex-wrap items-start gap-2 md:justify-end">
+                      <button
+                        type="button"
+                        onClick={skipEvents}
+                        className="inline-flex h-8 items-center justify-center rounded-md border border-input px-3 text-xs font-medium hover:bg-accent"
+                      >
+                        Skip — no event applies
+                      </button>
                       <button
                         type="button"
                         onClick={() => setPlannerStatus("Watchlist")}

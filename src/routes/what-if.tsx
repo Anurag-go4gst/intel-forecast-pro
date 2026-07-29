@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Copy, FlaskConical, RotateCcw, Save, Send } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
@@ -66,7 +66,9 @@ const scenarioColors = [
 ];
 
 function WhatIfScenarios() {
+  const navigate = useNavigate();
   const {
+    completeStage,
     filters,
     scenarioSpecs,
     addScenarioSpec,
@@ -180,9 +182,21 @@ function WhatIfScenarios() {
         title="What-if Scenarios"
         subtitle="Scenarios are a sandbox held separately from the official forecast. Compare them against the baseline and the approved event-aware forecast, then promote a scenario to raise a forecast-adjustment request for approval."
         actions={
-          <StatusPill tone="info">
-            <FlaskConical className="h-3 w-3" aria-hidden /> Sandbox — official forecast never changes automatically
-          </StatusPill>
+          <>
+            <StatusPill tone="info">
+              <FlaskConical className="h-3 w-3" aria-hidden /> Sandbox — official forecast never changes automatically
+            </StatusPill>
+            <button
+              type="button"
+              onClick={() => {
+                completeStage("scenarios");
+                window.setTimeout(() => void navigate({ to: "/forecast-review" }), 140);
+              }}
+              className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              Skip what-if and continue to forecast review
+            </button>
+          </>
         }
       />
 
