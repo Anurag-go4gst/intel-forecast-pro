@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   Activity,
   BarChart3,
@@ -152,9 +152,11 @@ type SortKey =
 
 function ModelLab() {
   const search = Route.useSearch();
+  const navigate = useNavigate();
   const {
     blockingOpen,
     completeStage,
+    reopenStage,
     modelSelections,
     recordModelSelection,
     approveModelSelection,
