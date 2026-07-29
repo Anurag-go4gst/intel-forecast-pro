@@ -151,8 +151,6 @@ function ForecastReview() {
             </StatusPill>
             <button
               type="button"
-              id="guide-approve-action"
-              tabIndex={-1}
               onClick={publishAndContinue}
               disabled={pending > 0 || published || publishing}
               title={
@@ -197,7 +195,7 @@ function ForecastReview() {
         description="Every line shows the full decomposition from statistical baseline to proposed final forecast."
         bodyClassName="p-0"
         actions={
-          <div ref={queueRef} className="flex flex-wrap items-center gap-2 scroll-mt-28">
+          <div ref={queueRef} id="guide-approve-action" tabIndex={-1} className="flex flex-wrap items-center gap-2 scroll-mt-52 outline-none">
             <div className="flex flex-wrap gap-1">
               {filterStatuses.map((s) => (
                 <button

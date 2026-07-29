@@ -161,6 +161,7 @@ function ModelLab() {
     recordModelSelection,
     approveModelSelection,
     clearModelSelection,
+    stageDone,
   } = usePlatform();
   const [tab, setTab] = useState<TabId>(search.tab ?? "catalogue");
   const [customerId, setCustomerId] = useState(search.customer ?? demoCaseRow.customerId);
@@ -170,7 +171,10 @@ function ModelLab() {
   const [weights, setWeights] = useState<ScoreWeights>(defaultWeights);
 
   const [stage, setStage] = useState(-1);
-  const [hasRun, setHasRun] = useState(true);
+  // Only pre-show results on a return visit — a first-time visitor must click
+  // Run before champion/results content appears, so the tournament reads as
+  // something that actually executes rather than pre-baked content.
+  const [hasRun, setHasRun] = useState(() => stageDone.tournament);
   const [sortKey, setSortKey] = useState<SortKey>("rank");
   const [sortAsc, setSortAsc] = useState(true);
   const [hidden, setHidden] = useState<string[]>([]);
@@ -452,7 +456,7 @@ function ModelLab() {
       {tab === "catalogue" && <Catalogue />}
 
       {tab !== "catalogue" && (
-        <div id="guide-tournament" tabIndex={-1} className="scroll-mt-28 outline-none">
+        <div id="guide-tournament" tabIndex={-1} className="scroll-mt-52 outline-none">
         <Panel
           title="Series selection"
           description="Every result below is computed for this SKU / customer / location / horizon combination."
@@ -552,7 +556,7 @@ function ModelLab() {
       )}
 
       {hasRun && (tab === "tournament" || tab === "comparison") && (
-        <div id="guide-champion" tabIndex={-1} className="scroll-mt-28 space-y-3 outline-none">
+        <div id="guide-champion" tabIndex={-1} className="scroll-mt-52 space-y-3 outline-none">
           <SelectionIdentityPanel
             champion={result.champion}
             selection={selection}

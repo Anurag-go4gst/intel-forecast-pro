@@ -2,7 +2,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Check, ChevronLeft, ChevronRight, Loader2, Lock } from "lucide-react";
 import { useState } from "react";
 import { usePlatform } from "@/lib/platform-state";
-import { workflowStages, type WorkflowStage } from "@/lib/workflow";
+import { domainActionStages, workflowStages, type WorkflowStage } from "@/lib/workflow";
 import { cn } from "@/lib/utils";
 
 export type StageStatus = "completed" | "current" | "pending" | "locked";
@@ -227,7 +227,6 @@ export function StageActions() {
   const stageIndex = workflowStages.findIndex((s) => s.id === stage.id);
   if (stageIndex > current + 1) return null;
 
-  const domainActionStages = new Set(["upload", "resolve", "dataset", "tournament", "champion", "events", "approve"]);
   if (domainActionStages.has(stage.id)) return null;
 
   const index = workflowStages.findIndex((s) => s.id === stage.id);
