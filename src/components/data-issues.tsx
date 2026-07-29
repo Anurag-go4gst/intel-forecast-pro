@@ -177,7 +177,7 @@ export function IssueResolutionPanel() {
                   detail: `Forecast-ready dataset approved with ${resolved} recorded data-quality decisions.`,
                 });
               }}
-              className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="scroll-mt-52 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {stageDone.dataset ? "Dataset approved" : "Approve Forecast-Ready Dataset"}
             </button>

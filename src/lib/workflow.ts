@@ -268,6 +268,25 @@ export const workflowPhases = [
 /** Screens that support the workflow but sit outside the linear sequence. */
 export const supportRoutes = ["/", "/forecast-workspace", "/audit-log", "/assistant"];
 
+/**
+ * Stages whose decision requires real per-item interaction on their own
+ * screen (resolving each issue, running a tournament, deciding each approval
+ * queue item, ...). The generic sticky action bar is suppressed for these,
+ * and the guided demo never completes them on the planner's behalf — it
+ * waits for the real interaction. Every other stage is a simple
+ * accept-and-continue action, safe for both the generic bar and the guide's
+ * own Next button to perform directly.
+ */
+export const domainActionStages = new Set<StageId>([
+  "upload",
+  "resolve",
+  "dataset",
+  "tournament",
+  "champion",
+  "events",
+  "approve",
+]);
+
 // ------------------------------------------------------- semantic signal roles
 export type SignalRole = {
   id: string;

@@ -100,7 +100,7 @@ function PerformanceMonitoring() {
         <div
           id="guide-monitor-summary"
           tabIndex={-1}
-          className="grid scroll-mt-28 grid-cols-1 gap-3 outline-none lg:grid-cols-3"
+          className="grid scroll-mt-52 grid-cols-1 gap-3 outline-none lg:grid-cols-3"
         >
           <div className="rounded-md border border-border bg-surface-muted/60 p-3">
             <div className="flex items-center justify-between gap-2">

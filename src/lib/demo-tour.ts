@@ -118,15 +118,15 @@ const action: Record<StageId, string> = {
   upload: "Review the mapped upload preview, then click Next in the guide to continue.",
   resolve: "Open each Blocking issue in the data-quality list and choose a resolution until no blocking issues remain.",
   dataset: "Click the Approve Forecast-Ready Dataset button in the data-quality panel. The guide stays here until dataset approval is complete.",
-  validation: "Use the sticky bottom action Confirm validation design and continue. The guide will show a loading state while step 6 opens.",
+  validation: "Review the recommended rolling backtest, then click Next in the guide to confirm it and continue.",
   tournament: "Click Run tournament on the Model Lab tournament tab, wait for the run to complete, then continue to model results.",
   champion: "On the comparison tab, click Accept champion and view baseline to confirm the recommended champion.",
-  baseline: "Review the baseline warning and chart, then click Accept baseline and continue to event review in the sticky bottom action bar.",
+  baseline: "Review the baseline warning and chart, then click Next in the guide to accept it and continue to event review.",
   events: "Select the Apex shutdown event in the registry, adjust impact if needed, then click Apply selected impact. The guide opens optional What-if after the request is raised.",
   scenarios: "If no what-if is needed, click Skip what-if in the guide or the bottom action bar. If a scenario matters, promote it for review first.",
-  review: "Review the forecast bridge and approval queue, then use Continue to approval and publication in the bottom action bar.",
+  review: "Review the forecast bridge and approval queue, then click Next in the guide to continue to approval and publication.",
   approve: "Click Publish new version in the page header. Publication must happen before Monitor opens.",
-  monitor: "Review the business summary, then click Finish workflow in the bar at the bottom of the page.",
+  monitor: "Review the business summary, then click Finish workflow in the guide or the bar at the bottom of the page.",
 };
 
 const targetId: Partial<Record<StageId, string>> = {

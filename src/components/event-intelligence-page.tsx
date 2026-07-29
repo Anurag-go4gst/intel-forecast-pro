@@ -1,6 +1,7 @@
 import {
   CalendarPlus,
   Check,
+  ChevronRight,
   ClipboardCheck,
   ListChecks,
   Link2,
@@ -65,6 +66,7 @@ export function EventIntelligence() {
     promoteToReview,
     adjustmentRequests,
     logAudit,
+    stageDone,
   } = usePlatform();
   const [categoryFilter, setCategoryFilter] = useState<"all" | EventCategory>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | EventStatus>("all");
@@ -237,13 +239,34 @@ export function EventIntelligence() {
         title="Event Intelligence"
         subtitle="Register business events that history cannot describe, qualify them against evidence, check whether their impact is already in the data, and route them to calendar inputs, governed adjustments or scenarios."
         actions={
-          <button
-            type="button"
-            onClick={() => setShowForm((v) => !v)}
-            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
-          >
-            <CalendarPlus className="h-3.5 w-3.5" aria-hidden /> {showForm ? "Close form" : "Register event"}
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => setShowForm((v) => !v)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-xs font-semibold hover:bg-accent"
+            >
+              <CalendarPlus className="h-3.5 w-3.5" aria-hidden /> {showForm ? "Close form" : "Register event"}
+            </button>
+            {stageDone.events ? (
+              <button
+                type="button"
+                onClick={() => window.setTimeout(() => void navigate({ to: "/what-if" }), 140)}
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+              >
+                Continue to What-if Scenarios
+                <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={skipEvents}
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+              >
+                Skip — no event applies
+                <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            )}
+          </>
         }
       />
 
@@ -481,7 +504,7 @@ export function EventIntelligence() {
               </div>
 
               {activeTab === "decision" && (
-                <div id="guide-event-decision" tabIndex={-1} className="mt-4 space-y-3">
+                <div id="guide-event-decision" tabIndex={-1} className="mt-4 scroll-mt-52 space-y-3 outline-none">
                   <div className="grid grid-cols-1 gap-3 rounded-md border border-border bg-surface-muted p-3 md:grid-cols-3">
                     <label className="block">
                       <span className="label-caps">Planner decision</span>

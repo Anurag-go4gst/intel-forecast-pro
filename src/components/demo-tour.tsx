@@ -23,6 +23,11 @@ const autoFollowStages: StageId[] = [
   "approve",
 ];
 
+/** Stages that are a single accept-and-continue action, safe for the
+ * guide's own Next button to perform directly (mirrors the generic sticky
+ * action bar, which already completes these unconditionally). */
+const guideActsDirectly: StageId[] = ["project", "upload", "validation", "baseline", "review", "scenarios", "monitor"];
+
 function ConfirmDialog({
   title,
   body,
@@ -102,8 +107,7 @@ export function DemoTour() {
   }, [stageDone]);
 
   const canAdvanceAfterAction = useCallback((id: StageId) => {
-    if (id === "project" || id === "upload") return true;
-    if (id === "scenarios") return true;
+    if (guideActsDirectly.includes(id)) return true;
     if (id === "resolve") return blockingOpen === 0;
     if (id === "events") return guideEventApplied;
     return stageDone[id];
@@ -121,8 +125,12 @@ export function DemoTour() {
   }, []);
 
   /**
-   * Each step waits for the planner's own action. The guide never
-   * completes a decision on the user's behalf.
+   * Steps with real per-item decisions (resolving issues, running the
+   * tournament, picking a champion, applying an event, clearing the
+   * approval queue) wait for the planner's own action on that screen — the
+   * guide never completes those on the planner's behalf. Simple
+   * accept-and-continue steps (validation, baseline, review, monitor) are
+   * safe to advance directly from the guide's own Next button instead.
    */
   const gate = (() => {
     if (step.id === "resolve" && blockingOpen > 0) {
@@ -134,24 +142,18 @@ export function DemoTour() {
     if (step.id === "dataset" && !stageDone.dataset) {
       return "Approve the forecast-ready dataset on this screen before continuing.";
     }
-    if (step.id === "validation" && !stageDone.validation) {
-      return "Click Confirm validation design and continue in the bottom action bar. The guide will open Model Lab after the transition finishes.";
-    }
     if (step.id === "tournament" && !stageDone.tournament) {
       return "Click Run Baseline Model Tournament, then wait until training, backtesting and scoring finish. The guide will continue when results are ready.";
     }
     if (step.id === "champion" && !stageDone.champion) {
       return "Click Accept champion and view baseline in the champion comparison panel.";
     }
-    if (step.id === "baseline" && !stageDone.baseline) {
-      return "Click Accept baseline and continue to event review in the bottom action bar.";
-    }
     if (step.id === "events" && !guideEventApplied) {
       return "Select the Apex shutdown event, adjust its impact if needed, then use Apply selected residual impact before continuing.";
     }
     if (step.id === "approve" && !stageDone.approve) {
       if (pendingApprovals > 0) {
-        return `${pendingApprovals} item${pendingApprovals === 1 ? "" : "s"} in the approval queue ${pendingApprovals === 1 ? "is" : "are"} still Awaiting approval. Open each one below and Approve, Reject or Return it for clarification — Publish new version stays disabled until none are left.`;
+        return `${pendingApprovals} item${pendingApprovals === 1 ? "" : "s"} in the approval queue below ${pendingApprovals === 1 ? "is" : "are"} still Awaiting approval. Click a row to select it, then click Approve, Reject or Return for clarification in the decision panel that appears underneath the table — or use "Approve N high-confidence items" above the table to clear the straightforward ones at once. Publish new version stays disabled until none are left.`;
       }
       return "Every queue item has a decision recorded. Click Publish new version in the page header — the guide opens Monitor once publication completes.";
     }
@@ -207,10 +209,9 @@ export function DemoTour() {
 
   const advance = useCallback(() => {
     if (gate || transitionLabel) return;
-    if (step.id === "project" || step.id === "upload") completeStage(step.id);
+    if (guideActsDirectly.includes(step.id)) completeStage(step.id);
     if (step.id === "resolve") completeStage("resolve");
     if (step.id === "events") completeStage("events");
-    if (step.id === "scenarios") completeStage("scenarios");
     const next = Math.min(demoSteps.length - 1, index + 1);
     setTransitionLabel(`Loading step ${demoSteps[next].step}: ${demoSteps[next].title}`);
     window.setTimeout(() => goto(next), 140);
@@ -454,12 +455,14 @@ export function DemoTour() {
                 {index === demoSteps.length - 1 ? (
                   <button
                     type="button"
-                    onClick={() => setOpen(false)}
-                    disabled={Boolean(gate) || Boolean(transitionLabel)}
-                    title={gate ?? "Click Finish workflow in the bar at the bottom of the page first"}
+                    onClick={() => {
+                      completeStage("monitor");
+                      setOpen(false);
+                    }}
+                    disabled={Boolean(transitionLabel)}
                     className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Close guide
+                    Finish workflow
                   </button>
                 ) : (
                   <button
