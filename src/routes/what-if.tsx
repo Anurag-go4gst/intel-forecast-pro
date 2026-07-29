@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Copy, FlaskConical, RotateCcw, Save, Send } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
