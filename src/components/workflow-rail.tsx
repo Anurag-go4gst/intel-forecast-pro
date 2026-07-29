@@ -227,7 +227,7 @@ export function StageActions() {
   const stageIndex = workflowStages.findIndex((s) => s.id === stage.id);
   if (stageIndex > current + 1) return null;
 
-  const domainActionStages = new Set(["upload", "resolve", "dataset", "tournament", "champion", "events"]);
+  const domainActionStages = new Set(["upload", "resolve", "dataset", "tournament", "champion", "events", "approve"]);
   if (domainActionStages.has(stage.id)) return null;
 
   const index = workflowStages.findIndex((s) => s.id === stage.id);
@@ -240,7 +240,11 @@ export function StageActions() {
       ? "guide-validation-action"
       : stage.id === "baseline"
         ? "guide-baseline-decision"
-        : undefined;
+        : stage.id === "review"
+          ? "guide-review-action"
+          : stage.id === "monitor"
+            ? "guide-monitor-finish"
+            : undefined;
 
   const advance = () => {
     if (advancing) return;

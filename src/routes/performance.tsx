@@ -58,6 +58,48 @@ function PerformanceMonitoring() {
         <KpiTile label="Excess risk (high)" value={String(riskBuckets[1].high)} delta="Cover above 90 days" deltaTone="warning" icon={Boxes} />
       </div>
 
+      <Panel
+        title="Business review for the next cycle"
+        description="The owner view: what improved, what still needs action and which decision carries into the next forecasting cycle."
+      >
+        <div
+          id="guide-monitor-summary"
+          tabIndex={-1}
+          className="grid scroll-mt-28 grid-cols-1 gap-3 outline-none lg:grid-cols-3"
+        >
+          <div className="rounded-md border border-positive/25 bg-positive-soft/45 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold">Keep in operation</p>
+              <StatusPill tone="positive">Model + event layer</StatusPill>
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+              Event-aware forecasting is the best current layer at 12.8% WAPE, beating the
+              naive reference and the pure model baseline.
+            </p>
+          </div>
+          <div className="rounded-md border border-warning/30 bg-warning-soft/45 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold">Tighten governance</p>
+              <StatusPill tone="warning">Planner overrides</StatusPill>
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+              Low-evidence planner changes still add error before review. Keep the approval
+              gate strict and require evidence for material overrides.
+            </p>
+          </div>
+          <div className="rounded-md border border-risk/25 bg-risk-soft/45 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold">Act before next load</p>
+              <StatusPill tone="risk">Supply risk</StatusPill>
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+              High stockout and excess-risk combinations need owner actions before the next
+              cycle: resolve supply constraints, rebalance inventory or document exceptions.
+            </p>
+          </div>
+        </div>
+      </Panel>
+
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Panel className="xl:col-span-2" title="Accuracy and bias trend" description="Rolling monthly measurement against published forecast versions.">
           <div className="h-72 w-full">

@@ -122,10 +122,10 @@ const action: Record<StageId, string> = {
   tournament: "Click Run tournament on the Model Lab tournament tab, wait for the run to complete, then continue to model results.",
   champion: "On the comparison tab, click Accept champion and view baseline to confirm the recommended champion.",
   baseline: "Review the baseline warning and chart, then click Accept baseline and continue to event review in the sticky bottom action bar.",
-  events: "Select the Apex shutdown event in the registry, adjust impact if needed, then click Apply selected impact.",
-  scenarios: "If no what-if is needed, click Skip what-if in the guide. Scenarios remain simulation-only.",
-  review: "Review the forecast bridge and approval queue, then use the screen action to continue to publication.",
-  approve: "Publish the approved operational forecast from Forecast Review.",
+  events: "Select the Apex shutdown event in the registry, adjust impact if needed, then click Apply selected impact. The guide opens optional What-if after the request is raised.",
+  scenarios: "If no what-if is needed, click Skip what-if in the guide or the bottom action bar. If a scenario matters, promote it for review first.",
+  review: "Review the forecast bridge and approval queue, then use Continue to approval and publication in the bottom action bar.",
+  approve: "Click Publish new version in the page header. Publication must happen before Monitor opens.",
   monitor: "Review forecast value added and finish the guide.",
 };
 
@@ -138,6 +138,10 @@ const targetId: Partial<Record<StageId, string>> = {
   champion: "guide-champion",
   baseline: "guide-baseline-decision",
   events: "guide-event-decision",
+  scenarios: "guide-scenario-decision",
+  review: "guide-review-action",
+  approve: "guide-approve-action",
+  monitor: "guide-monitor-summary",
 };
 
 export const demoSteps: DemoStep[] = workflowStages.map((stage) => ({

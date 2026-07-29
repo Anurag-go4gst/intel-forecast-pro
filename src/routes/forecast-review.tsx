@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   BadgeCheck,
   CheckCheck,
@@ -6,6 +6,7 @@ import {
   FileSearch,
   GitBranch,
   History,
+  Loader2,
   MessageSquarePlus,
   Send,
   ShieldAlert,
@@ -48,6 +49,7 @@ export const Route = createFileRoute("/forecast-review")({
 const filterStatuses: Array<ApprovalStatus | "All"> = ["All", ...approvalStatuses];
 
 function ForecastReview() {
+  const navigate = useNavigate();
   const {
     approvals,
     setApprovalStatus,
@@ -56,6 +58,7 @@ function ForecastReview() {
     versions,
     published,
     publish,
+    completeStage,
     adjustmentRequests,
   } = usePlatform();
 
@@ -66,6 +69,7 @@ function ForecastReview() {
   const [editing, setEditing] = useState(false);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [fullOpen, setFullOpen] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   const visible = useMemo(
     () => (statusFilter === "All" ? approvals : approvals.filter((a) => a.status === statusFilter)),
@@ -101,6 +105,17 @@ function ForecastReview() {
     setApprovalStatus(selected.id, status, note);
   };
 
+  const publishAndContinue = () => {
+    if (pending > 0 || published || publishing) return;
+    setPublishing(true);
+    publish();
+    completeStage("approve");
+    window.setTimeout(() => {
+      void navigate({ to: "/performance" });
+      window.setTimeout(() => setPublishing(false), 250);
+    }, 160);
+  };
+
   return (
     <div className="space-y-5">
       <PageHeading
@@ -113,8 +128,10 @@ function ForecastReview() {
             </StatusPill>
             <button
               type="button"
-              onClick={publish}
-              disabled={pending > 0 || published}
+              id="guide-approve-action"
+              tabIndex={-1}
+              onClick={publishAndContinue}
+              disabled={pending > 0 || published || publishing}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
                 published
@@ -122,8 +139,12 @@ function ForecastReview() {
                   : "bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50",
               )}
             >
-              <Send className="h-3.5 w-3.5" aria-hidden />
-              {published ? "Published to ERP" : "Publish new version"}
+              {publishing ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              ) : (
+                <Send className="h-3.5 w-3.5" aria-hidden />
+              )}
+              {publishing ? "Publishing..." : published ? "Published to ERP" : "Publish new version"}
             </button>
           </>
         }
