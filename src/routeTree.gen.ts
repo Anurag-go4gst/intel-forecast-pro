@@ -9,79 +9,25 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as WhatIfRouteImport } from './routes/what-if'
-import { Route as ValidationSetupRouteImport } from './routes/validation-setup'
-import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as ProjectRouteImport } from './routes/project'
-import { Route as PerformanceRouteImport } from './routes/performance'
-import { Route as ModelLabRouteImport } from './routes/model-lab'
-import { Route as ForecastWorkspaceRouteImport } from './routes/forecast-workspace'
-import { Route as ForecastReviewRouteImport } from './routes/forecast-review'
-import { Route as EventIntelligenceRouteImport } from './routes/event-intelligence'
-import { Route as DataReadinessRouteImport } from './routes/data-readiness'
-import { Route as BaselineRouteImport } from './routes/baseline'
-import { Route as AuditLogRouteImport } from './routes/audit-log'
-import { Route as AssistantRouteImport } from './routes/assistant'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AssistantRouteImport } from './routes/assistant'
+import { Route as AuditLogRouteImport } from './routes/audit-log'
+import { Route as BaselineRouteImport } from './routes/baseline'
+import { Route as DataReadinessRouteImport } from './routes/data-readiness'
+import { Route as EventIntelligenceRouteImport } from './routes/event-intelligence'
+import { Route as ForecastReviewRouteImport } from './routes/forecast-review'
+import { Route as ForecastWorkspaceRouteImport } from './routes/forecast-workspace'
+import { Route as IntegrationsRouteImport } from './routes/integrations'
+import { Route as ModelLabRouteImport } from './routes/model-lab'
+import { Route as PerformanceRouteImport } from './routes/performance'
+import { Route as ProjectRouteImport } from './routes/project'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as ValidationSetupRouteImport } from './routes/validation-setup'
+import { Route as WhatIfRouteImport } from './routes/what-if'
 
-const WhatIfRoute = WhatIfRouteImport.update({
-  id: '/what-if',
-  path: '/what-if',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ValidationSetupRoute = ValidationSetupRouteImport.update({
-  id: '/validation-setup',
-  path: '/validation-setup',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
-  id: '/sitemap.xml',
-  path: '/sitemap.xml',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProjectRoute = ProjectRouteImport.update({
-  id: '/project',
-  path: '/project',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PerformanceRoute = PerformanceRouteImport.update({
-  id: '/performance',
-  path: '/performance',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ModelLabRoute = ModelLabRouteImport.update({
-  id: '/model-lab',
-  path: '/model-lab',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ForecastWorkspaceRoute = ForecastWorkspaceRouteImport.update({
-  id: '/forecast-workspace',
-  path: '/forecast-workspace',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ForecastReviewRoute = ForecastReviewRouteImport.update({
-  id: '/forecast-review',
-  path: '/forecast-review',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EventIntelligenceRoute = EventIntelligenceRouteImport.update({
-  id: '/event-intelligence',
-  path: '/event-intelligence',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DataReadinessRoute = DataReadinessRouteImport.update({
-  id: '/data-readiness',
-  path: '/data-readiness',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BaselineRoute = BaselineRouteImport.update({
-  id: '/baseline',
-  path: '/baseline',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuditLogRoute = AuditLogRouteImport.update({
-  id: '/audit-log',
-  path: '/audit-log',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AssistantRoute = AssistantRouteImport.update({
@@ -89,9 +35,69 @@ const AssistantRoute = AssistantRouteImport.update({
   path: '/assistant',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AuditLogRoute = AuditLogRouteImport.update({
+  id: '/audit-log',
+  path: '/audit-log',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BaselineRoute = BaselineRouteImport.update({
+  id: '/baseline',
+  path: '/baseline',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DataReadinessRoute = DataReadinessRouteImport.update({
+  id: '/data-readiness',
+  path: '/data-readiness',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EventIntelligenceRoute = EventIntelligenceRouteImport.update({
+  id: '/event-intelligence',
+  path: '/event-intelligence',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForecastReviewRoute = ForecastReviewRouteImport.update({
+  id: '/forecast-review',
+  path: '/forecast-review',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForecastWorkspaceRoute = ForecastWorkspaceRouteImport.update({
+  id: '/forecast-workspace',
+  path: '/forecast-workspace',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IntegrationsRoute = IntegrationsRouteImport.update({
+  id: '/integrations',
+  path: '/integrations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ModelLabRoute = ModelLabRouteImport.update({
+  id: '/model-lab',
+  path: '/model-lab',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PerformanceRoute = PerformanceRouteImport.update({
+  id: '/performance',
+  path: '/performance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectRoute = ProjectRouteImport.update({
+  id: '/project',
+  path: '/project',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ValidationSetupRoute = ValidationSetupRouteImport.update({
+  id: '/validation-setup',
+  path: '/validation-setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WhatIfRoute = WhatIfRouteImport.update({
+  id: '/what-if',
+  path: '/what-if',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -104,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/event-intelligence': typeof EventIntelligenceRoute
   '/forecast-review': typeof ForecastReviewRoute
   '/forecast-workspace': typeof ForecastWorkspaceRoute
+  '/integrations': typeof IntegrationsRoute
   '/model-lab': typeof ModelLabRoute
   '/performance': typeof PerformanceRoute
   '/project': typeof ProjectRoute
@@ -120,6 +127,7 @@ export interface FileRoutesByTo {
   '/event-intelligence': typeof EventIntelligenceRoute
   '/forecast-review': typeof ForecastReviewRoute
   '/forecast-workspace': typeof ForecastWorkspaceRoute
+  '/integrations': typeof IntegrationsRoute
   '/model-lab': typeof ModelLabRoute
   '/performance': typeof PerformanceRoute
   '/project': typeof ProjectRoute
@@ -137,6 +145,7 @@ export interface FileRoutesById {
   '/event-intelligence': typeof EventIntelligenceRoute
   '/forecast-review': typeof ForecastReviewRoute
   '/forecast-workspace': typeof ForecastWorkspaceRoute
+  '/integrations': typeof IntegrationsRoute
   '/model-lab': typeof ModelLabRoute
   '/performance': typeof PerformanceRoute
   '/project': typeof ProjectRoute
@@ -155,6 +164,7 @@ export interface FileRouteTypes {
     | '/event-intelligence'
     | '/forecast-review'
     | '/forecast-workspace'
+    | '/integrations'
     | '/model-lab'
     | '/performance'
     | '/project'
@@ -171,6 +181,7 @@ export interface FileRouteTypes {
     | '/event-intelligence'
     | '/forecast-review'
     | '/forecast-workspace'
+    | '/integrations'
     | '/model-lab'
     | '/performance'
     | '/project'
@@ -187,6 +198,7 @@ export interface FileRouteTypes {
     | '/event-intelligence'
     | '/forecast-review'
     | '/forecast-workspace'
+    | '/integrations'
     | '/model-lab'
     | '/performance'
     | '/project'
@@ -204,6 +216,7 @@ export interface RootRouteChildren {
   EventIntelligenceRoute: typeof EventIntelligenceRoute
   ForecastReviewRoute: typeof ForecastReviewRoute
   ForecastWorkspaceRoute: typeof ForecastWorkspaceRoute
+  IntegrationsRoute: typeof IntegrationsRoute
   ModelLabRoute: typeof ModelLabRoute
   PerformanceRoute: typeof PerformanceRoute
   ProjectRoute: typeof ProjectRoute
@@ -214,88 +227,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/what-if': {
-      id: '/what-if'
-      path: '/what-if'
-      fullPath: '/what-if'
-      preLoaderRoute: typeof WhatIfRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/validation-setup': {
-      id: '/validation-setup'
-      path: '/validation-setup'
-      fullPath: '/validation-setup'
-      preLoaderRoute: typeof ValidationSetupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sitemap.xml': {
-      id: '/sitemap.xml'
-      path: '/sitemap.xml'
-      fullPath: '/sitemap.xml'
-      preLoaderRoute: typeof SitemapDotxmlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/project': {
-      id: '/project'
-      path: '/project'
-      fullPath: '/project'
-      preLoaderRoute: typeof ProjectRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/performance': {
-      id: '/performance'
-      path: '/performance'
-      fullPath: '/performance'
-      preLoaderRoute: typeof PerformanceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/model-lab': {
-      id: '/model-lab'
-      path: '/model-lab'
-      fullPath: '/model-lab'
-      preLoaderRoute: typeof ModelLabRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/forecast-workspace': {
-      id: '/forecast-workspace'
-      path: '/forecast-workspace'
-      fullPath: '/forecast-workspace'
-      preLoaderRoute: typeof ForecastWorkspaceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/forecast-review': {
-      id: '/forecast-review'
-      path: '/forecast-review'
-      fullPath: '/forecast-review'
-      preLoaderRoute: typeof ForecastReviewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/event-intelligence': {
-      id: '/event-intelligence'
-      path: '/event-intelligence'
-      fullPath: '/event-intelligence'
-      preLoaderRoute: typeof EventIntelligenceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/data-readiness': {
-      id: '/data-readiness'
-      path: '/data-readiness'
-      fullPath: '/data-readiness'
-      preLoaderRoute: typeof DataReadinessRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/baseline': {
-      id: '/baseline'
-      path: '/baseline'
-      fullPath: '/baseline'
-      preLoaderRoute: typeof BaselineRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/audit-log': {
-      id: '/audit-log'
-      path: '/audit-log'
-      fullPath: '/audit-log'
-      preLoaderRoute: typeof AuditLogRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/assistant': {
@@ -305,11 +241,95 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AssistantRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/audit-log': {
+      id: '/audit-log'
+      path: '/audit-log'
+      fullPath: '/audit-log'
+      preLoaderRoute: typeof AuditLogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/baseline': {
+      id: '/baseline'
+      path: '/baseline'
+      fullPath: '/baseline'
+      preLoaderRoute: typeof BaselineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/data-readiness': {
+      id: '/data-readiness'
+      path: '/data-readiness'
+      fullPath: '/data-readiness'
+      preLoaderRoute: typeof DataReadinessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/event-intelligence': {
+      id: '/event-intelligence'
+      path: '/event-intelligence'
+      fullPath: '/event-intelligence'
+      preLoaderRoute: typeof EventIntelligenceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forecast-review': {
+      id: '/forecast-review'
+      path: '/forecast-review'
+      fullPath: '/forecast-review'
+      preLoaderRoute: typeof ForecastReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forecast-workspace': {
+      id: '/forecast-workspace'
+      path: '/forecast-workspace'
+      fullPath: '/forecast-workspace'
+      preLoaderRoute: typeof ForecastWorkspaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/integrations': {
+      id: '/integrations'
+      path: '/integrations'
+      fullPath: '/integrations'
+      preLoaderRoute: typeof IntegrationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/model-lab': {
+      id: '/model-lab'
+      path: '/model-lab'
+      fullPath: '/model-lab'
+      preLoaderRoute: typeof ModelLabRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/performance': {
+      id: '/performance'
+      path: '/performance'
+      fullPath: '/performance'
+      preLoaderRoute: typeof PerformanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/project': {
+      id: '/project'
+      path: '/project'
+      fullPath: '/project'
+      preLoaderRoute: typeof ProjectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/validation-setup': {
+      id: '/validation-setup'
+      path: '/validation-setup'
+      fullPath: '/validation-setup'
+      preLoaderRoute: typeof ValidationSetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/what-if': {
+      id: '/what-if'
+      path: '/what-if'
+      fullPath: '/what-if'
+      preLoaderRoute: typeof WhatIfRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -324,6 +344,7 @@ const rootRouteChildren: RootRouteChildren = {
   EventIntelligenceRoute: EventIntelligenceRoute,
   ForecastReviewRoute: ForecastReviewRoute,
   ForecastWorkspaceRoute: ForecastWorkspaceRoute,
+  IntegrationsRoute: IntegrationsRoute,
   ModelLabRoute: ModelLabRoute,
   PerformanceRoute: PerformanceRoute,
   ProjectRoute: ProjectRoute,
@@ -334,3 +355,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

@@ -8,6 +8,7 @@ import {
   Gauge,
   LayoutDashboard,
   LineChart,
+  Plug,
   ScrollText,
   SlidersHorizontal,
   SplitSquareHorizontal,
@@ -16,11 +17,7 @@ import {
 } from "lucide-react";
 
 export type NavGroup =
-  | "Prepare data"
-  | "Build baseline"
-  | "Apply judgement"
-  | "Govern & monitor"
-  | "Support";
+  "Prepare data" | "Build baseline" | "Apply judgement" | "Govern & monitor" | "Support";
 
 export type NavItem = {
   to: string;
@@ -124,6 +121,13 @@ export const navItems: NavItem[] = [
     icon: LineChart,
     group: "Support",
     description: "Series-level detail for any SKU-customer-plant",
+  },
+  {
+    to: "/integrations",
+    label: "Connections",
+    icon: Plug,
+    group: "Support",
+    description: "Deliver the forecast to ERP, planning, MCP and API",
   },
   {
     to: "/audit-log",
