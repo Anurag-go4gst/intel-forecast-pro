@@ -32,17 +32,23 @@ export const eventStatuses = [
 ] as const;
 export type EventStatus = (typeof eventStatuses)[number];
 
-export const statusTone: Record<EventStatus, "neutral" | "info" | "positive" | "warning" | "risk"> = {
-  Draft: "neutral",
-  Watchlist: "info",
-  "Under review": "warning",
-  Recommended: "info",
-  Approved: "positive",
-  Rejected: "risk",
-  Expired: "neutral",
-};
+export const statusTone: Record<EventStatus, "neutral" | "info" | "positive" | "warning" | "risk"> =
+  {
+    Draft: "neutral",
+    Watchlist: "info",
+    "Under review": "warning",
+    Recommended: "info",
+    Approved: "positive",
+    Rejected: "risk",
+    Expired: "neutral",
+  };
 
-export const reliabilityLevels = ["Confirmed document", "Direct customer input", "Internal estimate", "Market rumour"] as const;
+export const reliabilityLevels = [
+  "Confirmed document",
+  "Direct customer input",
+  "Internal estimate",
+  "Market rumour",
+] as const;
 export type Reliability = (typeof reliabilityLevels)[number];
 
 export const impactUnits = ["Percentage", "Quantity"] as const;
@@ -75,7 +81,11 @@ export const patternDescription: Record<ImpactPattern, string> = {
 };
 
 /** Month-by-month impact shape (as a share of the peak impact). */
-export function patternCurve(pattern: ImpactPattern, peak: number, months = horizonMonths.length): number[] {
+export function patternCurve(
+  pattern: ImpactPattern,
+  peak: number,
+  months = horizonMonths.length,
+): number[] {
   const shape: number[] = [];
   for (let i = 0; i < months; i++) {
     const t = months === 1 ? 0 : i / (months - 1);
@@ -122,7 +132,10 @@ export const reflectionStates = [
 ] as const;
 export type ReflectionState = (typeof reflectionStates)[number];
 
-export const reflectionTone: Record<ReflectionState, "neutral" | "info" | "positive" | "warning" | "risk"> = {
+export const reflectionTone: Record<
+  ReflectionState,
+  "neutral" | "info" | "positive" | "warning" | "risk"
+> = {
   "Not reflected": "info",
   "Partially reflected": "warning",
   "Fully reflected": "positive",
@@ -215,12 +228,24 @@ const checks = (entries: [CheckedSource, SourceCheck["signal"], number][]): Sour
 const baseChecks = (reflected: number, contradictory = false): SourceCheck[] =>
   checks([
     ["Open orders", reflected > 0 ? "Clear signal" : "No signal", reflected],
-    ["OEM/customer schedules", reflected > 20 ? "Clear signal" : "Weak signal", Math.round(reflected * 0.9)],
+    [
+      "OEM/customer schedules",
+      reflected > 20 ? "Clear signal" : "Weak signal",
+      Math.round(reflected * 0.9),
+    ],
     ["Backlog", "Weak signal", Math.round(reflected * 0.4)],
     ["Purchase orders", reflected > 40 ? "Clear signal" : "No signal", Math.round(reflected * 0.6)],
-    ["Recent demand", contradictory ? "Contradicts event" : "Weak signal", Math.round(reflected * 0.3)],
+    [
+      "Recent demand",
+      contradictory ? "Contradicts event" : "Weak signal",
+      Math.round(reflected * 0.3),
+    ],
     ["Existing model features", "No signal", 0],
-    ["Previous adjustments", reflected > 60 ? "Clear signal" : "No signal", Math.round(reflected * 0.5)],
+    [
+      "Previous adjustments",
+      reflected > 60 ? "Clear signal" : "No signal",
+      Math.round(reflected * 0.5),
+    ],
     ["Inventory movements", "Weak signal", Math.round(reflected * 0.2)],
     ["Related SKU movement", contradictory ? "Contradicts event" : "No signal", 0],
   ]);
@@ -268,7 +293,8 @@ export const seedIntelEvents: IntelEvent[] = [
     id: "ie-12",
     name: "Apex Motors November catch-up build",
     category: "Customer/OEM intelligence",
-    description: "Apex confirmed a catch-up build in November to recover volume lost to the October shutdown.",
+    description:
+      "Apex confirmed a catch-up build in November to recover volume lost to the October shutdown.",
     customer: "Apex Motors (OEM)",
     skuScope: "Clutch systems · CLT family",
     plantScope: "North Plant — Coimbatore",
@@ -380,7 +406,8 @@ export const seedIntelEvents: IntelEvent[] = [
     id: "ie-4",
     name: "Kestrel customer production schedule change",
     category: "Customer/OEM intelligence",
-    description: "Weekly release quantities revised down 6% for Q4 following a model-year changeover.",
+    description:
+      "Weekly release quantities revised down 6% for Q4 following a model-year changeover.",
     customer: "Kestrel Automotive (OEM)",
     skuScope: "Braking assemblies",
     plantScope: "Plant 01 — Pune",
@@ -435,7 +462,8 @@ export const seedIntelEvents: IntelEvent[] = [
     id: "ie-6",
     name: "Allocation change across aftermarket DCs",
     category: "Operational event",
-    description: "DC North allocation rebalanced towards DC South; total aftermarket demand is unchanged.",
+    description:
+      "DC North allocation rebalanced towards DC South; total aftermarket demand is unchanged.",
     customer: "Aftermarket Distributors",
     skuScope: "Filtration & consumables",
     plantScope: "DC North, DC South",
@@ -462,7 +490,8 @@ export const seedIntelEvents: IntelEvent[] = [
     id: "ie-7",
     name: "List price increase, spare-parts catalogue",
     category: "Commercial event",
-    description: "4.5% list price increase from September. Expect advance buying in August and softer offtake after.",
+    description:
+      "4.5% list price increase from September. Expect advance buying in August and softer offtake after.",
     customer: "Aftermarket Distributors",
     skuScope: "Aftermarket & Spares catalogue",
     plantScope: "All locations",
@@ -489,7 +518,8 @@ export const seedIntelEvents: IntelEvent[] = [
     id: "ie-8",
     name: "New braking safety regulation",
     category: "Regulatory event",
-    description: "Draft norm may mandate an upgraded pad compound. Enforcement date is not confirmed.",
+    description:
+      "Draft norm may mandate an upgraded pad compound. Enforcement date is not confirmed.",
     customer: "All customers",
     skuScope: "Braking assemblies",
     plantScope: "All plants",
@@ -516,7 +546,8 @@ export const seedIntelEvents: IntelEvent[] = [
     id: "ie-9",
     name: "Supplier disruption — Tier-2 casting vendor",
     category: "Market intelligence",
-    description: "Unverified report of a fire at a Tier-2 casting vendor. Not corroborated by any order or schedule signal.",
+    description:
+      "Unverified report of a fire at a Tier-2 casting vendor. Not corroborated by any order or schedule signal.",
     customer: "All customers",
     skuScope: "Transmission housings",
     plantScope: "Plant 02 — Chennai",
@@ -598,7 +629,8 @@ export const seedIntelEvents: IntelEvent[] = [
 
 // ------------------------------------------------------------- reflection maths
 export function reflectedShare(event: IntelEvent): number {
-  const weighted = event.sourceChecks.reduce((sum, c) => sum + c.reflectedPct, 0) / event.sourceChecks.length;
+  const weighted =
+    event.sourceChecks.reduce((sum, c) => sum + c.reflectedPct, 0) / event.sourceChecks.length;
   return Math.round(weighted);
 }
 
@@ -615,13 +647,37 @@ export function residualImpact(event: IntelEvent): {
   const residual = Number((expected - alreadyReflected).toFixed(1));
   switch (event.reflection) {
     case "Fully reflected":
-      return { expected, alreadyReflected: expected, residual: 0, applied: 0, note: "Already in the data — explain the forecast, do not adjust it again." };
+      return {
+        expected,
+        alreadyReflected: expected,
+        residual: 0,
+        applied: 0,
+        note: "Already in the data — explain the forecast, do not adjust it again.",
+      };
     case "Partially reflected":
-      return { expected, alreadyReflected, residual, applied: residual, note: "Apply the residual only." };
+      return {
+        expected,
+        alreadyReflected,
+        residual,
+        applied: residual,
+        note: "Apply the residual only.",
+      };
     case "Not reflected":
-      return { expected, alreadyReflected: 0, residual: expected, applied: expected, note: "Full expected impact can be applied." };
+      return {
+        expected,
+        alreadyReflected: 0,
+        residual: expected,
+        applied: expected,
+        note: "Full expected impact can be applied.",
+      };
     default:
-      return { expected, alreadyReflected, residual, applied: 0, note: "Manual review required before any adjustment is applied." };
+      return {
+        expected,
+        alreadyReflected,
+        residual,
+        applied: 0,
+        note: "Manual review required before any adjustment is applied.",
+      };
   }
 }
 
@@ -637,30 +693,63 @@ export type RoutingOutcome =
 export const routingRules: { rule: string; outcome: RoutingOutcome }[] = [
   { rule: "Confirmed recurring event", outcome: "Structured calendar/model input" },
   { rule: "Confirmed one-time event", outcome: "Governed forecast adjustment" },
-  { rule: "Uncertain event (probability or evidence below threshold)", outcome: "Scenario / watchlist only" },
+  {
+    rule: "Uncertain event (probability or evidence below threshold)",
+    outcome: "Scenario / watchlist only",
+  },
   { rule: "Weak signal (rumour-grade evidence, low probability)", outcome: "No forecast change" },
   { rule: "Contradictory evidence across checked sources", outcome: "Manual review required" },
-  { rule: "Impact already reflected in demand", outcome: "Explanation only — no additional adjustment" },
+  {
+    rule: "Impact already reflected in demand",
+    outcome: "Explanation only — no additional adjustment",
+  },
 ];
 
 export function routeEvent(event: IntelEvent): { outcome: RoutingOutcome; reason: string } {
   const score = qualificationScore(event.qualification);
   if (event.category === "Scenario-only event")
-    return { outcome: "Scenario / watchlist only", reason: "Scenario-only events never enter the official forecast." };
-  if (event.reflection === "Conflicting" || event.sourceChecks.some((c) => c.signal === "Contradicts event"))
-    return { outcome: "Manual review required", reason: "At least one checked source contradicts the stated event impact." };
+    return {
+      outcome: "Scenario / watchlist only",
+      reason: "Scenario-only events never enter the official forecast.",
+    };
+  if (
+    event.reflection === "Conflicting" ||
+    event.sourceChecks.some((c) => c.signal === "Contradicts event")
+  )
+    return {
+      outcome: "Manual review required",
+      reason: "At least one checked source contradicts the stated event impact.",
+    };
   if (event.reflection === "Fully reflected")
-    return { outcome: "Explanation only — no additional adjustment", reason: "Demand signals already carry the full expected impact." };
+    return {
+      outcome: "Explanation only — no additional adjustment",
+      reason: "Demand signals already carry the full expected impact.",
+    };
   if (event.reliability === "Market rumour" && event.probabilityPct < 50)
-    return { outcome: "No forecast change", reason: "Weak signal: rumour-grade evidence with low probability." };
+    return {
+      outcome: "No forecast change",
+      reason: "Weak signal: rumour-grade evidence with low probability.",
+    };
   if (!event.qualification.confirmed || event.probabilityPct < 65 || score < 5)
-    return { outcome: "Scenario / watchlist only", reason: "Not yet confirmed or qualification checklist incomplete." };
+    return {
+      outcome: "Scenario / watchlist only",
+      reason: "Not yet confirmed or qualification checklist incomplete.",
+    };
   if (event.recurrence === "Recurring")
-    return { outcome: "Structured calendar/model input", reason: "Confirmed recurring event — becomes a model calendar feature." };
-  return { outcome: "Governed forecast adjustment", reason: "Confirmed one-time event — routes to a governed adjustment with approval." };
+    return {
+      outcome: "Structured calendar/model input",
+      reason: "Confirmed recurring event — becomes a model calendar feature.",
+    };
+  return {
+    outcome: "Governed forecast adjustment",
+    reason: "Confirmed one-time event — routes to a governed adjustment with approval.",
+  };
 }
 
-export const routingTone: Record<RoutingOutcome, "neutral" | "info" | "positive" | "warning" | "risk"> = {
+export const routingTone: Record<
+  RoutingOutcome,
+  "neutral" | "info" | "positive" | "warning" | "risk"
+> = {
   "Structured calendar/model input": "info",
   "Governed forecast adjustment": "positive",
   "Scenario / watchlist only": "warning",
@@ -723,7 +812,11 @@ export const seedScenarioSpecs: ScenarioSpec[] = [
     type: "Worst case",
     owner: "A. Fernandes · Supply planning",
     notes: "Shutdown slips by two weeks and the catch-up build does not happen inside the horizon.",
-    assumptions: ["October dip deepens to -34%", "November recovery removed", "Capacity capped at 92%"],
+    assumptions: [
+      "October dip deepens to -34%",
+      "November recovery removed",
+      "Capacity capped at 92%",
+    ],
     linkedEventIds: ["ie-0"],
     monthlyImpactPct: [0, 0, 0, -10, -12, -4],
     capacityCapPct: 92,
@@ -736,7 +829,11 @@ export const seedScenarioSpecs: ScenarioSpec[] = [
     type: "Demand shock",
     owner: "N. Bose · Aftermarket",
     notes: "Stress test for the aftermarket network if festive offtake runs 15% above plan.",
-    assumptions: ["Aftermarket demand +15% Sep–Nov", "No additional capacity", "Lead time unchanged"],
+    assumptions: [
+      "Aftermarket demand +15% Sep–Nov",
+      "No additional capacity",
+      "Lead time unchanged",
+    ],
     linkedEventIds: ["ie-7"],
     monthlyImpactPct: [2, 6, 15, 15, 9, 3],
     capacityCapPct: 100,
@@ -748,7 +845,8 @@ export const seedScenarioSpecs: ScenarioSpec[] = [
     name: "EV programme cancelled",
     type: "Event cancelled",
     owner: "P. Rao · Programme planning",
-    notes: "Removes the Northvale EV ramp entirely to size the downside on harness capacity commitments.",
+    notes:
+      "Removes the Northvale EV ramp entirely to size the downside on harness capacity commitments.",
     assumptions: ["EV ramp impact set to zero", "Existing platform volume unchanged"],
     linkedEventIds: ["ie-1"],
     monthlyImpactPct: [0, -2, -6, -10, -14, -18],
@@ -763,7 +861,11 @@ export const seedScenarioSpecs: ScenarioSpec[] = [
     type: "Base case",
     owner: "R. Iyer · Demand planning",
     notes: "Reference case. Mirrors the approved event set with no additional assumptions.",
-    assumptions: ["Approved events applied at residual impact", "No capacity constraint", "Price unchanged"],
+    assumptions: [
+      "Approved events applied at residual impact",
+      "No capacity constraint",
+      "Price unchanged",
+    ],
     linkedEventIds: ["ie-2", "ie-4", "ie-10"],
     monthlyImpactPct: [0, 0.5, 1, -1.5, 0.5, 1],
     capacityCapPct: 100,
@@ -776,7 +878,11 @@ export const seedScenarioSpecs: ScenarioSpec[] = [
     type: "Event delayed",
     owner: "P. Rao · Programme planning",
     notes: "Customer tooling sign-off slips, pushing the harness ramp into November.",
-    assumptions: ["Northvale EV ramp shifted +2 months", "Peak impact unchanged at 22%", "No pre-build"],
+    assumptions: [
+      "Northvale EV ramp shifted +2 months",
+      "Peak impact unchanged at 22%",
+      "No pre-build",
+    ],
     linkedEventIds: ["ie-1"],
     monthlyImpactPct: [0, 0, 2, 6, 11, 16],
     capacityCapPct: 100,
@@ -811,19 +917,3 @@ export type AdjustmentRequest = {
   status: "Awaiting approval" | "Approved" | "Rejected";
   note: string;
 };
-
-export const seedAdjustmentRequests: AdjustmentRequest[] = [
-  {
-    id: "ar-1",
-    title: "Northvale EV ramp — residual adjustment",
-    origin: "Event",
-    originId: "ie-1",
-    scope: "Wiring harnesses · Plant 03 — Sanand",
-    requestedImpactPct: 14.3,
-    monthlyImpactPct: patternCurve("Gradual ramp-up", 14.3),
-    owner: "Programme management",
-    submittedAt: "23 Jul 2026, 16:05",
-    status: "Awaiting approval",
-    note: "Residual after 35% of the impact was found in open orders and customer schedules.",
-  },
-];

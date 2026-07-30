@@ -36,10 +36,14 @@ export const Route = createFileRoute("/forecast-review")({
         content:
           "Approval queue with baseline, event adjustment, planner override and proposed final forecast, evidence review, version control and the baseline-to-final forecast bridge.",
       },
-      { property: "og:title", content: "Forecast Review & Approval — Demand Intelligence Platform" },
+      {
+        property: "og:title",
+        content: "Forecast Review & Approval — Demand Intelligence Platform",
+      },
       {
         property: "og:description",
-        content: "Governed approval queue, forecast version control and the baseline-to-final bridge.",
+        content:
+          "Governed approval queue, forecast version control and the baseline-to-final bridge.",
       },
     ],
   }),
@@ -47,6 +51,7 @@ export const Route = createFileRoute("/forecast-review")({
 });
 
 const filterStatuses: Array<ApprovalStatus | "All"> = ["All", ...approvalStatuses];
+const QUEUE_PAGE_SIZE = 5;
 
 function ForecastReview() {
   const navigate = useNavigate();
@@ -60,6 +65,7 @@ function ForecastReview() {
     publish,
     completeStage,
     adjustmentRequests,
+    setRequestStatus,
   } = usePlatform();
 
   const [statusFilter, setStatusFilter] = useState<ApprovalStatus | "All">("All");
@@ -70,12 +76,52 @@ function ForecastReview() {
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [fullOpen, setFullOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [page, setPage] = useState(1);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const queueRef = useRef<HTMLDivElement>(null);
 
   const visible = useMemo(
     () => (statusFilter === "All" ? approvals : approvals.filter((a) => a.status === statusFilter)),
     [approvals, statusFilter],
   );
+
+  const totalPages = Math.max(1, Math.ceil(visible.length / QUEUE_PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = visible.slice(
+    (currentPage - 1) * QUEUE_PAGE_SIZE,
+    currentPage * QUEUE_PAGE_SIZE,
+  );
+
+  const changeStatusFilter = (s: ApprovalStatus | "All") => {
+    setStatusFilter(s);
+    setPage(1);
+    setCheckedIds(new Set());
+  };
+
+  const toggleChecked = (id: string) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const pageIds = pageItems.map((i) => i.id);
+  const allOnPageChecked = pageIds.length > 0 && pageIds.every((id) => checkedIds.has(id));
+  const toggleAllOnPage = () => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (allOnPageChecked) pageIds.forEach((id) => next.delete(id));
+      else pageIds.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+
+  const decideBulk = (status: ApprovalStatus, note?: string) => {
+    checkedIds.forEach((id) => setApprovalStatus(id, status, note));
+    setCheckedIds(new Set());
+  };
 
   const selected = approvals.find((a) => a.id === selectedId) ?? visible[0] ?? approvals[0];
 
@@ -122,7 +168,7 @@ function ForecastReview() {
   };
 
   const jumpToPending = () => {
-    setStatusFilter("Awaiting approval");
+    changeStatusFilter("Awaiting approval");
     queueRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
@@ -131,7 +177,11 @@ function ForecastReview() {
   );
   const approveHighConfidence = () => {
     approvableNow.forEach((a) =>
-      setApprovalStatus(a.id, "Approved", "Approved in bulk — high confidence with supporting evidence attached."),
+      setApprovalStatus(
+        a.id,
+        "Approved",
+        "Approved in bulk — high confidence with supporting evidence attached.",
+      ),
     );
   };
 
@@ -170,7 +220,11 @@ function ForecastReview() {
               ) : (
                 <Send className="h-3.5 w-3.5" aria-hidden />
               )}
-              {publishing ? "Publishing..." : published ? "Published to ERP" : "Publish new version"}
+              {publishing
+                ? "Publishing..."
+                : published
+                  ? "Published to ERP"
+                  : "Publish new version"}
             </button>
           </>
         }
@@ -185,9 +239,28 @@ function ForecastReview() {
           icon={BadgeCheck}
           onClick={pending ? jumpToPending : undefined}
         />
-        <KpiTile label="Returned for clarification" value={String(returned)} delta="Evidence requested" deltaTone={returned ? "info" : "neutral"} icon={CornerUpLeft} />
-        <KpiTile label="Proposed final volume" value={formatNumber(finalTotal)} unit="units" delta={formatSigned(((finalTotal - baselineTotal) / (baselineTotal || 1)) * 100)} deltaTone="info" icon={GitBranch} />
-        <KpiTile label="Adjustment requests" value={String(adjustmentRequests.length)} delta="From events and scenarios" deltaTone="neutral" icon={History} />
+        <KpiTile
+          label="Returned for clarification"
+          value={String(returned)}
+          delta="Evidence requested"
+          deltaTone={returned ? "info" : "neutral"}
+          icon={CornerUpLeft}
+        />
+        <KpiTile
+          label="Proposed final volume"
+          value={formatNumber(finalTotal)}
+          unit="units"
+          delta={formatSigned(((finalTotal - baselineTotal) / (baselineTotal || 1)) * 100)}
+          deltaTone="info"
+          icon={GitBranch}
+        />
+        <KpiTile
+          label="Adjustment requests"
+          value={String(adjustmentRequests.length)}
+          delta="From events and scenarios"
+          deltaTone="neutral"
+          icon={History}
+        />
       </div>
 
       <Panel
@@ -195,16 +268,23 @@ function ForecastReview() {
         description="Every line shows the full decomposition from statistical baseline to proposed final forecast."
         bodyClassName="p-0"
         actions={
-          <div ref={queueRef} id="guide-approve-action" tabIndex={-1} className="flex flex-wrap items-center gap-2 scroll-mt-52 outline-none">
+          <div
+            ref={queueRef}
+            id="guide-approve-action"
+            tabIndex={-1}
+            className="flex flex-wrap items-center gap-2 scroll-mt-52 outline-none"
+          >
             <div className="flex flex-wrap gap-1">
               {filterStatuses.map((s) => (
                 <button
                   key={s}
                   type="button"
-                  onClick={() => setStatusFilter(s)}
+                  onClick={() => changeStatusFilter(s)}
                   className={cn(
                     "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
-                    statusFilter === s ? "border-primary bg-primary text-primary-foreground" : "border-input hover:bg-accent",
+                    statusFilter === s
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-input hover:bg-accent",
                   )}
                 >
                   {s}
@@ -218,16 +298,70 @@ function ForecastReview() {
                 title="Approves only items with High confidence and at least one evidence record attached. Low-confidence or unsupported items still need a manual decision."
                 className="inline-flex items-center gap-1.5 rounded-md border border-positive/30 bg-positive-soft px-2.5 py-1 text-[11px] font-medium text-positive hover:bg-positive-soft/80"
               >
-                Approve {approvableNow.length} high-confidence item{approvableNow.length === 1 ? "" : "s"}
+                Approve {approvableNow.length} high-confidence item
+                {approvableNow.length === 1 ? "" : "s"}
               </button>
             )}
           </div>
         }
       >
+        {checkedIds.size > 0 && (
+          <div className="flex flex-wrap items-center gap-2 border-b border-border bg-accent/40 px-4 py-2.5">
+            <span className="text-xs font-medium">
+              {checkedIds.size} item{checkedIds.size === 1 ? "" : "s"} selected
+            </span>
+            <button
+              type="button"
+              onClick={() =>
+                decideBulk("Approved", "Approved in bulk from the multi-select queue.")
+              }
+              className="inline-flex items-center gap-1.5 rounded-md border border-positive/30 bg-positive-soft px-2.5 py-1 text-[11px] font-medium text-positive hover:bg-positive-soft/80"
+            >
+              <CheckCheck className="h-3.5 w-3.5" aria-hidden /> Approve
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                decideBulk("Rejected", "Rejected in bulk from the multi-select queue.")
+              }
+              className="inline-flex items-center gap-1.5 rounded-md border border-input px-2.5 py-1 text-[11px] font-medium hover:bg-risk-soft hover:text-risk"
+            >
+              <X className="h-3.5 w-3.5" aria-hidden /> Reject
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                decideBulk(
+                  "Returned for clarification",
+                  "Returned in bulk: please attach supporting evidence.",
+                )
+              }
+              className="inline-flex items-center gap-1.5 rounded-md border border-input px-2.5 py-1 text-[11px] font-medium hover:bg-accent"
+            >
+              <CornerUpLeft className="h-3.5 w-3.5" aria-hidden /> Return
+            </button>
+            <button
+              type="button"
+              onClick={() => setCheckedIds(new Set())}
+              className="ml-auto text-[11px] font-medium text-muted-foreground hover:text-foreground"
+            >
+              Clear selection
+            </button>
+          </div>
+        )}
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1180px] text-sm">
+          <table className="w-full min-w-[1220px] text-sm">
             <thead>
               <tr className="border-b border-border bg-surface-muted text-left">
+                <th className="w-8 px-4 py-2.5">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all items on this page"
+                    checked={allOnPageChecked}
+                    onChange={toggleAllOnPage}
+                    className="h-3.5 w-3.5 rounded border-input"
+                  />
+                </th>
                 <th className="label-caps px-4 py-2.5">SKU · customer · location</th>
                 <th className="label-caps px-4 py-2.5 text-right">Baseline</th>
                 <th className="label-caps px-4 py-2.5 text-right">Event adj.</th>
@@ -242,7 +376,7 @@ function ForecastReview() {
               </tr>
             </thead>
             <tbody>
-              {visible.map((item) => {
+              {pageItems.map((item) => {
                 const pct = changePct(item);
                 return (
                   <tr
@@ -256,6 +390,15 @@ function ForecastReview() {
                       selected?.id === item.id && "bg-accent/40",
                     )}
                   >
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${item.sku}`}
+                        checked={checkedIds.has(item.id)}
+                        onChange={() => toggleChecked(item.id)}
+                        className="h-3.5 w-3.5 rounded border-input"
+                      />
+                    </td>
                     <td className="px-4 py-3">
                       <p className="num text-xs font-semibold">{item.sku}</p>
                       <p className="text-xs text-muted-foreground">{item.description}</p>
@@ -263,29 +406,63 @@ function ForecastReview() {
                         {item.customer} · {item.location}
                       </p>
                     </td>
-                    <td className="num px-4 py-3 text-right text-xs">{formatNumber(item.baseline)}</td>
-                    <td className={cn("num px-4 py-3 text-right text-xs", item.eventAdjustment < 0 && "text-risk")}>
+                    <td className="num px-4 py-3 text-right text-xs">
+                      {formatNumber(item.baseline)}
+                    </td>
+                    <td
+                      className={cn(
+                        "num px-4 py-3 text-right text-xs",
+                        item.eventAdjustment < 0 && "text-risk",
+                      )}
+                    >
                       {item.eventAdjustment >= 0 ? "+" : ""}
                       {formatNumber(item.eventAdjustment)}
                     </td>
-                    <td className={cn("num px-4 py-3 text-right text-xs", item.plannerOverride < 0 && "text-risk")}>
+                    <td
+                      className={cn(
+                        "num px-4 py-3 text-right text-xs",
+                        item.plannerOverride < 0 && "text-risk",
+                      )}
+                    >
                       {item.plannerOverride >= 0 ? "+" : ""}
                       {formatNumber(item.plannerOverride)}
                     </td>
-                    <td className="num px-4 py-3 text-right text-xs font-semibold">{formatNumber(proposedFinal(item))}</td>
+                    <td className="num px-4 py-3 text-right text-xs font-semibold">
+                      {formatNumber(proposedFinal(item))}
+                    </td>
                     <td className="num px-4 py-3 text-right text-xs">
-                      <span className={Math.abs(pct) > 10 ? "text-risk" : Math.abs(pct) > 3 ? "text-warning-foreground" : "text-positive"}>
+                      <span
+                        className={
+                          Math.abs(pct) > 10
+                            ? "text-risk"
+                            : Math.abs(pct) > 3
+                              ? "text-warning-foreground"
+                              : "text-positive"
+                        }
+                      >
                         {formatSigned(pct)}
                       </span>
                     </td>
-                    <td className="max-w-[240px] px-4 py-3 text-xs text-muted-foreground">{item.reason}</td>
+                    <td className="max-w-[240px] px-4 py-3 text-xs text-muted-foreground">
+                      {item.reason}
+                    </td>
                     <td className="px-4 py-3">
                       <StatusPill tone={item.evidence.length ? "info" : "risk"}>
-                        {item.evidence.length ? `${item.evidence.length} item${item.evidence.length > 1 ? "s" : ""}` : "None"}
+                        {item.evidence.length
+                          ? `${item.evidence.length} item${item.evidence.length > 1 ? "s" : ""}`
+                          : "None"}
                       </StatusPill>
                     </td>
                     <td className="px-4 py-3">
-                      <StatusPill tone={item.confidence === "High" ? "positive" : item.confidence === "Medium" ? "warning" : "risk"}>
+                      <StatusPill
+                        tone={
+                          item.confidence === "High"
+                            ? "positive"
+                            : item.confidence === "Medium"
+                              ? "warning"
+                              : "risk"
+                        }
+                      >
                         {item.confidence}
                       </StatusPill>
                     </td>
@@ -301,7 +478,7 @@ function ForecastReview() {
               })}
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="px-4 py-8 text-center text-xs text-muted-foreground">
+                  <td colSpan={12} className="px-4 py-8 text-center text-xs text-muted-foreground">
                     No queue items with this status.
                   </td>
                 </tr>
@@ -309,6 +486,35 @@ function ForecastReview() {
             </tbody>
           </table>
         </div>
+        {visible.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-2.5">
+            <p className="text-[11px] text-muted-foreground">
+              Showing {(currentPage - 1) * QUEUE_PAGE_SIZE + 1}–
+              {Math.min(currentPage * QUEUE_PAGE_SIZE, visible.length)} of {visible.length}
+            </p>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="rounded-md border border-input px-2.5 py-1 text-[11px] font-medium hover:bg-accent disabled:opacity-40"
+              >
+                Previous
+              </button>
+              <span className="text-[11px] text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="rounded-md border border-input px-2.5 py-1 text-[11px] font-medium hover:bg-accent disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </Panel>
 
       {selected && (
@@ -323,8 +529,8 @@ function ForecastReview() {
                 <div className="flex items-start gap-2 rounded-md border border-risk/30 bg-risk-soft px-3 py-2 text-xs text-risk">
                   <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
                   <span>
-                    Insufficient evidence: this change has low confidence and no attached record. Review
-                    policy requires it to be returned or rejected rather than approved.
+                    Insufficient evidence: this change has low confidence and no attached record.
+                    Review policy requires it to be returned or rejected rather than approved.
                   </span>
                 </div>
               )}
@@ -332,26 +538,38 @@ function ForecastReview() {
               <div>
                 <p className="label-caps mb-2">
                   Final forecast bridge — model baseline + approved event adjustment + approved
-                  planner override = approved operational forecast (unapproved what-if scenarios excluded)
+                  planner override = approved operational forecast (unapproved what-if scenarios
+                  excluded)
                 </p>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {[
                     { label: "Model baseline", value: formatNumber(selected.baseline) },
-                    { label: "Approved event adjustment", value: `${selected.eventAdjustment >= 0 ? "+" : ""}${formatNumber(selected.eventAdjustment)}` },
-                    { label: "Approved planner override", value: `${selected.plannerOverride >= 0 ? "+" : ""}${formatNumber(selected.plannerOverride)}` },
                     {
-                      label: selected.status === "Approved" ? "Approved operational forecast" : "Proposed final forecast",
+                      label: "Approved event adjustment",
+                      value: `${selected.eventAdjustment >= 0 ? "+" : ""}${formatNumber(selected.eventAdjustment)}`,
+                    },
+                    {
+                      label: "Approved planner override",
+                      value: `${selected.plannerOverride >= 0 ? "+" : ""}${formatNumber(selected.plannerOverride)}`,
+                    },
+                    {
+                      label:
+                        selected.status === "Approved"
+                          ? "Approved operational forecast"
+                          : "Proposed final forecast",
                       value: formatNumber(proposedFinal(selected)),
                     },
                   ].map((cell) => (
-                    <div key={cell.label} className="rounded-md border border-border bg-surface-muted px-3 py-2">
+                    <div
+                      key={cell.label}
+                      className="rounded-md border border-border bg-surface-muted px-3 py-2"
+                    >
                       <p className="label-caps">{cell.label}</p>
                       <p className="num mt-1 text-sm font-semibold">{cell.value}</p>
                     </div>
                   ))}
                 </div>
               </div>
-
 
               <div className="flex flex-wrap gap-2">
                 <button
@@ -372,7 +590,12 @@ function ForecastReview() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => decide("Returned for clarification", "Returned: please attach supporting evidence.")}
+                  onClick={() =>
+                    decide(
+                      "Returned for clarification",
+                      "Returned: please attach supporting evidence.",
+                    )
+                  }
                   disabled={selected.status === "Returned for clarification"}
                   className="inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-50"
                 >
@@ -426,7 +649,11 @@ function ForecastReview() {
                     Save recommendation
                   </button>
                   <span className="text-xs text-muted-foreground">
-                    New proposed final: {formatNumber(selected.baseline + selected.eventAdjustment + (Number(editValue) || 0))} units
+                    New proposed final:{" "}
+                    {formatNumber(
+                      selected.baseline + selected.eventAdjustment + (Number(editValue) || 0),
+                    )}{" "}
+                    units
                   </span>
                 </div>
               )}
@@ -435,7 +662,9 @@ function ForecastReview() {
                 <div className="rounded-md border border-border">
                   <p className="label-caps border-b border-border px-3 py-2">Evidence</p>
                   {selected.evidence.length === 0 ? (
-                    <p className="px-3 py-3 text-xs text-risk">Insufficient evidence — no record attached to this request.</p>
+                    <p className="px-3 py-3 text-xs text-risk">
+                      Insufficient evidence — no record attached to this request.
+                    </p>
                   ) : (
                     <ul className="divide-y divide-border">
                       {selected.evidence.map((ev) => (
@@ -476,8 +705,13 @@ function ForecastReview() {
                       <tr>
                         <td className="px-3 py-2 text-xs text-muted-foreground">Baseline</td>
                         {selected.monthly.map((v, i) => (
-                          <td key={horizonMonths[i]} className="num px-3 py-2 text-right text-xs text-muted-foreground">
-                            {formatNumber(Math.round((v * selected.baseline) / (proposedFinal(selected) || 1)))}
+                          <td
+                            key={horizonMonths[i]}
+                            className="num px-3 py-2 text-right text-xs text-muted-foreground"
+                          >
+                            {formatNumber(
+                              Math.round((v * selected.baseline) / (proposedFinal(selected) || 1)),
+                            )}
                           </td>
                         ))}
                       </tr>
@@ -490,7 +724,9 @@ function ForecastReview() {
                 <p className="label-caps">Comments</p>
                 <ul className="mt-2 space-y-2">
                   {selected.comments.length === 0 && (
-                    <li className="text-xs text-muted-foreground">No comments recorded on this item.</li>
+                    <li className="text-xs text-muted-foreground">
+                      No comments recorded on this item.
+                    </li>
                   )}
                   {selected.comments.map((c) => (
                     <li key={c.id} className="rounded-md border border-border px-3 py-2">
@@ -523,13 +759,24 @@ function ForecastReview() {
             </div>
           </Panel>
 
-          <Panel title="Version control" description="Only an approved version is released to downstream systems.">
+          <Panel
+            title="Version control"
+            description="Only an approved version is released to downstream systems."
+          >
             <ul className="space-y-2">
               {versions.map((v) => (
                 <li key={v.id} className="rounded-md border border-border px-3 py-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <p className="num text-xs font-semibold">{v.label}</p>
-                    <StatusPill tone={v.status === "Published" ? "positive" : v.status === "Working draft" ? "warning" : "neutral"}>
+                    <StatusPill
+                      tone={
+                        v.status === "Published"
+                          ? "positive"
+                          : v.status === "Working draft"
+                            ? "warning"
+                            : "neutral"
+                      }
+                    >
                       {v.status}
                     </StatusPill>
                   </div>
@@ -562,12 +809,27 @@ function ForecastReview() {
             </thead>
             <tbody>
               {bridgeRows.map((step) => (
-                <tr key={step.label} className={cn("border-b border-border last:border-0", step.kind !== "step" && "bg-surface-muted/60 font-medium")}>
+                <tr
+                  key={step.label}
+                  className={cn(
+                    "border-b border-border last:border-0",
+                    step.kind !== "step" && "bg-surface-muted/60 font-medium",
+                  )}
+                >
                   <td className="px-4 py-2.5 text-xs">{step.label}</td>
-                  <td className={cn("num px-4 py-2.5 text-right text-xs", step.kind === "step" && (step.delta < 0 ? "text-risk" : "text-positive"))}>
-                    {step.kind === "step" ? `${step.delta >= 0 ? "+" : ""}${formatNumber(step.delta)}` : "—"}
+                  <td
+                    className={cn(
+                      "num px-4 py-2.5 text-right text-xs",
+                      step.kind === "step" && (step.delta < 0 ? "text-risk" : "text-positive"),
+                    )}
+                  >
+                    {step.kind === "step"
+                      ? `${step.delta >= 0 ? "+" : ""}${formatNumber(step.delta)}`
+                      : "—"}
                   </td>
-                  <td className="num px-4 py-2.5 text-right text-xs font-semibold">{formatNumber(step.value)}</td>
+                  <td className="num px-4 py-2.5 text-right text-xs font-semibold">
+                    {formatNumber(step.value)}
+                  </td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">{step.explanation}</td>
                 </tr>
               ))}
@@ -576,15 +838,20 @@ function ForecastReview() {
         </div>
       </Panel>
 
-      <Panel title="Adjustment requests from events and scenarios" description="Scenarios never publish directly; they enter here as requests." bodyClassName="p-0">
+      <Panel
+        title="Adjustment requests from events and scenarios"
+        description="Scenarios never publish directly; they enter here as requests and need their own approval before they can be reflected in the approval queue above."
+        bodyClassName="p-0"
+      >
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="w-full min-w-[820px] text-sm">
             <thead>
               <tr className="border-b border-border bg-surface-muted text-left">
                 <th className="label-caps px-4 py-2.5">Request</th>
                 <th className="label-caps px-4 py-2.5">Origin</th>
                 <th className="label-caps px-4 py-2.5">Submitted</th>
                 <th className="label-caps px-4 py-2.5">Status</th>
+                <th className="label-caps px-4 py-2.5">Decision</th>
               </tr>
             </thead>
             <tbody>
@@ -594,20 +861,59 @@ function ForecastReview() {
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">{r.origin}</td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">{r.submittedAt}</td>
                   <td className="px-4 py-2.5">
-                    <StatusPill tone={r.status === "Approved" ? "positive" : r.status === "Rejected" ? "risk" : "warning"}>
+                    <StatusPill
+                      tone={
+                        r.status === "Approved"
+                          ? "positive"
+                          : r.status === "Rejected"
+                            ? "risk"
+                            : "warning"
+                      }
+                    >
                       {r.status}
                     </StatusPill>
                   </td>
+                  <td className="px-4 py-2.5">
+                    {r.status === "Awaiting approval" ? (
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setRequestStatus(r.id, "Approved")}
+                          className="rounded-md border border-positive/30 bg-positive-soft px-2 py-1 text-[11px] font-medium text-positive hover:bg-positive-soft/80"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRequestStatus(r.id, "Rejected")}
+                          className="rounded-md border border-input px-2 py-1 text-[11px] font-medium hover:bg-risk-soft hover:text-risk"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground">Decided</span>
+                    )}
+                  </td>
                 </tr>
               ))}
+              {adjustmentRequests.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-6 text-center text-xs text-muted-foreground">
+                    No adjustment requests raised yet — apply an event's residual impact or promote
+                    a scenario for review.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </Panel>
 
       <PrototypeNote>
-        Illustrative prototype data. Approval, rejection, return, edit, comment and publication actions
-        update local prototype state and the audit log only — no forecast leaves this browser session.
+        Illustrative prototype data. Approval, rejection, return, edit, comment and publication
+        actions update local prototype state and the audit log only — no forecast leaves this
+        browser session.
       </PrototypeNote>
     </div>
   );
