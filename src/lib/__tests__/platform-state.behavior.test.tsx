@@ -12,11 +12,7 @@ import {
 import { IssueResolutionPanel } from "@/components/data-issues";
 import { DemoTour } from "@/components/demo-tour";
 import { StageGuard } from "@/components/workflow-rail";
-import {
-  PlatformProvider,
-  usePlatform,
-  type UploadedFile,
-} from "@/lib/platform-state";
+import { PlatformProvider, usePlatform, type UploadedFile } from "@/lib/platform-state";
 import {
   computeDatasetStats,
   deriveIssues,
@@ -33,16 +29,8 @@ import {
   seedReviewLines,
   seedScenarios,
 } from "@/lib/demo-data";
-import {
-  seedAdjustmentRequests,
-  seedIntelEvents,
-  seedScenarioSpecs,
-} from "@/lib/event-domain";
-import {
-  seedApprovalQueue,
-  seedAuditLog,
-  seedVersions,
-} from "@/lib/governance-domain";
+import { seedIntelEvents, seedScenarioSpecs } from "@/lib/event-domain";
+import { seedApprovalQueue, seedAuditLog, seedVersions } from "@/lib/governance-domain";
 import { seedTransformations } from "@/lib/forecast-domain";
 import { workflowStages, type StageId } from "@/lib/workflow";
 
@@ -214,7 +202,7 @@ function expectCleanDemoSeed(api: PlatformApi) {
   expect(api.transformations).toEqual(seedTransformations);
   expect(api.intelEvents).toEqual(seedIntelEvents);
   expect(api.scenarioSpecs).toEqual(seedScenarioSpecs);
-  expect(api.adjustmentRequests).toEqual(seedAdjustmentRequests);
+  expect(api.adjustmentRequests).toHaveLength(0);
   expect(api.approvals).toEqual(seedApprovalQueue);
   expect(api.versions).toEqual(seedVersions);
   expect(api.auditLog).toEqual(seedAuditLog);
@@ -382,7 +370,9 @@ describe("authoritative application behaviours", () => {
     const csv = parseDelimited(
       "period,sku,customer,plant,qty,stockout\n2026-01-01,A,C1,P1,10,no\n2026-02-01,A,C1,P1,12,no",
     );
-    const tsv = parseDelimited("period\tsku\tcustomer\tplant\tqty\tstockout\n2026-03-01\tB\tC2\tP2\t20\tno");
+    const tsv = parseDelimited(
+      "period\tsku\tcustomer\tplant\tqty\tstockout\n2026-03-01\tB\tC2\tP2\t20\tno",
+    );
     const records = [...csv.records, ...tsv.records];
     const stats = computeDatasetStats(records, mapping);
 
@@ -683,8 +673,7 @@ describe("authoritative application behaviours", () => {
     expect(await screen.findByText(/Guide · step 9 of 13/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Select the Apex shutdown event/i).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /Next/i })).toBeDisabled();
-    expect(harness.api.adjustmentRequests.some((request) => request.origin === "Event" && request.originId === "ie-1")).toBe(true);
-    expect(harness.api.adjustmentRequests.some((request) => request.origin === "Event" && request.originId === "ie-0")).toBe(false);
+    expect(harness.api.adjustmentRequests).toHaveLength(0);
 
     await act(async () => {
       harness.api.promoteToReview({
@@ -715,7 +704,8 @@ describe("authoritative application behaviours", () => {
         sku: "CLT-1048 · Clutch Friction Assembly",
         customer: "Apex Motors (OEM)",
         version: "V2026.07 — Working draft",
-        detail: "Event decision changed to Watchlist: Apex Motors shutdown moved from September to October.",
+        detail:
+          "Event decision changed to Watchlist: Apex Motors shutdown moved from September to October.",
       });
       harness.api.promoteToReview({
         title: "Apex shutdown moved — selected residual impact",
@@ -866,7 +856,9 @@ describe("focused pure functions", () => {
       expect.arrayContaining(["u-date", "u-dupe", "u-missing", "u-stockout", "u-blank", "u-short"]),
     );
     expect(qualityScore(issues, {})).toBe(38);
-    expect(qualityScore(issues, { "u-date": "Accept suggested correction", "u-dupe": "Exclude record" })).toBe(74);
+    expect(
+      qualityScore(issues, { "u-date": "Accept suggested correction", "u-dupe": "Exclude record" }),
+    ).toBe(74);
   });
 
   it("exercises resetAll targets through public reset entry points", async () => {

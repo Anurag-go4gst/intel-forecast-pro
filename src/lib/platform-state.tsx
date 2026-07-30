@@ -1,11 +1,4 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import {
   defaultDrivers,
   defaultFilters,
@@ -19,7 +12,6 @@ import {
   type ScenarioDriver,
 } from "@/lib/demo-data";
 import {
-  seedAdjustmentRequests,
   seedIntelEvents,
   seedScenarioSpecs,
   type AdjustmentRequest,
@@ -37,11 +29,7 @@ import {
   type AuditEntry,
   type ForecastVersionRecord,
 } from "@/lib/governance-domain";
-import {
-  autoMapping,
-  seedTransformations,
-  type TransformationEntry,
-} from "@/lib/forecast-domain";
+import { autoMapping, seedTransformations, type TransformationEntry } from "@/lib/forecast-domain";
 import type { ModelSelection } from "@/lib/model-selection";
 
 import {
@@ -63,14 +51,12 @@ import {
 } from "@/lib/app-mode";
 import { clearPersistedState, usePersistentState } from "@/lib/persist";
 
-
 export type UploadedFile = {
   name: string;
   sizeLabel: string;
   rows: number;
   uploadedAt: string;
 };
-
 
 export type ForecastRunState = "idle" | "running" | "complete";
 
@@ -122,7 +108,6 @@ type PlatformContextValue = {
   activeIssues: DataIssue[];
   dataQualityScore: number;
 
-
   filters: Filters;
   setFilter: (key: keyof Filters, value: string) => void;
   resetFilters: () => void;
@@ -166,11 +151,11 @@ type PlatformContextValue = {
 
   /** Operational model selection per SKU|customer|plant series key. */
   modelSelections: Record<string, ModelSelection>;
-  recordModelSelection: (selection: Omit<ModelSelection, "version" | "decidedBy" | "decidedAt">) => void;
+  recordModelSelection: (
+    selection: Omit<ModelSelection, "version" | "decidedBy" | "decidedAt">,
+  ) => void;
   approveModelSelection: (key: string) => void;
   clearModelSelection: (key: string) => void;
-
-
 
   intelEvents: IntelEvent[];
   addIntelEvent: (event: Omit<IntelEvent, "id" | "createdAt" | "modifiedAt">) => void;
@@ -236,7 +221,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
 
   const [runState, setRunState] = useState<ForecastRunState>("idle");
   const [runProgress, setRunProgress] = useState(0);
-  const [selectedModelBySku, setSelectedModelBySku] = usePersistentState<Record<string, string>>("selectedModelBySku", {});
+  const [selectedModelBySku, setSelectedModelBySku] = usePersistentState<Record<string, string>>(
+    "selectedModelBySku",
+    {},
+  );
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
 
   const setFilter = useCallback((key: keyof Filters, value: string) => {
@@ -289,7 +277,9 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const approveAll = useCallback(() => {
-    setReviewLines((prev) => prev.map((l) => (l.status === "Pending" ? { ...l, status: "Approved" } : l)));
+    setReviewLines((prev) =>
+      prev.map((l) => (l.status === "Pending" ? { ...l, status: "Approved" } : l)),
+    );
   }, []);
 
   const startRun = useCallback(() => {
@@ -319,8 +309,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const [upload, setUpload] = usePersistentState<UploadedFile | null>("upload", null);
   const [mapping, setMappingState] = usePersistentState<Record<string, string>>("mapping", {});
   const [validationRun, setValidationRun] = usePersistentState("validationRun", false);
-  const [transformations, setTransformations] =
-    usePersistentState<TransformationEntry[]>("transformations", []);
+  const [transformations, setTransformations] = usePersistentState<TransformationEntry[]>(
+    "transformations",
+    [],
+  );
 
   const setMapping = useCallback((fieldId: string, column: string) => {
     setMappingState((prev) => ({ ...prev, [fieldId]: column }));
@@ -337,12 +329,13 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-
   const [intelEvents, setIntelEvents] = usePersistentState<IntelEvent[]>("intelEvents", []);
   const [scenarioSpecs, setScenarioSpecs] = usePersistentState<ScenarioSpec[]>("scenarioSpecs", []);
   const [compareIds, setCompareIds] = usePersistentState<string[]>("compareIds", []);
-  const [adjustmentRequests, setAdjustmentRequests] =
-    usePersistentState<AdjustmentRequest[]>("adjustmentRequests", []);
+  const [adjustmentRequests, setAdjustmentRequests] = usePersistentState<AdjustmentRequest[]>(
+    "adjustmentRequests",
+    [],
+  );
 
   const stamp = () => "Today (prototype session)";
 
@@ -362,14 +355,11 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  const setIntelEventStatus = useCallback(
-    (id: string, status: IntelEvent["status"]) => {
-      setIntelEvents((prev) =>
-        prev.map((e) => (e.id === id ? { ...e, status, modifiedAt: stamp() } : e)),
-      );
-    },
-    [],
-  );
+  const setIntelEventStatus = useCallback((id: string, status: IntelEvent["status"]) => {
+    setIntelEvents((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, status, modifiedAt: stamp() } : e)),
+    );
+  }, []);
 
   const addScenarioSpec = useCallback(
     (spec: Omit<ScenarioSpec, "id" | "createdAt" | "promoted">) => {
@@ -390,7 +380,13 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       const found = prev.find((s) => s.id === id);
       if (!found) return prev;
       return [
-        { ...found, id: nextId("ss"), name: `${found.name} (copy)`, promoted: false, createdAt: "Today" },
+        {
+          ...found,
+          id: nextId("ss"),
+          name: `${found.name} (copy)`,
+          promoted: false,
+          createdAt: "Today",
+        },
         ...prev,
       ];
     });
@@ -403,7 +399,12 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const promoteToReview = useCallback(
     (request: Omit<AdjustmentRequest, "id" | "submittedAt" | "status">) => {
       setAdjustmentRequests((prev) => [
-        { ...request, id: nextId("ar"), submittedAt: "Today (prototype session)", status: "Awaiting approval" },
+        {
+          ...request,
+          id: nextId("ar"),
+          submittedAt: "Today (prototype session)",
+          status: "Awaiting approval",
+        },
         ...prev,
       ]);
       if (request.origin === "Scenario") {
@@ -525,7 +526,8 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         sku,
         customer: customerId,
         version: "V2026.07",
-        detail: "Authorised model override approved — the selected model becomes the operational baseline model.",
+        detail:
+          "Authorised model override approved — the selected model becomes the operational baseline model.",
       },
       ...log,
     ]);
@@ -539,16 +541,19 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-
-
   const setApprovalStatus = useCallback(
     (id: string, status: ApprovalStatus, note?: string) => {
+      // Look up the item before mutating so the audit entry can be appended
+      // outside the setApprovals updater — updater callbacks must stay pure, or
+      // React (StrictMode / concurrent) double-invokes them and duplicates the log.
+      const item = approvals.find((i) => i.id === id);
+      if (!item) return;
       setApprovals((prev) =>
-        prev.map((item) => {
-          if (item.id !== id) return item;
+        prev.map((i) => {
+          if (i.id !== id) return i;
           const comments = note
             ? [
-                ...item.comments,
+                ...i.comments,
                 {
                   id: nextId("cm"),
                   author: "You · Demand planning lead",
@@ -556,54 +561,54 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
                   body: note,
                 },
               ]
-            : item.comments;
-          setAuditLog((log) => [
-            {
-              id: nextId("al"),
-              at: "Today (prototype session)",
-              date: "2026-07-26",
-              user: "You · Demand planning lead",
-              action: (status === "Approved"
-                ? "Approval"
-                : status === "Rejected"
-                  ? "Rejection"
-                  : "Forecast adjustment") as AuditAction,
-              sku: item.sku,
-              customer: item.customer,
-              version: "V2026.07",
-              detail: `${status} — ${item.description} (${item.location}). Proposed final ${proposedFinal(item).toLocaleString("en-IN")} units.`,
-            },
-            ...log,
-          ]);
-          return { ...item, status, comments };
+            : i.comments;
+          return { ...i, status, comments };
         }),
       );
+      setAuditLog((log) => [
+        {
+          id: nextId("al"),
+          at: "Today (prototype session)",
+          date: "2026-07-26",
+          user: "You · Demand planning lead",
+          action: (status === "Approved"
+            ? "Approval"
+            : status === "Rejected"
+              ? "Rejection"
+              : "Forecast adjustment") as AuditAction,
+          sku: item.sku,
+          customer: item.customer,
+          version: "V2026.07",
+          detail: `${status} — ${item.description} (${item.location}). Proposed final ${proposedFinal(item).toLocaleString("en-IN")} units.`,
+        },
+        ...log,
+      ]);
     },
-    [],
+    [approvals],
   );
 
-  const editRecommendation = useCallback((id: string, plannerOverride: number) => {
-    setApprovals((prev) =>
-      prev.map((item) => {
-        if (item.id !== id) return item;
-        setAuditLog((log) => [
-          {
-            id: nextId("al"),
-            at: "Today (prototype session)",
-            date: "2026-07-26",
-            user: "You · Demand planning lead",
-            action: "Forecast adjustment" as AuditAction,
-            sku: item.sku,
-            customer: item.customer,
-            version: "V2026.07",
-            detail: `Recommendation edited: planner override changed from ${item.plannerOverride.toLocaleString("en-IN")} to ${plannerOverride.toLocaleString("en-IN")} units.`,
-          },
-          ...log,
-        ]);
-        return { ...item, plannerOverride };
-      }),
-    );
-  }, []);
+  const editRecommendation = useCallback(
+    (id: string, plannerOverride: number) => {
+      const item = approvals.find((i) => i.id === id);
+      if (!item) return;
+      setApprovals((prev) => prev.map((i) => (i.id === id ? { ...i, plannerOverride } : i)));
+      setAuditLog((log) => [
+        {
+          id: nextId("al"),
+          at: "Today (prototype session)",
+          date: "2026-07-26",
+          user: "You · Demand planning lead",
+          action: "Forecast adjustment" as AuditAction,
+          sku: item.sku,
+          customer: item.customer,
+          version: "V2026.07",
+          detail: `Recommendation edited: planner override changed from ${item.plannerOverride.toLocaleString("en-IN")} to ${plannerOverride.toLocaleString("en-IN")} units.`,
+        },
+        ...log,
+      ]);
+    },
+    [approvals],
+  );
 
   const addApprovalComment = useCallback((id: string, body: string) => {
     setApprovals((prev) =>
@@ -613,7 +618,12 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
               ...item,
               comments: [
                 ...item.comments,
-                { id: nextId("cm"), author: "You · Demand planning lead", at: "Today (prototype session)", body },
+                {
+                  id: nextId("cm"),
+                  author: "You · Demand planning lead",
+                  at: "Today (prototype session)",
+                  body,
+                },
               ],
             }
           : item,
@@ -621,42 +631,79 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  const setRequestStatus = useCallback((id: string, status: AdjustmentRequest["status"]) => {
-    setAdjustmentRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
-  }, []);
-
-  // ---------------------------------------------- guided workflow lifecycle
-  const emptyStages = useMemo(
-    () =>
-      Object.fromEntries(workflowStages.map((s) => [s.id, false])) as Record<StageId, boolean>,
-    [],
-  );
-  const [stageDone, setStageDone] = usePersistentState<Record<StageId, boolean>>("stageDone", emptyStages);
-  const [issueActions, setIssueActions] = usePersistentState<Record<string, IssueResolution>>("issueActions", {});
-  const [rolesConfirmed, setRolesConfirmed] = usePersistentState("rolesConfirmed", false);
-  const [validationMode, setValidationMode] = usePersistentState<"auto" | "manual">("validationMode", "auto");
-  const [championOverrideReason, setChampionOverrideReason] = usePersistentState("championOverrideReason", "");
-
-  const completeStage = useCallback((id: StageId) => {
-    if (!stageDone[id]) {
-      const stage = workflowStages.find((item) => item.id === id);
+  const setRequestStatus = useCallback(
+    (id: string, status: AdjustmentRequest["status"]) => {
+      const request = adjustmentRequests.find((r) => r.id === id);
+      if (!request) return;
+      setAdjustmentRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
       setAuditLog((log) => [
         {
           id: nextId("al"),
           at: "Today (prototype session)",
-          date: new Date().toISOString().slice(0, 10),
-          user: "You · Demand planning",
-          action: "Data transformation" as AuditAction,
-          sku: "All",
-          customer: "All",
-          version: mode === "demo" ? "V2026.07" : "Draft",
-          detail: `Workflow step completed: ${stage ? `Step ${stage.step} — ${stage.label}` : id}.`,
+          date: "2026-07-26",
+          user: "You · Demand planning lead",
+          action: (status === "Approved"
+            ? "Approval"
+            : status === "Rejected"
+              ? "Rejection"
+              : "Forecast adjustment") as AuditAction,
+          sku: request.scope,
+          customer: request.owner,
+          version: "V2026.07",
+          detail: `${status} — adjustment request "${request.title}" (${request.origin.toLowerCase()}, ${request.requestedImpactPct > 0 ? "+" : ""}${request.requestedImpactPct}%).`,
         },
         ...log,
       ]);
-    }
-    setStageDone((prev) => (prev[id] ? prev : { ...prev, [id]: true }));
-  }, [mode, stageDone]);
+    },
+    [adjustmentRequests],
+  );
+
+  // ---------------------------------------------- guided workflow lifecycle
+  const emptyStages = useMemo(
+    () => Object.fromEntries(workflowStages.map((s) => [s.id, false])) as Record<StageId, boolean>,
+    [],
+  );
+  const [stageDone, setStageDone] = usePersistentState<Record<StageId, boolean>>(
+    "stageDone",
+    emptyStages,
+  );
+  const [issueActions, setIssueActions] = usePersistentState<Record<string, IssueResolution>>(
+    "issueActions",
+    {},
+  );
+  const [rolesConfirmed, setRolesConfirmed] = usePersistentState("rolesConfirmed", false);
+  const [validationMode, setValidationMode] = usePersistentState<"auto" | "manual">(
+    "validationMode",
+    "auto",
+  );
+  const [championOverrideReason, setChampionOverrideReason] = usePersistentState(
+    "championOverrideReason",
+    "",
+  );
+
+  const completeStage = useCallback(
+    (id: StageId) => {
+      if (!stageDone[id]) {
+        const stage = workflowStages.find((item) => item.id === id);
+        setAuditLog((log) => [
+          {
+            id: nextId("al"),
+            at: "Today (prototype session)",
+            date: new Date().toISOString().slice(0, 10),
+            user: "You · Demand planning",
+            action: "Data transformation" as AuditAction,
+            sku: "All",
+            customer: "All",
+            version: mode === "demo" ? "V2026.07" : "Draft",
+            detail: `Workflow step completed: ${stage ? `Step ${stage.step} — ${stage.label}` : id}.`,
+          },
+          ...log,
+        ]);
+      }
+      setStageDone((prev) => (prev[id] ? prev : { ...prev, [id]: true }));
+    },
+    [mode, stageDone],
+  );
 
   const reopenStage = useCallback((id: StageId) => {
     setStageDone((prev) => ({ ...prev, [id]: false }));
@@ -666,75 +713,78 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
    * The single authoritative reset. Every persisted slice is cleared, then the
    * requested mode is installed. Nothing else in the app may reset state.
    */
-  const resetAll = useCallback((target: AppMode) => {
-    clearPersistedState();
-    setStageDone(emptyStages);
-    setIssueActions({});
-    setRolesConfirmed(false);
-    setValidationMode("auto");
-    setChampionOverrideReason("");
-    setFilters(defaultFilters);
-    setDrivers(defaultDrivers);
-    setPublished(false);
-    setSelectedModelBySku({});
-    setUpload(null);
-    setMappingState({});
-    setValidationRun(false);
-    setModelSelections({});
-    setRunState("idle");
-    setRunProgress(0);
-    setMessages(initialMessages);
-    setDataset(null);
-
-    if (target === "demo") {
-      setMode("demo");
-      setProject({
-        name: "Apex Motors guide cycle",
-        industry: "Auto ancillary manufacturing",
-        grain: "SKU × Customer × Plant",
-        frequency: "Monthly",
-        horizon: 12,
-        owner: "R. Iyer · Demand planning lead",
-        createdAt: "Guide",
-        source: "demo",
-      });
-      setEvents(seedEvents);
-      setScenarios(seedScenarios);
-      setReviewLines(seedReviewLines);
-      setTransformations(seedTransformations);
-      setIntelEvents(seedIntelEvents);
-      setScenarioSpecs(seedScenarioSpecs);
-      setCompareIds(["ss-1", "ss-2"]);
-      setAdjustmentRequests(seedAdjustmentRequests);
-      setApprovals(seedApprovalQueue);
-      setVersions(seedVersions);
-      setActiveVersionId("v-2026-07");
-      setAuditLog(seedAuditLog);
+  const resetAll = useCallback(
+    (target: AppMode) => {
+      clearPersistedState();
       setStageDone(emptyStages);
-      setUpload({
-        name: "apex-motors-demand-history.csv",
-        sizeLabel: "3.4 MB",
-        rows: 27_000,
-        uploadedAt: "Guide · seeded extract",
-      });
-      setMappingState({ ...autoMapping });
-    } else {
-      setMode("empty");
-      setProject(null);
-      setEvents([]);
-      setScenarios([]);
-      setReviewLines([]);
-      setTransformations([]);
-      setIntelEvents([]);
-      setScenarioSpecs([]);
-      setCompareIds([]);
-      setAdjustmentRequests([]);
-      setApprovals([]);
-      setVersions([]);
-      setActiveVersionId("");
-      setAuditLog([]);
-    }
-  }, [emptyStages]);
+      setIssueActions({});
+      setRolesConfirmed(false);
+      setValidationMode("auto");
+      setChampionOverrideReason("");
+      setFilters(defaultFilters);
+      setDrivers(defaultDrivers);
+      setPublished(false);
+      setSelectedModelBySku({});
+      setUpload(null);
+      setMappingState({});
+      setValidationRun(false);
+      setModelSelections({});
+      setRunState("idle");
+      setRunProgress(0);
+      setMessages(initialMessages);
+      setDataset(null);
+
+      if (target === "demo") {
+        setMode("demo");
+        setProject({
+          name: "Apex Motors guide cycle",
+          industry: "Auto ancillary manufacturing",
+          grain: "SKU × Customer × Plant",
+          frequency: "Monthly",
+          horizon: 12,
+          owner: "R. Iyer · Demand planning lead",
+          createdAt: "Guide",
+          source: "demo",
+        });
+        setEvents(seedEvents);
+        setScenarios(seedScenarios);
+        setReviewLines(seedReviewLines);
+        setTransformations(seedTransformations);
+        setIntelEvents(seedIntelEvents);
+        setScenarioSpecs(seedScenarioSpecs);
+        setCompareIds(["ss-1", "ss-2"]);
+        setAdjustmentRequests([]);
+        setApprovals(seedApprovalQueue);
+        setVersions(seedVersions);
+        setActiveVersionId("v-2026-07");
+        setAuditLog(seedAuditLog);
+        setStageDone(emptyStages);
+        setUpload({
+          name: "apex-motors-demand-history.csv",
+          sizeLabel: "3.4 MB",
+          rows: 27_000,
+          uploadedAt: "Guide · seeded extract",
+        });
+        setMappingState({ ...autoMapping });
+      } else {
+        setMode("empty");
+        setProject(null);
+        setEvents([]);
+        setScenarios([]);
+        setReviewLines([]);
+        setTransformations([]);
+        setIntelEvents([]);
+        setScenarioSpecs([]);
+        setCompareIds([]);
+        setAdjustmentRequests([]);
+        setApprovals([]);
+        setVersions([]);
+        setActiveVersionId("");
+        setAuditLog([]);
+      }
+    },
+    [emptyStages],
+  );
 
   const startDemo = useCallback(() => resetAll("demo"), [resetAll]);
   const resetDemo = useCallback(() => resetAll("demo"), [resetAll]);
@@ -827,24 +877,27 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     return [];
   }, [mode, dataset]);
 
-  const setIssueAction = useCallback((issueId: string, action: IssueResolution) => {
-    setIssueActions((prev) => ({ ...prev, [issueId]: action }));
-    const issue = activeIssues.find((item) => item.id === issueId);
-    setAuditLog((log) => [
-      {
-        id: nextId("al"),
-        at: "Today (prototype session)",
-        date: new Date().toISOString().slice(0, 10),
-        user: "You · Demand planning",
-        action: "Data upload" as AuditAction,
-        sku: "All",
-        customer: "All",
-        version: mode === "demo" ? "V2026.07" : "Draft",
-        detail: `Resolved data-quality issue${issue ? ` "${issue.title}"` : ""} with action: ${action}.`,
-      },
-      ...log,
-    ]);
-  }, [activeIssues, mode]);
+  const setIssueAction = useCallback(
+    (issueId: string, action: IssueResolution) => {
+      setIssueActions((prev) => ({ ...prev, [issueId]: action }));
+      const issue = activeIssues.find((item) => item.id === issueId);
+      setAuditLog((log) => [
+        {
+          id: nextId("al"),
+          at: "Today (prototype session)",
+          date: new Date().toISOString().slice(0, 10),
+          user: "You · Demand planning",
+          action: "Data upload" as AuditAction,
+          sku: "All",
+          customer: "All",
+          version: mode === "demo" ? "V2026.07" : "Draft",
+          detail: `Resolved data-quality issue${issue ? ` "${issue.title}"` : ""} with action: ${action}.`,
+        },
+        ...log,
+      ]);
+    },
+    [activeIssues, mode],
+  );
 
   const blockingOpen = activeIssues.filter(
     (i) => i.severity === "Blocking" && !issueActions[i.id],
@@ -854,8 +907,6 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     () => (activeIssues.length ? qualityScore(activeIssues, issueActions) : 0),
     [activeIssues, issueActions],
   );
-
-
 
   const value = useMemo<PlatformContextValue>(
     () => ({

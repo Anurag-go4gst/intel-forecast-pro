@@ -96,7 +96,9 @@ describe("EventIntelligence workflow", () => {
       action: "Event modified",
       detail: expect.stringContaining("Watchlist"),
     });
-    expect(screen.getByText("Forecast-adjustment requests raised from events and scenarios")).toBeInTheDocument();
+    expect(
+      screen.getByText("Forecast-adjustment requests raised from events and scenarios"),
+    ).toBeInTheDocument();
   });
 
   it("applies only the selected event residual impact and moves to requests", async () => {
@@ -110,7 +112,9 @@ describe("EventIntelligence workflow", () => {
       status: "Awaiting approval",
     });
     expect(harness.api.stageDone.events).toBe(true);
-    expect(screen.getByText("Forecast-adjustment requests raised from events and scenarios")).toBeInTheDocument();
+    expect(
+      screen.getByText("Forecast-adjustment requests raised from events and scenarios"),
+    ).toBeInTheDocument();
     expect(screen.getByText(/Planner selected this event for forecast review/)).toBeInTheDocument();
   });
 
@@ -118,6 +122,9 @@ describe("EventIntelligence workflow", () => {
     await renderDemoEvents();
 
     fireEvent.click(screen.getByRole("button", { name: /Northvale OEM new-model launch/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply selected impact" }));
+    fireEvent.click(screen.getByRole("button", { name: "Decision" }));
+
     const selectedPanel = screen.getByText("Apply only this selected event").closest("div");
     if (!selectedPanel) throw new Error("Selected event decision panel was not rendered");
 
@@ -143,13 +150,17 @@ describe("EventIntelligence workflow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Evidence" }));
     fireEvent.click(screen.getAllByRole("button", { name: "Yes" })[0]);
 
-    expect(harness.api.intelEvents.find((event) => event.id === "ie-0")?.qualification.confirmed).toBe(false);
+    expect(
+      harness.api.intelEvents.find((event) => event.id === "ie-0")?.qualification.confirmed,
+    ).toBe(false);
 
     fireEvent.click(screen.getByRole("button", { name: "Impact curve" }));
     fireEvent.change(screen.getByDisplayValue("Multi-period demand transfer"), {
       target: { value: "One-time spike" },
     });
 
-    expect(harness.api.intelEvents.find((event) => event.id === "ie-0")?.pattern).toBe("One-time spike");
+    expect(harness.api.intelEvents.find((event) => event.id === "ie-0")?.pattern).toBe(
+      "One-time spike",
+    );
   });
 });
