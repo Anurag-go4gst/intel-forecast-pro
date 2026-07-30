@@ -118,9 +118,13 @@ export function DemoTour() {
     if (!targetId) return;
     window.setTimeout(() => {
       const node = document.getElementById(targetId);
-      if (!node) return;
-      node.scrollIntoView({ behavior: "smooth", block: "start" });
-      if (node instanceof HTMLElement) node.focus({ preventScroll: true });
+      if (!(node instanceof HTMLElement)) return;
+      // scrollIntoView is not implemented in every environment (e.g. jsdom),
+      // so guard it — an unguarded call throws inside this detached timer.
+      if (typeof node.scrollIntoView === "function") {
+        node.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      node.focus({ preventScroll: true });
     }, 120);
   }, []);
 
