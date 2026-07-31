@@ -11,7 +11,7 @@ import {
   Ruler,
   Target,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Area,
   Bar,
@@ -97,13 +97,15 @@ export const Route = createFileRoute("/performance")({
 });
 
 const FEATURED_TAIL = 12;
-const forecastChart = demoCaseSeries.slice(HISTORY_MONTHS - FEATURED_TAIL).map((p) => ({
+
+/** Chart point built from a forecast series entry. */
+const toChartPoint = (p: (typeof demoCaseSeries)[number]) => ({
   period: p.period,
   actual: p.actual,
   baseline: p.baseline,
   forecast: p.adjusted,
   band: p.lower != null && p.upper != null ? [p.lower, p.upper] : null,
-}));
+});
 
 const chartTooltipStyle = {
   borderRadius: 6,
@@ -154,6 +156,18 @@ function PerformanceMonitoring() {
   const versionForecast = isWorkingDraft
     ? workingDraftForecast(featuredEventApplied)
     : getVersionForecast(filters.version);
+
+  // The chart follows the selected version: recent actuals (version-independent)
+  // spliced onto the selected version's forecast horizon, so the plotted line
+  // matches the by-period table and KPI instead of always showing the
+  // event-adjusted demo curve.
+  const forecastChart = useMemo(
+    () => [
+      ...demoCaseSeries.slice(HISTORY_MONTHS - FEATURED_TAIL, HISTORY_MONTHS).map(toChartPoint),
+      ...versionForecast.horizon.map(toChartPoint),
+    ],
+    [versionForecast],
+  );
 
   const approvedOverrides = approvals.filter((a) => a.status === "Approved").length;
   const rejectedOverrides = approvals.filter((a) => a.status === "Rejected").length;
@@ -374,10 +388,10 @@ function PerformanceMonitoring() {
               icon={Target}
             />
             <KpiTile
-              label="Avg prediction interval"
-              value={`±${intervalPct}`}
+              label="P10–P90 interval width"
+              value={`${intervalPct}`}
               unit="%"
-              delta="P10–P90 band width"
+              delta={`Avg forecast band (±${Math.round(intervalPct * 5) / 10}% each side)`}
               deltaTone="info"
               icon={Ruler}
             />
