@@ -7,7 +7,6 @@ import { GlobalFilters } from "@/components/global-filters";
 import { StatusPill } from "@/components/primitives";
 import { StageActions, StageGuard, WorkflowRail } from "@/components/workflow-rail";
 import { usePlatform } from "@/lib/platform-state";
-import { forecastVersions } from "@/lib/demo-data";
 import { cn } from "@/lib/utils";
 
 function NavList({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
@@ -89,8 +88,8 @@ function SidebarBrand({ collapsed }: { collapsed: boolean }) {
 export function AppShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { filters, published, mode, project } = usePlatform();
-  const version = forecastVersions.find((v) => v.id === filters.version);
+  const { filters, published, mode, project, forecastVersionList } = usePlatform();
+  const version = forecastVersionList.find((v) => v.id === filters.version);
 
   return (
     <div className="flex min-h-screen w-full bg-background">

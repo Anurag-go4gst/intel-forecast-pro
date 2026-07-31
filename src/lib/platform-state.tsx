@@ -1,15 +1,26 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import {
+  cycleFromVersionId,
+  cycleToPubId,
+  cycleToWipId,
   defaultDrivers,
   defaultFilters,
+  DEMO_FEATURED_EVENT_ID,
+  forecastForVersion,
+  forecastVersions,
+  nextCycle,
   seedEvents,
   seedReviewLines,
   seedScenarios,
+  workingDraftForecast,
+  WORKING_DRAFT_VERSION_ID,
   type DemandEvent,
   type Filters,
   type ReviewLine,
   type SavedScenario,
   type ScenarioDriver,
+  type VersionForecast,
+  type VersionOption,
 } from "@/lib/demo-data";
 import {
   seedIntelEvents,
@@ -176,6 +187,13 @@ type PlatformContextValue = {
   versions: ForecastVersionRecord[];
   activeVersionId: string;
   setActiveVersionId: (id: string) => void;
+
+  /** Header FORECAST VERSION options, extended as drafts are published. */
+  forecastVersionList: VersionOption[];
+  /** The id of the live, editable working draft (changes when a draft is published). */
+  workingDraftVersionId: string;
+  /** Frozen/seeded forecast snapshot for a header version id. */
+  getVersionForecast: (versionId: string) => VersionForecast;
 
   auditLog: AuditEntry[];
   logAudit: (entry: Omit<AuditEntry, "id" | "at" | "date">) => void;
@@ -436,20 +454,90 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const [activeVersionId, setActiveVersionId] = usePersistentState("activeVersionId", "");
   const [auditLog, setAuditLog] = usePersistentState<AuditEntry[]>("auditLog", []);
 
+  // ------------------------------------------------ version-scoped forecasts
+  // The header FORECAST VERSION options and per-version snapshots are stateful
+  // so that publishing can freeze the working draft into a new published option
+  // and open the next cycle's draft. The working draft itself stays live.
+  const [forecastVersionList, setForecastVersionList] = usePersistentState<VersionOption[]>(
+    "forecastVersionList",
+    forecastVersions,
+  );
+  const [workingDraftVersionId, setWorkingDraftVersionId] = usePersistentState(
+    "workingDraftVersionId",
+    WORKING_DRAFT_VERSION_ID,
+  );
+  const [publishedSnapshots, setPublishedSnapshots] = usePersistentState<
+    Record<string, VersionForecast>
+  >("publishedSnapshots", {});
+
   const publish = useCallback(() => {
     const approvedTotal = approvals
       .filter((a) => a.status !== "Rejected")
       .reduce((sum, a) => sum + proposedFinal(a), 0);
-    setPublished(true);
-    setVersions((prev) =>
-      prev.map((v) =>
-        v.id === "v-2026-07"
+
+    // Cycle identity: the working draft being published, and the next one.
+    const cycle = cycleFromVersionId(workingDraftVersionId); // e.g. "2026.07"
+    const nextC = nextCycle(cycle); // e.g. "2026.08"
+    const cycleLabel = `V${cycle}`;
+    const nextLabel = `V${nextC}`;
+    const pubId = cycleToPubId(cycle);
+    const newWipId = cycleToWipId(nextC);
+    const govId = `v-${cycle.replace(".", "-")}`;
+    const nextGovId = `v-${nextC.replace(".", "-")}`;
+
+    // 1. Freeze the working draft's live forecast into a read-only snapshot.
+    const featuredEventApplied = intelEvents.some(
+      (e) => e.id === DEMO_FEATURED_EVENT_ID && e.status === "Approved",
+    );
+    const frozen: VersionForecast = {
+      ...workingDraftForecast(featuredEventApplied),
+      versionId: pubId,
+      label: `${cycleLabel} — Published`,
+      status: "published",
+    };
+    setPublishedSnapshots((prev) => ({ ...prev, [pubId]: frozen }));
+
+    // 2. Roll the header version options: the working draft becomes the newly
+    //    published option and a fresh working draft opens on top.
+    setForecastVersionList((prev) => [
+      { id: newWipId, label: `${nextLabel} — Working draft`, status: "draft" as const },
+      { id: pubId, label: `${cycleLabel} — Published`, status: "published" as const },
+      ...prev.filter((v) => v.id !== workingDraftVersionId),
+    ]);
+    setWorkingDraftVersionId(newWipId);
+    setFilters((prev) => ({ ...prev, version: newWipId }));
+
+    // 3. Roll the governance version records: publish this cycle, supersede the
+    //    prior published version, and open the next working draft.
+    setVersions((prev) => [
+      {
+        id: nextGovId,
+        label: nextLabel,
+        cycle: `${nextLabel} cycle`,
+        status: "Working draft" as const,
+        createdBy: "You · Demand planning lead",
+        createdAt: "Today (prototype session)",
+        totalUnits: frozen.totals.baseline,
+        note: "New draft opened after publication. Starts from the statistical baseline.",
+      },
+      ...prev.map((v) =>
+        v.id === govId
           ? { ...v, status: "Published" as const, totalUnits: approvedTotal || v.totalUnits }
           : v.status === "Published"
             ? { ...v, status: "Superseded" as const }
             : v,
       ),
-    );
+    ]);
+    setActiveVersionId(nextGovId);
+
+    // 4. Reset the in-cycle decisions so the new draft starts flat, while
+    //    keeping published history, versions and the audit trail.
+    setIntelEvents(seedIntelEvents);
+    setScenarioSpecs(seedScenarioSpecs);
+    setApprovals([]);
+    setAdjustmentRequests([]);
+    setPublished(false);
+
     setAuditLog((log) => [
       {
         id: nextId("al"),
@@ -459,12 +547,20 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         action: "Forecast publication" as AuditAction,
         sku: "All",
         customer: "All",
-        version: "V2026.07",
-        detail: `Published the July operational forecast (${approvedTotal.toLocaleString("en-IN")} units) to ERP, MRP and the supplier portal (prototype only).`,
+        version: cycleLabel,
+        detail: `Published ${cycleLabel} (${approvedTotal.toLocaleString("en-IN")} units) to ERP, MRP and the supplier portal, and opened ${nextLabel} as the new working draft (prototype only).`,
       },
       ...log,
     ]);
-  }, [approvals]);
+  }, [approvals, intelEvents, workingDraftVersionId]);
+
+  /** Resolve the forecast snapshot for a header version id. The live working
+   *  draft is computed by the caller; this returns frozen/seeded snapshots. */
+  const getVersionForecast = useCallback(
+    (versionId: string): VersionForecast =>
+      publishedSnapshots[versionId] ?? forecastForVersion(versionId),
+    [publishedSnapshots],
+  );
 
   const logAudit = useCallback((entry: Omit<AuditEntry, "id" | "at" | "date">) => {
     setAuditLog((prev) => [
@@ -739,6 +835,9 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       setFilters(defaultFilters);
       setDrivers(defaultDrivers);
       setPublished(false);
+      setForecastVersionList(forecastVersions);
+      setWorkingDraftVersionId(WORKING_DRAFT_VERSION_ID);
+      setPublishedSnapshots({});
       setSelectedModelBySku({});
       setUpload(null);
       setMappingState({});
@@ -994,6 +1093,9 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       versions,
       activeVersionId,
       setActiveVersionId,
+      forecastVersionList,
+      workingDraftVersionId,
+      getVersionForecast,
       auditLog,
       logAudit,
       adjustmentRequests,
@@ -1080,6 +1182,9 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       versions,
       activeVersionId,
       setActiveVersionId,
+      forecastVersionList,
+      workingDraftVersionId,
+      getVersionForecast,
       auditLog,
       logAudit,
       adjustmentRequests,

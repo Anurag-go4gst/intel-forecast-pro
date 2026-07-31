@@ -11,7 +11,6 @@ import {
   periods,
   plants,
   productFamilies,
-  forecastVersions,
   skus,
   type Filters,
 } from "@/lib/demo-data";
@@ -58,7 +57,7 @@ function FilterSelect({
 }
 
 export function GlobalFilters() {
-  const { filters, setFilter, resetFilters } = usePlatform();
+  const { filters, setFilter, resetFilters, forecastVersionList } = usePlatform();
 
   const items: Array<{ key: keyof Filters; label: string; options: Option[] }> = [
     { key: "bu", label: "Business unit", options: businessUnits },
@@ -67,7 +66,7 @@ export function GlobalFilters() {
     { key: "sku", label: "SKU", options: skuOptions },
     { key: "plant", label: "Plant / location", options: plants },
     { key: "period", label: "Forecast period", options: periods },
-    { key: "version", label: "Forecast version", options: forecastVersions },
+    { key: "version", label: "Forecast version", options: forecastVersionList },
   ];
 
   return (

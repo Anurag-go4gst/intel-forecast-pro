@@ -39,12 +39,10 @@ import {
   biasByFamily,
   DEMO_FEATURED_EVENT_ID,
   filterSkus,
-  forecastForVersion,
   formatNumber,
   formatSigned,
   riskRows,
   workingDraftForecast,
-  WORKING_DRAFT_VERSION_ID,
 } from "@/lib/demo-data";
 import {
   accuracyByFamily,
@@ -91,20 +89,21 @@ const chartTooltipStyle = {
 } as const;
 
 function ExecutiveOverview() {
-  const { filters, events, intelEvents, reviewLines, published } = usePlatform();
+  const { filters, events, intelEvents, reviewLines, published, workingDraftVersionId, getVersionForecast } =
+    usePlatform();
   const rows = filterSkus(filters);
   const series = aggregateSeries(rows);
 
   // Scope the headline forecast to the version selected in the header. The
   // working draft is live — no event uplift until one is applied in-cycle —
   // while published versions are read-only snapshots at a lower portfolio level.
-  const isWorkingDraft = filters.version === WORKING_DRAFT_VERSION_ID;
+  const isWorkingDraft = filters.version === workingDraftVersionId;
   const featuredEventApplied = intelEvents.some(
     (e) => e.id === DEMO_FEATURED_EVENT_ID && e.status === "Approved",
   );
   const versionForecast = isWorkingDraft
     ? workingDraftForecast(featuredEventApplied)
-    : forecastForVersion(filters.version);
+    : getVersionForecast(filters.version);
 
   const horizonTotal = Math.round(
     series

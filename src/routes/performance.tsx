@@ -56,14 +56,12 @@ import {
   demoCaseSeries,
   DEMO_FEATURED_EVENT_ID,
   filterSkus,
-  forecastForVersion,
   formatNumber,
   formatSigned,
   HISTORY_MONTHS,
   riskBuckets,
   riskRows,
   workingDraftForecast,
-  WORKING_DRAFT_VERSION_ID,
 } from "@/lib/demo-data";
 import { residualImpact } from "@/lib/event-domain";
 import { championChallenger, fvaAgainst } from "@/lib/governance-domain";
@@ -115,8 +113,17 @@ const chartTooltipStyle = {
 };
 
 function PerformanceMonitoring() {
-  const { filters, modelSelections, intelEvents, approvals, versions, published, logAudit } =
-    usePlatform();
+  const {
+    filters,
+    modelSelections,
+    intelEvents,
+    approvals,
+    versions,
+    published,
+    logAudit,
+    workingDraftVersionId,
+    getVersionForecast,
+  } = usePlatform();
   const rows = filterSkus(filters);
   const kpi = accuracyKpis();
   const aggregation = accuracyByAggregation(rows);
@@ -140,13 +147,13 @@ function PerformanceMonitoring() {
   // working draft is LIVE — its approved forecast equals the baseline until the
   // driving event is applied in-cycle — while published versions are read-only
   // saved snapshots.
-  const isWorkingDraft = filters.version === WORKING_DRAFT_VERSION_ID;
+  const isWorkingDraft = filters.version === workingDraftVersionId;
   const featuredEventApplied = intelEvents.some(
     (e) => e.id === DEMO_FEATURED_EVENT_ID && e.status === "Approved",
   );
   const versionForecast = isWorkingDraft
     ? workingDraftForecast(featuredEventApplied)
-    : forecastForVersion(filters.version);
+    : getVersionForecast(filters.version);
 
   const approvedOverrides = approvals.filter((a) => a.status === "Approved").length;
   const rejectedOverrides = approvals.filter((a) => a.status === "Rejected").length;

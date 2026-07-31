@@ -37,13 +37,11 @@ import {
   customers,
   DEMO_FEATURED_EVENT_ID,
   filterSkus,
-  forecastForVersion,
   formatNumber,
   formatSigned,
   plants,
   skus,
   workingDraftForecast,
-  WORKING_DRAFT_VERSION_ID,
 } from "@/lib/demo-data";
 import {
   behaviourForSku,
@@ -111,8 +109,18 @@ const auditHistory = [
 ];
 
 function ForecastWorkspace() {
-  const { filters, runState, runProgress, startRun, events, intelEvents, drivers, modelSelections } =
-    usePlatform();
+  const {
+    filters,
+    runState,
+    runProgress,
+    startRun,
+    events,
+    intelEvents,
+    drivers,
+    modelSelections,
+    workingDraftVersionId,
+    getVersionForecast,
+  } = usePlatform();
   const scopedRows = filterSkus(filters);
   const [overrides, setOverrides] = useState<Record<string, number>>({});
   const [level, setLevel] = useState<"sku" | "family" | "customer">("sku");
@@ -156,13 +164,13 @@ function ForecastWorkspace() {
   // is the live, editable forecast — its event-aware line equals the baseline
   // until the driving event is applied in-cycle — while a published version is a
   // read-only snapshot at a lower portfolio level that carries no event.
-  const isWorkingDraft = filters.version === WORKING_DRAFT_VERSION_ID;
+  const isWorkingDraft = filters.version === workingDraftVersionId;
   const featuredEventApplied = intelEvents.some(
     (e) => e.id === DEMO_FEATURED_EVENT_ID && e.status === "Approved",
   );
   const versionForecast = isWorkingDraft
     ? workingDraftForecast(featuredEventApplied)
-    : forecastForVersion(filters.version);
+    : getVersionForecast(filters.version);
   const versionedSeries = useMemo(() => {
     // Live working draft with the event applied shows the series as generated.
     if (isWorkingDraft && featuredEventApplied) return series;
