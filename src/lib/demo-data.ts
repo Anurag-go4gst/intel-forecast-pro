@@ -427,7 +427,7 @@ export function buildSeries(seedKey: string, base: number, uplift = 0, behaviour
     const isHistory = i <= historyCutoffIndex;
     const actual = isHistory ? Math.max(0, Math.round(level * noise)) : null;
     const baseline = Math.max(0, Math.round(level * (isHistory ? 1 - noiseScale * 0.2 : 1)));
-    const spread = 0.06 + (i - historyCutoffIndex) * 0.012;
+    const spread = 0.0554 + (i - historyCutoffIndex) * 0.00632;
     return {
       period: label,
       actual,
@@ -513,7 +513,7 @@ export const demoCaseSeries: SeriesPoint[] = (() => {
     if (m === 8) adjusted = Math.round((level / demoSeasonal[8]) * (demoCase.septemberRestorePct / 100 + 0.18));
     if (m === 9) adjusted = Math.round(baseline * (1 + demoCase.residualOctoberImpactPct / 100));
     if (m === 10) adjusted = Math.round(baseline * (1 + demoCase.novemberRecoveryPct / 100));
-    const spread = 0.07 + (i - historyCutoffIndex) * 0.008;
+    const spread = 0.0554 + (i - historyCutoffIndex) * 0.00632;
     return {
       period: label,
       actual: null,
