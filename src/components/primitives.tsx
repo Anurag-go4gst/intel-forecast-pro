@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { Lock } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -134,6 +135,30 @@ export function PrototypeNote({ children }: { children: ReactNode }) {
     <p className="rounded-md border border-dashed border-border bg-surface-muted px-3 py-2 text-xs leading-relaxed text-muted-foreground">
       {children}
     </p>
+  );
+}
+
+/**
+ * Read-only notice shown when a dashboard is scoped to a published (not the
+ * working draft) forecast version. Renders nothing on the working draft.
+ */
+export function VersionViewBanner({
+  label,
+  isWorkingDraft,
+}: {
+  label: string;
+  isWorkingDraft: boolean;
+}) {
+  if (isWorkingDraft) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-warning/35 bg-warning-soft px-3 py-2 text-xs text-warning-foreground">
+      <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      <span className="font-semibold">Viewing {label}</span>
+      <span className="opacity-80">
+        — a read-only published snapshot. Switch the forecast version to the working draft to make
+        changes.
+      </span>
+    </div>
   );
 }
 

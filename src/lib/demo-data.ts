@@ -544,6 +544,127 @@ export const demoTotals = {
     .reduce((s, p) => s + (p.scenario ?? 0), 0),
 };
 
+// ------------------------------------------------------- per-version snapshots
+//
+// Each forecast version is a saved snapshot of the featured-SKU forecast as it
+// stood when that cycle was worked. The working draft (V2026.07) is where the
+// Apex shutdown-move event was applied, so its event-aware forecast diverges
+// from the baseline. The Apex schedule revision only arrived on 2026-07-14, so
+// the earlier PUBLISHED versions (June, May) legitimately carry no event
+// adjustment — their approved forecast equals the statistical baseline. Picking
+// a version in the header re-scopes every dashboard to that snapshot.
+
+export type VersionForecast = {
+  versionId: string;
+  label: string;
+  status: "draft" | "published";
+  /** Whether an event adjustment had been decided in this cycle. */
+  hasEventAdjustment: boolean;
+  /** Portfolio-level index of this cycle versus the working draft (1.0). Lets
+   *  filter-scoped dashboards re-scale their aggregates to an earlier cycle. */
+  levelFactor: number;
+  horizon: SeriesPoint[];
+  totals: { baseline: number; eventAware: number };
+};
+
+/** Re-scale the working-draft horizon to an earlier cycle's level, optionally
+ *  flattening the event so the approved forecast equals the baseline. */
+function buildVersionHorizon(factor: number, keepEvent: boolean): SeriesPoint[] {
+  return demoHorizon.map((p) => {
+    const baseline = Math.round((p.baseline ?? 0) * factor);
+    const adjusted = keepEvent ? Math.round((p.adjusted ?? 0) * factor) : baseline;
+    // Preserve each point's original interval width relative to its centre.
+    const centre = p.adjusted ?? 1;
+    const upperRel = (p.upper ?? centre) / centre;
+    const lowerRel = (p.lower ?? centre) / centre;
+    return {
+      period: p.period,
+      actual: null,
+      baseline,
+      adjusted,
+      upper: Math.round(adjusted * upperRel),
+      lower: Math.round(adjusted * lowerRel),
+    };
+  });
+}
+
+const horizonTotals = (horizon: SeriesPoint[]) => ({
+  baseline: horizon.reduce((s, p) => s + (p.baseline ?? 0), 0),
+  eventAware: horizon.reduce((s, p) => s + (p.adjusted ?? 0), 0),
+});
+
+export const versionForecasts: Record<string, VersionForecast> = {
+  "v-2026-07-wip": {
+    versionId: "v-2026-07-wip",
+    label: "V2026.07 — Working draft",
+    status: "draft",
+    hasEventAdjustment: true,
+    levelFactor: 1,
+    horizon: demoHorizon,
+    totals: { baseline: demoTotals.baseline, eventAware: demoTotals.eventAware },
+  },
+  "v-2026-06-pub": (() => {
+    // Portfolio totalUnits ratio 638,900 / 661,300 ≈ 0.966.
+    const levelFactor = 0.966;
+    const horizon = buildVersionHorizon(levelFactor, false);
+    return {
+      versionId: "v-2026-06-pub",
+      label: "V2026.06 — Published",
+      status: "published" as const,
+      hasEventAdjustment: false,
+      levelFactor,
+      horizon,
+      totals: horizonTotals(horizon),
+    };
+  })(),
+  "v-2026-05-pub": (() => {
+    // Portfolio totalUnits ratio 612,400 / 661,300 ≈ 0.926.
+    const levelFactor = 0.926;
+    const horizon = buildVersionHorizon(levelFactor, false);
+    return {
+      versionId: "v-2026-05-pub",
+      label: "V2026.05 — Published",
+      status: "published" as const,
+      hasEventAdjustment: false,
+      levelFactor,
+      horizon,
+      totals: horizonTotals(horizon),
+    };
+  })(),
+};
+
+export const WORKING_DRAFT_VERSION_ID = "v-2026-07-wip";
+
+/** The seeded Apex shutdown event that drives the featured-SKU event-aware line.
+ *  The working-draft forecast only diverges from the baseline once it is
+ *  approved in-cycle. */
+export const DEMO_FEATURED_EVENT_ID = "ie-0";
+
+/**
+ * The working draft is LIVE: unlike a published snapshot, its event-aware line
+ * only diverges from the statistical baseline once the driving event has been
+ * approved in this cycle. A fresh plan therefore starts with the approved
+ * forecast equal to the baseline and builds up as the planner applies events.
+ */
+export function workingDraftForecast(eventApplied: boolean): VersionForecast {
+  const horizon = eventApplied ? demoHorizon : buildVersionHorizon(1, false);
+  return {
+    versionId: WORKING_DRAFT_VERSION_ID,
+    label: "V2026.07 — Working draft",
+    status: "draft",
+    hasEventAdjustment: eventApplied,
+    levelFactor: 1,
+    horizon,
+    totals: horizonTotals(horizon),
+  };
+}
+
+/** Featured-SKU forecast snapshot for a selected header version (falls back to
+ *  the working draft for any unknown id). */
+export function forecastForVersion(versionId: string | undefined): VersionForecast {
+  return versionForecasts[versionId ?? ""] ?? versionForecasts[WORKING_DRAFT_VERSION_ID];
+}
+
 export const demoDoubleCountCheck = [
   { source: "Open orders", signal: "Clear signal", reflectedPct: 14, note: "October releases already cut by 14% versus the prior schedule." },
   { source: "OEM/customer schedules", signal: "Clear signal", reflectedPct: 12, note: "Apex EDI 830 revision R-14 confirms the October shutdown window." },

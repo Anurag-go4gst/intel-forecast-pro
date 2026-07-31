@@ -89,7 +89,8 @@ describe("EventIntelligence workflow", () => {
     expect(screen.getByText("Decision")).toBeInTheDocument();
     expect(screen.getByText("Planner decision")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByDisplayValue("Approved"), { target: { value: "Watchlist" } });
+    // A fresh plan seeds ie-0 as a Recommended (not yet approved) event.
+    fireEvent.change(screen.getByDisplayValue("Recommended"), { target: { value: "Watchlist" } });
 
     expect(harness.api.intelEvents.find((event) => event.id === "ie-0")?.status).toBe("Watchlist");
     expect(harness.api.auditLog[0]).toMatchObject({
