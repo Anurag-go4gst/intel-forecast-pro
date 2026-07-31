@@ -37,11 +37,13 @@ import {
 import {
   aggregateSeries,
   biasByFamily,
+  DEMO_FEATURED_EVENT_ID,
   filterSkus,
   forecastForVersion,
   formatNumber,
   formatSigned,
   riskRows,
+  workingDraftForecast,
   WORKING_DRAFT_VERSION_ID,
 } from "@/lib/demo-data";
 import {
@@ -89,15 +91,20 @@ const chartTooltipStyle = {
 } as const;
 
 function ExecutiveOverview() {
-  const { filters, events, reviewLines, published } = usePlatform();
+  const { filters, events, intelEvents, reviewLines, published } = usePlatform();
   const rows = filterSkus(filters);
   const series = aggregateSeries(rows);
 
   // Scope the headline forecast to the version selected in the header. The
-  // working draft is live; published versions are read-only saved snapshots at
-  // a lower portfolio level, and carry no event uplift.
-  const versionForecast = forecastForVersion(filters.version);
+  // working draft is live — no event uplift until one is applied in-cycle —
+  // while published versions are read-only snapshots at a lower portfolio level.
   const isWorkingDraft = filters.version === WORKING_DRAFT_VERSION_ID;
+  const featuredEventApplied = intelEvents.some(
+    (e) => e.id === DEMO_FEATURED_EVENT_ID && e.status === "Approved",
+  );
+  const versionForecast = isWorkingDraft
+    ? workingDraftForecast(featuredEventApplied)
+    : forecastForVersion(filters.version);
 
   const horizonTotal = Math.round(
     series

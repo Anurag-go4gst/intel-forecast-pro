@@ -635,6 +635,30 @@ export const versionForecasts: Record<string, VersionForecast> = {
 
 export const WORKING_DRAFT_VERSION_ID = "v-2026-07-wip";
 
+/** The seeded Apex shutdown event that drives the featured-SKU event-aware line.
+ *  The working-draft forecast only diverges from the baseline once it is
+ *  approved in-cycle. */
+export const DEMO_FEATURED_EVENT_ID = "ie-0";
+
+/**
+ * The working draft is LIVE: unlike a published snapshot, its event-aware line
+ * only diverges from the statistical baseline once the driving event has been
+ * approved in this cycle. A fresh plan therefore starts with the approved
+ * forecast equal to the baseline and builds up as the planner applies events.
+ */
+export function workingDraftForecast(eventApplied: boolean): VersionForecast {
+  const horizon = eventApplied ? demoHorizon : buildVersionHorizon(1, false);
+  return {
+    versionId: WORKING_DRAFT_VERSION_ID,
+    label: "V2026.07 — Working draft",
+    status: "draft",
+    hasEventAdjustment: eventApplied,
+    levelFactor: 1,
+    horizon,
+    totals: horizonTotals(horizon),
+  };
+}
+
 /** Featured-SKU forecast snapshot for a selected header version (falls back to
  *  the working draft for any unknown id). */
 export function forecastForVersion(versionId: string | undefined): VersionForecast {

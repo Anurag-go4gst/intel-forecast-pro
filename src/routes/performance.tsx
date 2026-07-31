@@ -54,6 +54,7 @@ import {
   demoCaseMeta,
   demoCaseRow,
   demoCaseSeries,
+  DEMO_FEATURED_EVENT_ID,
   filterSkus,
   forecastForVersion,
   formatNumber,
@@ -61,6 +62,7 @@ import {
   HISTORY_MONTHS,
   riskBuckets,
   riskRows,
+  workingDraftForecast,
   WORKING_DRAFT_VERSION_ID,
 } from "@/lib/demo-data";
 import { residualImpact } from "@/lib/event-domain";
@@ -135,9 +137,16 @@ function PerformanceMonitoring() {
   const eventResidual = approvedEvent ? residualImpact(approvedEvent) : null;
 
   // The dashboard is scoped to the forecast version selected in the header. The
-  // working draft is live; published versions are read-only saved snapshots.
-  const versionForecast = forecastForVersion(filters.version);
+  // working draft is LIVE — its approved forecast equals the baseline until the
+  // driving event is applied in-cycle — while published versions are read-only
+  // saved snapshots.
   const isWorkingDraft = filters.version === WORKING_DRAFT_VERSION_ID;
+  const featuredEventApplied = intelEvents.some(
+    (e) => e.id === DEMO_FEATURED_EVENT_ID && e.status === "Approved",
+  );
+  const versionForecast = isWorkingDraft
+    ? workingDraftForecast(featuredEventApplied)
+    : forecastForVersion(filters.version);
 
   const approvedOverrides = approvals.filter((a) => a.status === "Approved").length;
   const rejectedOverrides = approvals.filter((a) => a.status === "Rejected").length;
@@ -249,7 +258,9 @@ function PerformanceMonitoring() {
                   </li>
                   <li>
                     {!versionForecast.hasEventAdjustment
-                      ? "This published version predates the Apex shutdown-move event, so its approved forecast equals the statistical baseline."
+                      ? isWorkingDraft
+                        ? "No business event has been applied yet — the approved forecast equals the statistical baseline until you apply one in Event Intelligence."
+                        : "This published version predates the Apex shutdown-move event, so its approved forecast equals the statistical baseline."
                       : approvedEvent && eventResidual
                         ? `${approvedEvent.name} applied at ${eventResidual.applied > 0 ? "+" : ""}${eventResidual.applied}%${
                             eventResidual.alreadyReflected > 0
@@ -351,8 +362,8 @@ function PerformanceMonitoring() {
               label="Featured SKU forecast"
               value={formatNumber(versionForecast.totals.eventAware)}
               unit="units"
-              delta={`${demoCase.sku} · event-adjusted`}
-              deltaTone="positive"
+              delta={`${demoCase.sku} · ${versionForecast.hasEventAdjustment ? "event-adjusted" : "baseline (no event applied)"}`}
+              deltaTone={versionForecast.hasEventAdjustment ? "positive" : "neutral"}
               icon={Target}
             />
             <KpiTile

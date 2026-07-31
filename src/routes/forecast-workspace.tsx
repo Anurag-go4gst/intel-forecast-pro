@@ -35,12 +35,14 @@ import {
   buildSeries,
   historyCutoffIndex,
   customers,
+  DEMO_FEATURED_EVENT_ID,
   filterSkus,
   forecastForVersion,
   formatNumber,
   formatSigned,
   plants,
   skus,
+  workingDraftForecast,
   WORKING_DRAFT_VERSION_ID,
 } from "@/lib/demo-data";
 import {
@@ -109,7 +111,8 @@ const auditHistory = [
 ];
 
 function ForecastWorkspace() {
-  const { filters, runState, runProgress, startRun, events, drivers, modelSelections } = usePlatform();
+  const { filters, runState, runProgress, startRun, events, intelEvents, drivers, modelSelections } =
+    usePlatform();
   const scopedRows = filterSkus(filters);
   const [overrides, setOverrides] = useState<Record<string, number>>({});
   const [level, setLevel] = useState<"sku" | "family" | "customer">("sku");
@@ -150,17 +153,25 @@ function ForecastWorkspace() {
   );
 
   // Scope the workspace to the version selected in the header. The working draft
-  // is the live, editable forecast; a published version is a read-only snapshot
-  // at a lower portfolio level that carries no event adjustment.
-  const versionForecast = forecastForVersion(filters.version);
+  // is the live, editable forecast — its event-aware line equals the baseline
+  // until the driving event is applied in-cycle — while a published version is a
+  // read-only snapshot at a lower portfolio level that carries no event.
   const isWorkingDraft = filters.version === WORKING_DRAFT_VERSION_ID;
+  const featuredEventApplied = intelEvents.some(
+    (e) => e.id === DEMO_FEATURED_EVENT_ID && e.status === "Approved",
+  );
+  const versionForecast = isWorkingDraft
+    ? workingDraftForecast(featuredEventApplied)
+    : forecastForVersion(filters.version);
   const versionedSeries = useMemo(() => {
-    if (isWorkingDraft) return series;
-    const factor = versionForecast.levelFactor;
+    // Live working draft with the event applied shows the series as generated.
+    if (isWorkingDraft && featuredEventApplied) return series;
+    const factor = versionForecast.levelFactor; // 1.0 for the working draft
+    const keepEvent = versionForecast.hasEventAdjustment; // false with no in-cycle event
     return series.map((p) => {
       if (p.actual !== null) return p; // history actuals are the same across versions
       const baseline = p.baseline === null ? null : Math.round(p.baseline * factor);
-      const adjusted = !versionForecast.hasEventAdjustment
+      const adjusted = !keepEvent
         ? baseline
         : p.adjusted === null
           ? null
@@ -174,10 +185,11 @@ function ForecastWorkspace() {
         adjusted,
         upper: adjusted === null ? null : Math.round(adjusted * upperRel),
         lower: adjusted === null ? null : Math.round(adjusted * lowerRel),
-        scenario: null, // what-if overlays only apply to the live working draft
+        // What-if overlays only apply to the live working draft.
+        scenario: isWorkingDraft ? p.scenario : null,
       };
     });
-  }, [series, isWorkingDraft, versionForecast]);
+  }, [series, isWorkingDraft, featuredEventApplied, versionForecast]);
 
   const horizonPoints = versionedSeries.filter((p) => p.actual === null && p.baseline !== null);
   const horizonBaseline = horizonPoints.reduce((sum, p) => sum + (p.baseline ?? 0), 0);
