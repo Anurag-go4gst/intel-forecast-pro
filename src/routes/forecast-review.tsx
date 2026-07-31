@@ -64,8 +64,6 @@ function ForecastReview() {
     published,
     publish,
     completeStage,
-    adjustmentRequests,
-    setRequestStatus,
   } = usePlatform();
 
   const [statusFilter, setStatusFilter] = useState<ApprovalStatus | "All">("All");
@@ -255,9 +253,13 @@ function ForecastReview() {
           icon={GitBranch}
         />
         <KpiTile
-          label="Adjustment requests"
-          value={String(adjustmentRequests.length)}
-          delta="From events and scenarios"
+          label="Queue items"
+          value={String(approvals.length)}
+          delta={
+            approvals.length
+              ? "From your applied events and promoted scenarios"
+              : "Apply an event or promote a scenario to raise one"
+          }
           deltaTone="neutral"
           icon={History}
         />
@@ -479,7 +481,9 @@ function ForecastReview() {
               {visible.length === 0 && (
                 <tr>
                   <td colSpan={12} className="px-4 py-8 text-center text-xs text-muted-foreground">
-                    No queue items with this status.
+                    {approvals.length === 0
+                      ? "The queue is empty. Apply an event's residual impact in Event Intelligence or promote a what-if scenario, and it appears here for a decision. With nothing to decide, you can publish the baseline forecast directly."
+                      : "No queue items with this status."}
                   </td>
                 </tr>
               )}
@@ -833,78 +837,6 @@ function ForecastReview() {
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">{step.explanation}</td>
                 </tr>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </Panel>
-
-      <Panel
-        title="Adjustment requests from events and scenarios"
-        description="Scenarios never publish directly; they enter here as requests and need their own approval before they can be reflected in the approval queue above."
-        bodyClassName="p-0"
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-sm">
-            <thead>
-              <tr className="border-b border-border bg-surface-muted text-left">
-                <th className="label-caps px-4 py-2.5">Request</th>
-                <th className="label-caps px-4 py-2.5">Origin</th>
-                <th className="label-caps px-4 py-2.5">Submitted</th>
-                <th className="label-caps px-4 py-2.5">Status</th>
-                <th className="label-caps px-4 py-2.5">Decision</th>
-              </tr>
-            </thead>
-            <tbody>
-              {adjustmentRequests.map((r) => (
-                <tr key={r.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-2.5 text-xs">{r.title}</td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">{r.origin}</td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">{r.submittedAt}</td>
-                  <td className="px-4 py-2.5">
-                    <StatusPill
-                      tone={
-                        r.status === "Approved"
-                          ? "positive"
-                          : r.status === "Rejected"
-                            ? "risk"
-                            : "warning"
-                      }
-                    >
-                      {r.status}
-                    </StatusPill>
-                  </td>
-                  <td className="px-4 py-2.5">
-                    {r.status === "Awaiting approval" ? (
-                      <div className="flex gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setRequestStatus(r.id, "Approved")}
-                          className="rounded-md border border-positive/30 bg-positive-soft px-2 py-1 text-[11px] font-medium text-positive hover:bg-positive-soft/80"
-                        >
-                          Approve
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setRequestStatus(r.id, "Rejected")}
-                          className="rounded-md border border-input px-2 py-1 text-[11px] font-medium hover:bg-risk-soft hover:text-risk"
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-[11px] text-muted-foreground">Decided</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {adjustmentRequests.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-xs text-muted-foreground">
-                    No adjustment requests raised yet — apply an event's residual impact or promote
-                    a scenario for review.
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>

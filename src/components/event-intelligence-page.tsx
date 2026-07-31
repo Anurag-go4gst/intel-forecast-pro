@@ -60,6 +60,7 @@ import {
   type ReflectionState,
   type Reliability,
 } from "@/lib/event-domain";
+import { approvalFromEvent } from "@/lib/governance-domain";
 import { usePlatform } from "@/lib/platform-state";
 import { cn } from "@/lib/utils";
 
@@ -192,16 +193,19 @@ export function EventIntelligence() {
   const applySelectedImpact = () => {
     if (!selected || !routing || !residual || !canRouteToAdjustment || alreadyRequested) return;
     setIntelEventStatus(selected.id, "Approved");
-    promoteToReview({
-      title: `${selected.name} — selected residual impact`,
-      origin: "Event",
-      originId: selected.id,
-      scope: `${selected.skuScope} · ${selected.plantScope}`,
-      requestedImpactPct: residual.applied,
-      monthlyImpactPct: patternCurve(selected.pattern, residual.applied),
-      owner: selected.owner,
-      note: `Planner selected this event for forecast review. Residual after ${reflectedShare(selected)}% of impact was found in checked sources.`,
-    });
+    promoteToReview(
+      {
+        title: `${selected.name} — selected residual impact`,
+        origin: "Event",
+        originId: selected.id,
+        scope: `${selected.skuScope} · ${selected.plantScope}`,
+        requestedImpactPct: residual.applied,
+        monthlyImpactPct: patternCurve(selected.pattern, residual.applied),
+        owner: selected.owner,
+        note: `Planner selected this event for forecast review. Residual after ${reflectedShare(selected)}% of impact was found in checked sources.`,
+      },
+      approvalFromEvent(selected, residual.applied, reflectedShare(selected)),
+    );
     logAudit({
       user: selected.owner,
       action: "Forecast adjustment",
