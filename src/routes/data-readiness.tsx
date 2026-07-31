@@ -5,6 +5,7 @@ import {
   FileSpreadsheet,
   Gauge,
   RotateCcw,
+  Search,
   ShieldAlert,
   Table2,
   Undo2,
@@ -66,6 +67,8 @@ const resultIcon: Record<CheckResult, typeof CheckCircle2> = {
 
 const tierOrder: FieldTier[] = ["mandatory", "recommended", "optional"];
 
+const READINESS_PAGE_SIZE = 12;
+
 function DataReadiness() {
   const {
     mode,
@@ -85,6 +88,8 @@ function DataReadiness() {
   const [dragActive, setDragActive] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [confidenceFilter, setConfidenceFilter] = useState<string>("all");
+  const [readinessSearch, setReadinessSearch] = useState("");
+  const [readinessPageRaw, setReadinessPage] = useState(1);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const acceptFile = async (file: File | null) => {
@@ -144,6 +149,26 @@ function DataReadiness() {
         ? seriesQuality
         : seriesQuality.filter((s) => s.confidence === confidenceFilter),
     [confidenceFilter],
+  );
+
+  // Series readiness table: free-text search across SKU, description, customer
+  // and classification, then paginate — the demo portfolio holds 500 series, so
+  // the table is never dumped in full.
+  const searchedSeries = useMemo(() => {
+    const q = readinessSearch.trim().toLowerCase();
+    if (!q) return filteredSeries;
+    return filteredSeries.filter((s) =>
+      [s.sku, s.description, s.customer, s.confidence].some((field) =>
+        field.toLowerCase().includes(q),
+      ),
+    );
+  }, [filteredSeries, readinessSearch]);
+
+  const readinessTotalPages = Math.max(1, Math.ceil(searchedSeries.length / READINESS_PAGE_SIZE));
+  const readinessPage = Math.min(readinessPageRaw, readinessTotalPages);
+  const readinessRows = searchedSeries.slice(
+    (readinessPage - 1) * READINESS_PAGE_SIZE,
+    readinessPage * READINESS_PAGE_SIZE,
   );
   const avgScore = Math.round(
     seriesQuality.reduce((sum, s) => sum + s.score, 0) / seriesQuality.length,
@@ -533,7 +558,10 @@ function DataReadiness() {
               <button
                 key={key}
                 type="button"
-                onClick={() => setConfidenceFilter(confidenceFilter === key ? "all" : key)}
+                onClick={() => {
+                  setConfidenceFilter(confidenceFilter === key ? "all" : key);
+                  setReadinessPage(1);
+                }}
                 className={cn(
                   "grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors",
                   confidenceFilter === key ? "border-ring bg-accent" : "border-border hover:bg-surface-muted",
@@ -555,20 +583,42 @@ function DataReadiness() {
         title="Series readiness scores"
         description={
           confidenceFilter === "all"
-            ? "All representative series in the demonstration portfolio."
-            : `Filtered to: ${confidenceFilter}.`
+            ? "Every SKU-customer series in the demonstration portfolio. Search or filter to narrow the list."
+            : `Filtered to: ${confidenceFilter}. Search to narrow further.`
         }
         bodyClassName="p-0"
         actions={
-          confidenceFilter !== "all" ? (
-            <button
-              type="button"
-              onClick={() => setConfidenceFilter("all")}
-              className="rounded-md border border-input px-2.5 py-1.5 text-[11px] font-medium hover:bg-accent"
-            >
-              Clear filter
-            </button>
-          ) : undefined
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+                aria-hidden
+              />
+              <input
+                type="search"
+                value={readinessSearch}
+                onChange={(e) => {
+                  setReadinessSearch(e.target.value);
+                  setReadinessPage(1);
+                }}
+                placeholder="Search SKU, description, customer…"
+                aria-label="Search series readiness scores"
+                className="h-8 w-56 rounded-md border border-input bg-surface pl-8 pr-2.5 text-xs placeholder:text-muted-foreground"
+              />
+            </div>
+            {confidenceFilter !== "all" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setConfidenceFilter("all");
+                  setReadinessPage(1);
+                }}
+                className="rounded-md border border-input px-2.5 py-1.5 text-[11px] font-medium hover:bg-accent"
+              >
+                Clear filter
+              </button>
+            )}
+          </div>
         }
       >
         <div className="overflow-x-auto">
@@ -587,7 +637,7 @@ function DataReadiness() {
               </tr>
             </thead>
             <tbody>
-              {filteredSeries.map((row) => (
+              {readinessRows.map((row) => (
                 <tr key={row.key} className="border-b border-border last:border-0 hover:bg-surface-muted/60">
                   <td className="px-4 py-2.5">
                     <p className="num text-xs font-semibold">{row.sku}</p>
@@ -605,9 +655,47 @@ function DataReadiness() {
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">{row.reason}</td>
                 </tr>
               ))}
+              {readinessRows.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="px-4 py-8 text-center text-xs text-muted-foreground">
+                    No series match “{readinessSearch}”
+                    {confidenceFilter !== "all" ? ` in the ${confidenceFilter} classification` : ""}.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
+        {searchedSeries.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-2.5">
+            <p className="text-[11px] text-muted-foreground">
+              Showing {(readinessPage - 1) * READINESS_PAGE_SIZE + 1}–
+              {Math.min(readinessPage * READINESS_PAGE_SIZE, searchedSeries.length)} of{" "}
+              {formatNumber(searchedSeries.length)} series
+            </p>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setReadinessPage((p) => Math.max(1, p - 1))}
+                disabled={readinessPage === 1}
+                className="rounded-md border border-input px-2.5 py-1 text-[11px] font-medium hover:bg-accent disabled:opacity-40"
+              >
+                Previous
+              </button>
+              <span className="text-[11px] text-muted-foreground">
+                Page {readinessPage} of {readinessTotalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setReadinessPage((p) => Math.min(readinessTotalPages, p + 1))}
+                disabled={readinessPage === readinessTotalPages}
+                className="rounded-md border border-input px-2.5 py-1 text-[11px] font-medium hover:bg-accent disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </Panel>
 
       <Panel
