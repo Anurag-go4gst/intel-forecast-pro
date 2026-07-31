@@ -28,7 +28,14 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { KpiTile, Panel, PageHeading, PrototypeNote, StatusPill } from "@/components/primitives";
+import {
+  KpiTile,
+  Panel,
+  PageHeading,
+  PrototypeNote,
+  StatusPill,
+  VersionViewBanner,
+} from "@/components/primitives";
 import {
   Dialog,
   DialogClose,
@@ -47,14 +54,14 @@ import {
   demoCaseMeta,
   demoCaseRow,
   demoCaseSeries,
-  demoHorizon,
-  demoTotals,
   filterSkus,
+  forecastForVersion,
   formatNumber,
   formatSigned,
   HISTORY_MONTHS,
   riskBuckets,
   riskRows,
+  WORKING_DRAFT_VERSION_ID,
 } from "@/lib/demo-data";
 import { residualImpact } from "@/lib/event-domain";
 import { championChallenger, fvaAgainst } from "@/lib/governance-domain";
@@ -127,6 +134,11 @@ function PerformanceMonitoring() {
   const approvedEvent = intelEvents.find((e) => e.status === "Approved");
   const eventResidual = approvedEvent ? residualImpact(approvedEvent) : null;
 
+  // The dashboard is scoped to the forecast version selected in the header. The
+  // working draft is live; published versions are read-only saved snapshots.
+  const versionForecast = forecastForVersion(filters.version);
+  const isWorkingDraft = filters.version === WORKING_DRAFT_VERSION_ID;
+
   const approvedOverrides = approvals.filter((a) => a.status === "Approved").length;
   const rejectedOverrides = approvals.filter((a) => a.status === "Rejected").length;
   const returnedOverrides = approvals.filter(
@@ -142,7 +154,7 @@ function PerformanceMonitoring() {
         100
       : null;
 
-  const publishedVolume = currentVersion?.totalUnits ?? demoTotals.eventAware;
+  const publishedVolume = currentVersion?.totalUnits ?? versionForecast.totals.eventAware;
 
   function handleExport() {
     const data = buildPortfolioForecast(rows);
@@ -202,6 +214,8 @@ function PerformanceMonitoring() {
         }
       />
 
+      <VersionViewBanner label={versionForecast.label} isWorkingDraft={isWorkingDraft} />
+
       <Tabs defaultValue="output" className="space-y-5">
         <TabsList>
           <TabsTrigger value="output">Forecast output</TabsTrigger>
@@ -234,13 +248,15 @@ function PerformanceMonitoring() {
                       : `${championName} kept as champion — no override.`}
                   </li>
                   <li>
-                    {approvedEvent && eventResidual
-                      ? `${approvedEvent.name} applied at ${eventResidual.applied > 0 ? "+" : ""}${eventResidual.applied}%${
-                          eventResidual.alreadyReflected > 0
-                            ? ` (${eventResidual.alreadyReflected}% of it was already in open orders, so only the rest was added)`
-                            : ""
-                        }.`
-                      : "No business event has been applied to this forecast."}
+                    {!versionForecast.hasEventAdjustment
+                      ? "This published version predates the Apex shutdown-move event, so its approved forecast equals the statistical baseline."
+                      : approvedEvent && eventResidual
+                        ? `${approvedEvent.name} applied at ${eventResidual.applied > 0 ? "+" : ""}${eventResidual.applied}%${
+                            eventResidual.alreadyReflected > 0
+                              ? ` (${eventResidual.alreadyReflected}% of it was already in open orders, so only the rest was added)`
+                              : ""
+                          }.`
+                        : "No business event has been applied to this forecast."}
                   </li>
                   <li>
                     {approvals.length > 0
@@ -333,7 +349,7 @@ function PerformanceMonitoring() {
             />
             <KpiTile
               label="Featured SKU forecast"
-              value={formatNumber(demoTotals.eventAware)}
+              value={formatNumber(versionForecast.totals.eventAware)}
               unit="units"
               delta={`${demoCase.sku} · event-adjusted`}
               deltaTone="positive"
@@ -453,7 +469,7 @@ function PerformanceMonitoring() {
                   </tr>
                 </thead>
                 <tbody>
-                  {demoHorizon.map((p) => {
+                  {versionForecast.horizon.map((p) => {
                     const forecast = p.adjusted ?? 0;
                     const baseline = p.baseline ?? 0;
                     const delta = forecast - baseline;
