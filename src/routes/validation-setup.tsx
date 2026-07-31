@@ -107,6 +107,19 @@ function ValidationSetup() {
     future: (12 / total) * 100,
   };
 
+  // Month count and share-of-history for each window, so the explainer cards
+  // carry the actual split, not just a description.
+  const historyShare = (months: number) => Math.round((months / HISTORY_MONTHS) * 100);
+  const windowMonths: Record<string, { months: number; share: number | null }> = {
+    train: { months: split.trainMonths, share: historyShare(split.trainMonths) },
+    validation: {
+      months: effective.validationMonths,
+      share: historyShare(effective.validationMonths),
+    },
+    test: { months: effective.testMonths, share: historyShare(effective.testMonths) },
+    future: { months: 12, share: null },
+  };
+
   return (
     <div className="space-y-5">
       <PageHeading
@@ -124,6 +137,33 @@ function ValidationSetup() {
         <KpiTile label="Validation window" value={String(effective.validationMonths)} unit="months" delta={`${split.valFrom} – ${split.valTo}`} deltaTone="warning" icon={Split} />
         <KpiTile label="Holdout (test)" value={String(effective.testMonths)} unit="months" delta={`${split.testFrom} – ${split.testTo}`} deltaTone="positive" icon={ShieldCheck} />
         <KpiTile label="Rolling folds" value={String(effective.folds)} delta="Origin advances one bucket" deltaTone="neutral" icon={FlaskConical} />
+      </div>
+
+      <div className="rounded-md border border-border bg-surface-muted/50 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+          <span className="font-semibold">{HISTORY_MONTHS} months of history</span>
+          <span className="text-muted-foreground">
+            ({monthLabels[0]} – {split.testTo}) split into
+          </span>
+          <span className="font-medium text-primary">{split.trainMonths} training</span>
+          <span className="text-muted-foreground">+</span>
+          <span className="font-medium text-warning">{effective.validationMonths} validation</span>
+          {effective.gap > 0 && (
+            <>
+              <span className="text-muted-foreground">+</span>
+              <span className="font-medium text-muted-foreground">{effective.gap} embargo</span>
+            </>
+          )}
+          <span className="text-muted-foreground">+</span>
+          <span className="font-medium text-positive">{effective.testMonths} holdout</span>
+          <span className="text-muted-foreground">
+            , then 12 forecast months = {total}-month timeline.
+          </span>
+        </div>
+        <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+          Training teaches each model, validation ranks them, and the holdout is read once to confirm
+          the champion generalises. Windows sit strictly in time order — never split randomly.
+        </p>
       </div>
 
       <Panel
@@ -153,18 +193,33 @@ function ValidationSetup() {
           <span>{split.futureTo}</span>
         </div>
 
-        <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {explainers.map((e) => (
-            <div key={e.id} className="rounded-md border border-border bg-surface-muted/60 p-3">
-              <div className="flex items-center gap-2">
-                <span className={cn("h-2.5 w-2.5 rounded-sm", e.swatch)} aria-hidden />
-                <p className="text-sm font-semibold">{e.title}</p>
+        <p className="mt-5 mb-2 label-caps">What each window is for</p>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {explainers.map((e) => {
+            const w = windowMonths[e.id];
+            return (
+              <div key={e.id} className="rounded-md border border-border bg-surface-muted/60 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className={cn("h-2.5 w-2.5 rounded-sm", e.swatch)} aria-hidden />
+                    <p className="text-sm font-semibold">{e.title}</p>
+                  </div>
+                  {w && (
+                    <span className="num text-xs font-semibold text-muted-foreground">
+                      {w.months} mo{w.share !== null ? ` · ${w.share}%` : ""}
+                    </span>
+                  )}
+                </div>
+                <StatusPill tone={e.tone} className="mt-2">{e.role}</StatusPill>
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{e.body}</p>
               </div>
-              <StatusPill tone={e.tone} className="mt-2">{e.role}</StatusPill>
-              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{e.body}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
+        <p className="mt-3 text-[11px] text-muted-foreground">
+          Percentages are the share of the {HISTORY_MONTHS}-month history; forecast months have no
+          actuals yet, so they carry no share.
+        </p>
       </Panel>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
