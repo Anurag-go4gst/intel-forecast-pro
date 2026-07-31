@@ -22,16 +22,26 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { KpiTile, MetricRow, Panel, PageHeading, PrototypeNote, StatusPill } from "@/components/primitives";
+import {
+  KpiTile,
+  MetricRow,
+  Panel,
+  PageHeading,
+  PrototypeNote,
+  StatusPill,
+  VersionViewBanner,
+} from "@/components/primitives";
 import {
   buildSeries,
   historyCutoffIndex,
   customers,
   filterSkus,
+  forecastForVersion,
   formatNumber,
   formatSigned,
   plants,
   skus,
+  WORKING_DRAFT_VERSION_ID,
 } from "@/lib/demo-data";
 import {
   behaviourForSku,
@@ -139,7 +149,37 @@ function ForecastWorkspace() {
     [fullSeries, scenarioUplift, horizon],
   );
 
-  const horizonPoints = series.filter((p) => p.actual === null && p.baseline !== null);
+  // Scope the workspace to the version selected in the header. The working draft
+  // is the live, editable forecast; a published version is a read-only snapshot
+  // at a lower portfolio level that carries no event adjustment.
+  const versionForecast = forecastForVersion(filters.version);
+  const isWorkingDraft = filters.version === WORKING_DRAFT_VERSION_ID;
+  const versionedSeries = useMemo(() => {
+    if (isWorkingDraft) return series;
+    const factor = versionForecast.levelFactor;
+    return series.map((p) => {
+      if (p.actual !== null) return p; // history actuals are the same across versions
+      const baseline = p.baseline === null ? null : Math.round(p.baseline * factor);
+      const adjusted = !versionForecast.hasEventAdjustment
+        ? baseline
+        : p.adjusted === null
+          ? null
+          : Math.round(p.adjusted * factor);
+      const centre = p.adjusted ?? p.baseline ?? 1;
+      const upperRel = (p.upper ?? centre) / centre;
+      const lowerRel = (p.lower ?? centre) / centre;
+      return {
+        ...p,
+        baseline,
+        adjusted,
+        upper: adjusted === null ? null : Math.round(adjusted * upperRel),
+        lower: adjusted === null ? null : Math.round(adjusted * lowerRel),
+        scenario: null, // what-if overlays only apply to the live working draft
+      };
+    });
+  }, [series, isWorkingDraft, versionForecast]);
+
+  const horizonPoints = versionedSeries.filter((p) => p.actual === null && p.baseline !== null);
   const horizonBaseline = horizonPoints.reduce((sum, p) => sum + (p.baseline ?? 0), 0);
   const horizonApproved = horizonPoints.reduce((sum, p) => sum + (p.adjusted ?? p.baseline ?? 0), 0);
   const horizonScenario = horizonPoints.reduce((sum, p) => sum + (p.scenario ?? 0), 0);
@@ -224,7 +264,8 @@ function ForecastWorkspace() {
             <button
               type="button"
               onClick={startRun}
-              disabled={runState === "running"}
+              disabled={runState === "running" || !isWorkingDraft}
+              title={isWorkingDraft ? undefined : "Published versions are read-only"}
               className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
             >
               <Play className="h-3.5 w-3.5" aria-hidden /> Generate baseline forecast
@@ -232,6 +273,8 @@ function ForecastWorkspace() {
           </>
         }
       />
+
+      <VersionViewBanner label={versionForecast.label} isWorkingDraft={isWorkingDraft} />
 
       <Panel title="Series selection" description="Choose the SKU, customer, plant and horizon for the detailed view.">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -449,7 +492,7 @@ function ForecastWorkspace() {
           >
             <div className="h-80 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={series} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+                <LineChart data={versionedSeries} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
                   <CartesianGrid stroke="var(--color-border)" vertical={false} />
                   <XAxis dataKey="period" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} stroke="var(--color-neutral-line)" />
                   <YAxis
@@ -734,6 +777,8 @@ function ForecastWorkspace() {
                         inputMode="numeric"
                         value={override ?? ""}
                         placeholder={formatNumber(row.baseline)}
+                        disabled={!isWorkingDraft}
+                        title={isWorkingDraft ? undefined : "Published versions are read-only"}
                         onChange={(event) => {
                           const value = event.target.value;
                           setOverrides((prev) => {
@@ -743,7 +788,7 @@ function ForecastWorkspace() {
                             return next;
                           });
                         }}
-                        className="num h-7 w-28 rounded-md border border-input bg-surface px-2 text-right text-xs focus:border-ring focus:ring-1 focus:ring-ring focus:outline-none"
+                        className="num h-7 w-28 rounded-md border border-input bg-surface px-2 text-right text-xs focus:border-ring focus:ring-1 focus:ring-ring focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                       />
                     </td>
                     <td className="num px-4 py-2.5 text-right text-xs">

@@ -560,6 +560,9 @@ export type VersionForecast = {
   status: "draft" | "published";
   /** Whether an event adjustment had been decided in this cycle. */
   hasEventAdjustment: boolean;
+  /** Portfolio-level index of this cycle versus the working draft (1.0). Lets
+   *  filter-scoped dashboards re-scale their aggregates to an earlier cycle. */
+  levelFactor: number;
   horizon: SeriesPoint[];
   totals: { baseline: number; eventAware: number };
 };
@@ -596,29 +599,34 @@ export const versionForecasts: Record<string, VersionForecast> = {
     label: "V2026.07 — Working draft",
     status: "draft",
     hasEventAdjustment: true,
+    levelFactor: 1,
     horizon: demoHorizon,
     totals: { baseline: demoTotals.baseline, eventAware: demoTotals.eventAware },
   },
   "v-2026-06-pub": (() => {
     // Portfolio totalUnits ratio 638,900 / 661,300 ≈ 0.966.
-    const horizon = buildVersionHorizon(0.966, false);
+    const levelFactor = 0.966;
+    const horizon = buildVersionHorizon(levelFactor, false);
     return {
       versionId: "v-2026-06-pub",
       label: "V2026.06 — Published",
       status: "published" as const,
       hasEventAdjustment: false,
+      levelFactor,
       horizon,
       totals: horizonTotals(horizon),
     };
   })(),
   "v-2026-05-pub": (() => {
     // Portfolio totalUnits ratio 612,400 / 661,300 ≈ 0.926.
-    const horizon = buildVersionHorizon(0.926, false);
+    const levelFactor = 0.926;
+    const horizon = buildVersionHorizon(levelFactor, false);
     return {
       versionId: "v-2026-05-pub",
       label: "V2026.05 — Published",
       status: "published" as const,
       hasEventAdjustment: false,
+      levelFactor,
       horizon,
       totals: horizonTotals(horizon),
     };

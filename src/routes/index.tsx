@@ -25,14 +25,24 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { KpiTile, MetricRow, Panel, PageHeading, PrototypeNote, StatusPill } from "@/components/primitives";
+import {
+  KpiTile,
+  MetricRow,
+  Panel,
+  PageHeading,
+  PrototypeNote,
+  StatusPill,
+  VersionViewBanner,
+} from "@/components/primitives";
 import {
   aggregateSeries,
   biasByFamily,
   filterSkus,
+  forecastForVersion,
   formatNumber,
   formatSigned,
   riskRows,
+  WORKING_DRAFT_VERSION_ID,
 } from "@/lib/demo-data";
 import {
   accuracyByFamily,
@@ -83,9 +93,17 @@ function ExecutiveOverview() {
   const rows = filterSkus(filters);
   const series = aggregateSeries(rows);
 
-  const horizonTotal = series
-    .filter((p) => p.actual === null && p.baseline !== null)
-    .reduce((sum, p) => sum + (p.baseline ?? 0), 0);
+  // Scope the headline forecast to the version selected in the header. The
+  // working draft is live; published versions are read-only saved snapshots at
+  // a lower portfolio level, and carry no event uplift.
+  const versionForecast = forecastForVersion(filters.version);
+  const isWorkingDraft = filters.version === WORKING_DRAFT_VERSION_ID;
+
+  const horizonTotal = Math.round(
+    series
+      .filter((p) => p.actual === null && p.baseline !== null)
+      .reduce((sum, p) => sum + (p.baseline ?? 0), 0) * versionForecast.levelFactor,
+  );
   const weightedMape =
     rows.reduce((sum, r) => sum + r.mape * r.baseVolume, 0) /
     (rows.reduce((sum, r) => sum + r.baseVolume, 0) || 1);
@@ -131,6 +149,8 @@ function ExecutiveOverview() {
         }
       />
 
+      <VersionViewBanner label={versionForecast.label} isWorkingDraft={isWorkingDraft} />
+
       <WorkflowLauncher />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -167,10 +187,14 @@ function ExecutiveOverview() {
         />
         <KpiTile
           label="Approved forecast accuracy"
-          value={(100 - weightedMape + 3.4).toFixed(1)}
+          value={(100 - weightedMape + (versionForecast.hasEventAdjustment ? 3.4 : 0)).toFixed(1)}
           unit="%"
-          delta="+3.4 pts from event intelligence"
-          deltaTone="positive"
+          delta={
+            versionForecast.hasEventAdjustment
+              ? "+3.4 pts from event intelligence"
+              : "No event applied in this version"
+          }
+          deltaTone={versionForecast.hasEventAdjustment ? "positive" : "neutral"}
           icon={TrendingUp}
         />
         <KpiTile
