@@ -20,13 +20,24 @@ describe("approvalFromEvent", () => {
     expect(line.confidence).toBe("High");
   });
 
-  it("applies the residual percentage to the scope baseline as an event adjustment", () => {
+  it("applies the event's monthly curve to the baseline, netting to its true effect", () => {
+    // ie-0 moves a shutdown Sep -> Oct: curve [0, 0, +82, -38, +14, 0]. The
+    // September restoration and November catch-up outweigh the October trough,
+    // so the event nets POSITIVE even though its peak-month impact is -38%.
     const line = approvalFromEvent(apexShutdown, -26.2, 14);
-    // CLT-1048 seeds a 141,600 baseline; -26.2% residual ≈ -37,099 units.
     expect(line.baseline).toBe(141_600);
-    expect(line.eventAdjustment).toBe(Math.round((141_600 * -26.2) / 100));
     expect(line.plannerOverride).toBe(0);
-    expect(proposedFinal({ ...line, comments: [] })).toBe(line.baseline + line.eventAdjustment);
+    // Net effect is an uplift, not the large cut a peak-scaled figure would give.
+    expect(line.eventAdjustment).toBeGreaterThan(0);
+    // Months the curve does not touch stay exactly at the flat monthly baseline.
+    const perMonth = Math.round(141_600 / 6);
+    expect(line.monthly[0]).toBe(perMonth); // Jul, 0% impact
+    expect(line.monthly[1]).toBe(perMonth); // Aug, 0% impact
+    expect(line.monthly[5]).toBe(perMonth); // Dec, 0% impact
+    // The decomposition is internally consistent: months sum to the proposed final.
+    const monthlySum = line.monthly.reduce((sum, units) => sum + units, 0);
+    expect(monthlySum).toBe(line.baseline + line.eventAdjustment);
+    expect(proposedFinal({ ...line, comments: [] })).toBe(monthlySum);
   });
 
   it("records the double-counting evidence only when some impact was already reflected", () => {

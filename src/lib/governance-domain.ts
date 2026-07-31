@@ -119,6 +119,18 @@ function monthlySeries(total: number, shape: number[]): number[] {
   return monthly(total, weights);
 }
 
+/**
+ * Apply a monthly impact curve to a flat monthly baseline and return the
+ * resulting per-month volumes. A month with 0% impact stays exactly at the
+ * baseline, so an event never disturbs periods it does not touch, and the sum
+ * reflects the true net effect of the curve — not a single peak month scaled
+ * across the whole horizon.
+ */
+function applyCurveToBaseline(baseline: number, curvePct: number[]): number[] {
+  const perMonth = baseline / horizonMonths.length;
+  return horizonMonths.map((_, index) => Math.round(perMonth * (1 + (curvePct[index] ?? 0) / 100)));
+}
+
 function confidenceFromEvent(event: IntelEvent): ConfidenceLevel {
   if (event.reliability === "Confirmed document" && event.probabilityPct >= 85) return "High";
   if (event.probabilityPct >= 65) return "Medium";
@@ -137,8 +149,15 @@ export function approvalFromEvent(
 ): Omit<ApprovalItem, "comments"> {
   const { sku, description } = splitScope(event.skuScope);
   const baseline = demoBaselineBySku[sku] ?? syntheticBaseline(sku || event.id);
-  const eventAdjustment = Math.round((baseline * appliedPct) / 100);
-  const shape = event.curve.map((month) => Math.max(0.2, 1 + month / 100));
+  // The event's stored curve is expressed at its full expected impact (its peak
+  // month equals event.expectedImpact). Scale the whole curve down to the
+  // residual actually being applied, then apply it month by month. This keeps
+  // untouched months at baseline and makes the aggregate reflect the true net
+  // effect — an event that restores a false dip nets positive, not negative.
+  const residualFactor = event.expectedImpact !== 0 ? appliedPct / event.expectedImpact : 0;
+  const residualCurve = event.curve.map((month) => month * residualFactor);
+  const monthlyVolumes = applyCurveToBaseline(baseline, residualCurve);
+  const eventAdjustment = monthlyVolumes.reduce((sum, units) => sum + units, 0) - baseline;
 
   const evidence: EvidenceItem[] = [
     {
@@ -172,7 +191,7 @@ export function approvalFromEvent(
     approver: "S. Kulkarni · Demand planning lead",
     status: "Awaiting approval",
     origin: "Event routing",
-    monthly: monthlySeries(baseline + eventAdjustment, shape),
+    monthly: monthlyVolumes,
   };
 }
 
