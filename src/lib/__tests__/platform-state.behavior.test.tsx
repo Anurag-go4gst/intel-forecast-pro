@@ -30,7 +30,7 @@ import {
   seedScenarios,
 } from "@/lib/demo-data";
 import { seedIntelEvents, seedScenarioSpecs } from "@/lib/event-domain";
-import { seedApprovalQueue, seedAuditLog, seedVersions } from "@/lib/governance-domain";
+import { approvalFromEvent, seedAuditLog, seedVersions } from "@/lib/governance-domain";
 import { seedTransformations } from "@/lib/forecast-domain";
 import { workflowStages, type StageId } from "@/lib/workflow";
 
@@ -203,7 +203,9 @@ function expectCleanDemoSeed(api: PlatformApi) {
   expect(api.intelEvents).toEqual(seedIntelEvents);
   expect(api.scenarioSpecs).toEqual(seedScenarioSpecs);
   expect(api.adjustmentRequests).toHaveLength(0);
-  expect(api.approvals).toEqual(seedApprovalQueue);
+  // The approval queue is now derived from the planner's own upstream actions,
+  // so a clean demo starts with an empty queue.
+  expect(api.approvals).toHaveLength(0);
   expect(api.versions).toEqual(seedVersions);
   expect(api.auditLog).toEqual(seedAuditLog);
   expect(api.activeVersionId).toBe("v-2026-07");
@@ -730,6 +732,49 @@ describe("authoritative application behaviours", () => {
       action: "Event modified",
       detail: expect.stringContaining("Watchlist"),
     });
+  });
+
+  it("builds the approval queue from promoted actions and dedupes re-promotion", async () => {
+    const harness = await renderPlatform();
+    await act(async () => {
+      harness.api.startDemo();
+    });
+    await waitForMode(() => harness.api, "demo");
+    // Nothing is decided until the planner acts, so the queue starts empty.
+    expect(harness.api.approvals).toHaveLength(0);
+
+    const event = seedIntelEvents.find((item) => item.id === "ie-0")!;
+    const promote = () =>
+      harness.api.promoteToReview(
+        {
+          title: "Apex shutdown moved — selected residual impact",
+          origin: "Event",
+          originId: "ie-0",
+          scope: "CLT-1048 · North Plant — Coimbatore",
+          requestedImpactPct: -26.2,
+          monthlyImpactPct: [0, 0, 56.6, -26.2, 9.7, 0],
+          owner: "Customer account team · Apex",
+          note: "Planner selected this event for forecast review.",
+        },
+        approvalFromEvent(event, -26.2, 14),
+      );
+
+    await act(async () => {
+      promote();
+    });
+    expect(harness.api.approvals).toHaveLength(1);
+    expect(harness.api.approvals[0]).toMatchObject({
+      id: "aq-event-ie-0",
+      sku: "CLT-1048",
+      origin: "Event routing",
+      status: "Awaiting approval",
+    });
+
+    // Re-opening and re-promoting the same event must not double the queue.
+    await act(async () => {
+      promote();
+    });
+    expect(harness.api.approvals).toHaveLength(1);
   });
 
   it("resets guided demo modifications and preserves clean demo state after refresh", async () => {

@@ -19,7 +19,6 @@ import {
   type ScenarioSpec,
 } from "@/lib/event-domain";
 import {
-  seedApprovalQueue,
   seedAuditLog,
   seedVersions,
   proposedFinal,
@@ -182,7 +181,11 @@ type PlatformContextValue = {
   logAudit: (entry: Omit<AuditEntry, "id" | "at" | "date">) => void;
 
   adjustmentRequests: AdjustmentRequest[];
-  promoteToReview: (request: Omit<AdjustmentRequest, "id" | "submittedAt" | "status">) => void;
+  promoteToReview: (
+    request: Omit<AdjustmentRequest, "id" | "submittedAt" | "status">,
+    /** The approval-queue line this action raises for a decision, if any. */
+    approval?: Omit<ApprovalItem, "comments">,
+  ) => void;
   setRequestStatus: (id: string, status: AdjustmentRequest["status"]) => void;
 
   // ------------------------------------------------ guided workflow lifecycle
@@ -397,7 +400,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const promoteToReview = useCallback(
-    (request: Omit<AdjustmentRequest, "id" | "submittedAt" | "status">) => {
+    (
+      request: Omit<AdjustmentRequest, "id" | "submittedAt" | "status">,
+      approval?: Omit<ApprovalItem, "comments">,
+    ) => {
       setAdjustmentRequests((prev) => [
         {
           ...request,
@@ -407,6 +413,15 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         },
         ...prev,
       ]);
+      // The same action raises a decision line in the approval queue. Dedupe by
+      // id so re-opening a promoted event/scenario never doubles the queue.
+      if (approval) {
+        setApprovals((prev) =>
+          prev.some((item) => item.id === approval.id)
+            ? prev
+            : [{ ...approval, comments: [] }, ...prev],
+        );
+      }
       if (request.origin === "Scenario") {
         setScenarioSpecs((prev) =>
           prev.map((s) => (s.id === request.originId ? { ...s, promoted: true } : s)),
@@ -754,7 +769,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         setScenarioSpecs(seedScenarioSpecs);
         setCompareIds(["ss-1", "ss-2"]);
         setAdjustmentRequests([]);
-        setApprovals(seedApprovalQueue);
+        // The approval queue is derived from the planner's own upstream actions
+        // (events applied, scenarios promoted), so it starts empty and fills as
+        // the guide progresses — never pre-seeded with unrelated lines.
+        setApprovals([]);
         setVersions(seedVersions);
         setActiveVersionId("v-2026-07");
         setAuditLog(seedAuditLog);

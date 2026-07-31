@@ -6,7 +6,7 @@
  * ERP, MRP, planning or data-science system.
  */
 
-import { horizonMonths } from "@/lib/event-domain";
+import { horizonMonths, type IntelEvent, type ScenarioSpec } from "@/lib/event-domain";
 
 // ------------------------------------------------------------- approval queue
 
@@ -73,294 +73,149 @@ export function changePct(item: ApprovalItem) {
 const monthly = (total: number, shape: number[]) =>
   shape.map((s) => Math.round((total * s) / shape.reduce((a, b) => a + b, 0)));
 
-const queueBase: Omit<ApprovalItem, "comments">[] = [
-  {
-    id: "aq-0",
-    sku: "CLT-1048",
-    description: "Clutch Friction Assembly",
-    customer: "Apex Motors",
-    location: "North Plant — Coimbatore",
-    family: "Clutch systems",
-    baseline: 141_600,
-    eventAdjustment: -6_800,
-    plannerOverride: -2_400,
-    reason:
-      "Confirmed shutdown moved from September to October. September demand restored, residual October reduction applied after the open-order check, November catch-up added. Planner trims a further 1.7% for ramp-down inefficiency on the first week back.",
-    evidence: [
-      { label: "Apex OEM schedule revision R-14", source: "Customer schedules", detail: "October shutdown confirmed, September running at full rate." },
-      { label: "Event IE-0 double-counting check", source: "Event Intelligence", detail: "31% of the October reduction already visible in open orders; only the residual 69% is applied." },
-      { label: "Open order book snapshot", source: "Open orders", detail: "October releases already 14% below the historical October rate." },
-    ],
-    confidence: "High",
-    requestor: "R. Iyer · Demand planner",
-    approver: "S. Kulkarni · Demand planning lead",
-    status: "Awaiting approval",
-    origin: "Event routing",
-    monthly: monthly(132_400, [1.0, 1.02, 1.06, 0.62, 1.18, 1.04]),
-  },
-  {
-    id: "aq-8",
-    sku: "CLT-1052-B",
-    description: "Clutch pressure plate, 240mm",
-    customer: "Apex Motors",
-    location: "North Plant — Coimbatore",
-    family: "Clutch systems",
-    baseline: 58_400,
-    eventAdjustment: 4_900,
-    plannerOverride: 0,
-    reason: "November catch-up build raises pressure-plate pull in line with the friction assembly.",
-    evidence: [
-      { label: "Event IE-12 qualification", source: "Event Intelligence", detail: "Direct customer input, probability 88%." },
-      { label: "Apex production plan v7", source: "Customer communication", detail: "Catch-up build scheduled 03–21 Nov 26." },
-    ],
-    confidence: "High",
-    requestor: "Event routing engine",
-    approver: "M. Bhatt · S&OP manager",
-    status: "Awaiting approval",
-    origin: "Event routing",
-    monthly: monthly(63_300, [1, 1, 1.04, 0.7, 1.2, 1.06]),
-  },
-  {
-    id: "aq-9",
-    sku: "FLT-8214-B",
-    description: "Cabin air filter, activated carbon",
-    customer: "Aftermarket network",
-    location: "DC North",
-    family: "Filtration",
-    baseline: 88_700,
-    eventAdjustment: 6_600,
-    plannerOverride: 0,
-    reason: "Festive restocking programme confirmed by the channel team, net of prior-year pull-forward.",
-    evidence: [
-      { label: "Channel restocking plan FY27", source: "Commercial calendar", detail: "Distributor allocations issued 18 Jul 26." },
-      { label: "Prior festive uplift", source: "Sales history", detail: "Comparable programme delivered +7.4% net." },
-    ],
-    confidence: "Medium",
-    requestor: "N. Bose · Aftermarket planner",
-    approver: "M. Bhatt · S&OP manager",
-    status: "Awaiting approval",
-    origin: "Event routing",
-    monthly: monthly(95_300, [0.95, 0.98, 1.08, 1.12, 1.0, 0.92]),
-  },
-  {
-    id: "aq-10",
-    sku: "SUS-7001-A",
-    description: "Front strut module",
-    customer: "Meridian Motors",
-    location: "Pune Plant 2",
-    family: "Suspension",
-    baseline: 31_200,
-    eventAdjustment: 0,
-    plannerOverride: 5_300,
-    reason: "State transport tender expected to convert; promoted from the upside scenario for review.",
-    evidence: [
-      { label: "Scenario SS-3 promotion", source: "What-if scenarios", detail: "Promoted for review only; not an approved operational forecast." },
-    ],
-    confidence: "Low",
-    requestor: "K. Shah · Demand planner",
-    approver: "S. Kulkarni · Demand planning lead",
-    status: "Returned for clarification",
-    origin: "Scenario promotion",
-    monthly: monthly(36_500, [0.9, 0.95, 1.1, 1.15, 1.0, 0.95]),
-  },
-  {
-    id: "aq-11",
-    sku: "HRN-5102-A",
-    description: "Main body wiring harness",
-    customer: "Northvale Motors",
-    location: "Sanand Plant 3",
-    family: "Wiring harnesses",
-    baseline: 47_800,
-    eventAdjustment: 9_100,
-    plannerOverride: -1_600,
-    reason: "EV platform ramp residual impact applied; planner trims for supplier qualification lag.",
-    evidence: [
-      { label: "Programme ramp curve", source: "Programme management", detail: "Volume steps up from Sep 26 over four months." },
-      { label: "Supplier readiness note", source: "Supply planning", detail: "Second-source qualification completes mid-October." },
-    ],
-    confidence: "Medium",
-    requestor: "P. Rao · Programme planner",
-    approver: "M. Bhatt · S&OP manager",
-    status: "Awaiting approval",
-    origin: "Event routing",
-    monthly: monthly(55_300, [0.92, 0.96, 1.05, 1.1, 1.12, 1.15]),
-  },
+// -------------------------------------------- deriving queue lines from actions
+//
+// The approval queue is built from what the planner actually did upstream: the
+// events they applied in Event Intelligence and the scenarios they promoted in
+// What-if. Those upstream artefacts carry percentage impacts, but an approval
+// line needs absolute unit volumes, so we synthesise a plausible baseline.
 
-  {
-    id: "aq-1",
-    sku: "HRN-4420-B",
-    description: "Engine bay wiring harness",
-    customer: "Meridian Motors",
-    location: "Pune Plant 2",
-    family: "Wiring harnesses",
-    baseline: 184_500,
-    eventAdjustment: 22_100,
-    plannerOverride: 9_400,
-    reason: "Confirmed OEM programme ramp plus dealer restocking after the festive dip.",
-    evidence: [
-      { label: "OEM release schedule R-88213", source: "Customer schedules", detail: "Weekly releases up 11.8% from Sep 26." },
-      { label: "Event EV-204 qualification", source: "Event Intelligence", detail: "Confirmed document, residual impact +8.2% after double-count check." },
-      { label: "Backlog snapshot", source: "Order backlog", detail: "17.4k units already on firm order for Aug–Sep." },
-    ],
-    confidence: "High",
-    requestor: "R. Iyer · Demand planner",
-    approver: "S. Kulkarni · Demand planning lead",
-    status: "Awaiting approval",
-    origin: "Event routing",
-    monthly: monthly(216_000, [1, 1.05, 1.18, 1.2, 1.1, 1.02]),
-  },
-  {
-    id: "aq-2",
-    sku: "BRK-1180-A",
-    description: "Front brake caliper assembly",
-    customer: "Northline Auto",
-    location: "Chennai Plant 1",
-    family: "Braking assemblies",
-    baseline: 96_200,
-    eventAdjustment: -4_300,
-    plannerOverride: -11_800,
-    reason: "Planner expects a slower recovery than the statistical model after the Q2 line changeover.",
-    evidence: [
-      { label: "Planner note", source: "Planner judgement", detail: "No supporting document attached." },
-    ],
-    confidence: "Low",
-    requestor: "A. Fernandes · Demand planner",
-    approver: "S. Kulkarni · Demand planning lead",
-    status: "Awaiting approval",
-    origin: "Planner override",
-    monthly: monthly(80_100, [1.1, 1.05, 0.95, 0.94, 0.98, 1.0]),
-  },
-  {
-    id: "aq-3",
-    sku: "TRN-3305-C",
-    description: "Transmission shift fork",
-    customer: "Vantage Commercial",
-    location: "Pune Plant 2",
-    family: "Transmission",
-    baseline: 61_400,
-    eventAdjustment: 0,
-    plannerOverride: 7_900,
-    reason: "Tender win expected to convert in October; commercial team requested a build-ahead.",
-    evidence: [
-      { label: "Tender pipeline extract", source: "Commercial CRM", detail: "Probability 55%, decision date 12 Sep 26." },
-      { label: "Capacity note", source: "Supply planning", detail: "Pune Plant 2 has 6% spare capacity in Sep." },
-    ],
-    confidence: "Medium",
-    requestor: "D. Rao · Key account planner",
-    approver: "M. Bhatt · S&OP manager",
-    status: "Awaiting approval",
-    origin: "Scenario promotion",
-    monthly: monthly(69_300, [0.9, 0.95, 1.15, 1.2, 1.0, 0.95]),
-  },
-  {
-    id: "aq-4",
-    sku: "SUS-2210-D",
-    description: "Rear suspension bush kit",
-    customer: "Meridian Motors",
-    location: "Nashik Plant 4",
-    family: "Suspension",
-    baseline: 44_800,
-    eventAdjustment: 3_200,
-    plannerOverride: 0,
-    reason: "Aftermarket promotion approved by the commercial committee.",
-    evidence: [
-      { label: "Promotion calendar PR-1142", source: "Commercial calendar", detail: "Two-week trade scheme in Nov 26." },
-      { label: "Prior promotion uplift", source: "Sales history", detail: "Comparable scheme delivered +6.9% net of pull-forward." },
-    ],
-    confidence: "High",
-    requestor: "Event routing engine",
-    approver: "M. Bhatt · S&OP manager",
-    status: "Approved",
-    origin: "Event routing",
-    monthly: monthly(48_000, [0.95, 0.95, 1.0, 1.02, 1.18, 0.95]),
-  },
-  {
-    id: "aq-5",
-    sku: "HRN-4102-A",
-    description: "Cabin harness sub-assembly",
-    customer: "Northline Auto",
-    location: "Chennai Plant 1",
-    family: "Wiring harnesses",
-    baseline: 128_700,
-    eventAdjustment: 0,
-    plannerOverride: 26_500,
-    reason: "Planner applied a +20.6% uplift citing a verbal customer indication.",
-    evidence: [],
-    confidence: "Low",
-    requestor: "A. Fernandes · Demand planner",
-    approver: "S. Kulkarni · Demand planning lead",
-    status: "Returned for clarification",
-    origin: "Planner override",
-    monthly: monthly(155_200, [1, 1.1, 1.15, 1.15, 1.05, 1]),
-  },
-  {
-    id: "aq-6",
-    sku: "TRN-3390-B",
-    description: "Gear selector housing",
-    customer: "Vantage Commercial",
-    location: "Nashik Plant 4",
-    family: "Transmission",
-    baseline: 38_900,
-    eventAdjustment: -6_100,
-    plannerOverride: 0,
-    reason: "Customer shutdown confirmed for the first two weeks of December.",
-    evidence: [
-      { label: "Customer shutdown notice", source: "Customer communication", detail: "Signed notice dated 04 Jul 26." },
-      { label: "Schedule reconciliation", source: "Customer schedules", detail: "Only 40% of the reduction already visible in releases." },
-    ],
-    confidence: "High",
-    requestor: "Event routing engine",
-    approver: "M. Bhatt · S&OP manager",
-    status: "Awaiting approval",
-    origin: "Event routing",
-    monthly: monthly(32_800, [1.05, 1.05, 1.05, 1.0, 0.95, 0.6]),
-  },
-  {
-    id: "aq-7",
-    sku: "BRK-1240-E",
-    description: "Brake disc rotor 280mm",
-    customer: "Aftermarket network",
-    location: "Chennai Plant 1",
-    family: "Braking assemblies",
-    baseline: 72_300,
-    eventAdjustment: 0,
-    plannerOverride: -18_100,
-    reason: "Planner requested a cut based on a competitor price action rumour.",
-    evidence: [
-      { label: "Market rumour log", source: "Market intelligence", detail: "Single unverified trade-press mention." },
-    ],
-    confidence: "Low",
-    requestor: "R. Iyer · Demand planner",
-    approver: "S. Kulkarni · Demand planning lead",
-    status: "Rejected",
-    origin: "Planner override",
-    monthly: monthly(54_200, [1, 0.98, 0.95, 0.92, 0.9, 0.9]),
-  },
-];
+/** Split "CLT-1048 · Clutch Friction Assembly" into its SKU and description. */
+function splitScope(skuScope: string): { sku: string; description: string } {
+  const parts = skuScope.split("·").map((part) => part.trim());
+  return { sku: parts[0] || skuScope, description: parts[1] || skuScope };
+}
 
-export const seedComments: Record<string, ApprovalComment[]> = {
-  "aq-2": [
-    {
-      id: "cm-1",
-      author: "S. Kulkarni · Demand planning lead",
-      at: "22 Jul 26, 11:04",
-      body: "A -16.7% cut needs a documented reason. Please attach the changeover plan before I can approve.",
-    },
-  ],
-  "aq-5": [
-    {
-      id: "cm-2",
-      author: "S. Kulkarni · Demand planning lead",
-      at: "21 Jul 26, 16:40",
-      body: "Returned: verbal indication is not sufficient evidence for a +20.6% change. Request a written schedule.",
-    },
-  ],
+/**
+ * Representative operational baselines for the seeded demonstration scopes, so a
+ * derived approval line carries the same order of magnitude as the rest of the
+ * Apex Motors demo. Anything not listed (e.g. a planner-created event) falls
+ * back to a stable synthetic baseline.
+ */
+const demoBaselineBySku: Record<string, number> = {
+  "CLT-1048": 141_600,
+  "CLT-1052-B": 58_400,
+  "FLT-8214-B": 88_700,
+  "SUS-7001-A": 31_200,
+  "HRN-5102-A": 47_800,
 };
 
-export const seedApprovalQueue: ApprovalItem[] = queueBase.map((item) => ({
-  ...item,
-  comments: seedComments[item.id] ?? [],
-}));
+/**
+ * A deterministic baseline for a scope with no seeded figure. The same key
+ * always yields the same value within the 40k–160k range, so numbers stay
+ * stable across renders without hard-coding every possible SKU.
+ */
+function syntheticBaseline(key: string): number {
+  let hash = 0;
+  for (let index = 0; index < key.length; index++) {
+    hash = (hash * 31 + key.charCodeAt(index)) >>> 0;
+  }
+  return Math.round((40_000 + (hash % 120_000)) / 100) * 100;
+}
+
+/** Distribute a horizon total across the six months using a positive shape. */
+function monthlySeries(total: number, shape: number[]): number[] {
+  const weights = shape.length === horizonMonths.length ? shape : horizonMonths.map(() => 1);
+  return monthly(total, weights);
+}
+
+function confidenceFromEvent(event: IntelEvent): ConfidenceLevel {
+  if (event.reliability === "Confirmed document" && event.probabilityPct >= 85) return "High";
+  if (event.probabilityPct >= 65) return "Medium";
+  return "Low";
+}
+
+/**
+ * Build an approval-queue line from an event the planner selected and applied.
+ * `appliedPct` is the residual impact routed for review; `reflectedPct` is how
+ * much was already visible in checked sources (used only for evidence copy).
+ */
+export function approvalFromEvent(
+  event: IntelEvent,
+  appliedPct: number,
+  reflectedPct: number,
+): Omit<ApprovalItem, "comments"> {
+  const { sku, description } = splitScope(event.skuScope);
+  const baseline = demoBaselineBySku[sku] ?? syntheticBaseline(sku || event.id);
+  const eventAdjustment = Math.round((baseline * appliedPct) / 100);
+  const shape = event.curve.map((month) => Math.max(0.2, 1 + month / 100));
+
+  const evidence: EvidenceItem[] = [
+    {
+      label: event.evidenceSource,
+      source: event.category,
+      detail: `${event.reliability}, probability ${event.probabilityPct}%.`,
+    },
+  ];
+  if (reflectedPct > 0) {
+    evidence.push({
+      label: "Double-counting check",
+      source: "Event Intelligence",
+      detail: `${reflectedPct}% of the impact is already visible in checked sources; only the residual is applied.`,
+    });
+  }
+
+  return {
+    id: `aq-event-${event.id}`,
+    sku,
+    description,
+    customer: event.customer,
+    location: event.plantScope,
+    family: event.category,
+    baseline,
+    eventAdjustment,
+    plannerOverride: 0,
+    reason: event.description,
+    evidence,
+    confidence: confidenceFromEvent(event),
+    requestor: event.owner,
+    approver: "S. Kulkarni · Demand planning lead",
+    status: "Awaiting approval",
+    origin: "Event routing",
+    monthly: monthlySeries(baseline + eventAdjustment, shape),
+  };
+}
+
+/**
+ * Build an approval-queue line from a scenario the planner promoted for review.
+ * A promoted scenario is a planner override on the forecast, and it always
+ * carries Low confidence — it is a simulation raised for a decision, not a
+ * confirmed event.
+ */
+export function approvalFromScenario(
+  scenario: ScenarioSpec,
+  requestedImpactPct: number,
+): Omit<ApprovalItem, "comments"> {
+  const baseline = syntheticBaseline(scenario.id);
+  const plannerOverride = Math.round((baseline * requestedImpactPct) / 100);
+  const shape = scenario.monthlyImpactPct.map((month) => Math.max(0.2, 1 + month / 100));
+
+  return {
+    id: `aq-scenario-${scenario.id}`,
+    sku: scenario.name,
+    description: `${scenario.type} scenario promoted for review`,
+    customer: "Scenario scope",
+    location: "Current filter scope",
+    family: "Scenario",
+    baseline,
+    eventAdjustment: 0,
+    plannerOverride,
+    reason: scenario.notes,
+    evidence: [
+      {
+        label: `Scenario ${scenario.name}`,
+        source: "What-if scenarios",
+        detail: "Promoted for review only; not an approved operational forecast until decided.",
+      },
+    ],
+    confidence: "Low",
+    requestor: scenario.owner,
+    approver: "S. Kulkarni · Demand planning lead",
+    status: "Awaiting approval",
+    origin: "Scenario promotion",
+    monthly: monthlySeries(baseline + plannerOverride, shape),
+  };
+}
 
 // ------------------------------------------------------------- versioning
 
