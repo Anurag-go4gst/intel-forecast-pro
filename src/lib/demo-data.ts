@@ -641,13 +641,36 @@ export const WORKING_DRAFT_VERSION_ID = "v-2026-07-wip";
 export const DEMO_FEATURED_EVENT_ID = "ie-0";
 
 /**
+ * Re-scale each point's P10–P90 band around its point forecast by `scale`.
+ * scale < 1 narrows the interval (more certainty), > 1 widens it.
+ */
+function scaleBand(horizon: SeriesPoint[], scale: number): SeriesPoint[] {
+  if (scale === 1) return horizon;
+  return horizon.map((p) => {
+    const point = p.adjusted ?? p.baseline ?? 0;
+    if (!point || p.upper == null || p.lower == null) return p;
+    const upFrac = (p.upper - point) / point;
+    const downFrac = (point - p.lower) / point;
+    return {
+      ...p,
+      upper: Math.round(point * (1 + upFrac * scale)),
+      lower: Math.round(point * (1 - downFrac * scale)),
+    };
+  });
+}
+
+/**
  * The working draft is LIVE: unlike a published snapshot, its event-aware line
  * only diverges from the statistical baseline once the driving event has been
  * approved in this cycle. A fresh plan therefore starts with the approved
  * forecast equal to the baseline and builds up as the planner applies events.
+ *
+ * `intervalScale` modulates the prediction band: applying a confirmed event
+ * narrows it (< 1), promoting a volatile what-if scenario widens it (> 1).
  */
-export function workingDraftForecast(eventApplied: boolean): VersionForecast {
-  const horizon = eventApplied ? demoHorizon : buildVersionHorizon(1, false);
+export function workingDraftForecast(eventApplied: boolean, intervalScale = 1): VersionForecast {
+  const base = eventApplied ? demoHorizon : buildVersionHorizon(1, false);
+  const horizon = scaleBand(base, intervalScale);
   return {
     versionId: WORKING_DRAFT_VERSION_ID,
     label: "V2026.07 — Working draft",
@@ -657,6 +680,45 @@ export function workingDraftForecast(eventApplied: boolean): VersionForecast {
     horizon,
     totals: horizonTotals(horizon),
   };
+}
+
+// ------------------------------------------------------- interval modulation
+// The prediction interval is a function of confidence. Applying a confirmed
+// event resolves uncertainty (narrows the band); promoting a volatile what-if
+// scenario injects uncertainty (widens it). One base band, modulated here, so
+// the KPI, the by-period table and the chart all stay consistent.
+
+/** How much a promoted scenario of each type widens the band. */
+const SCENARIO_INTERVAL_WIDENING: Record<string, number> = {
+  "Demand shock": 0.3,
+  "Worst case": 0.28,
+  "Supply-constrained case": 0.24,
+  "Best case": 0.18,
+  "Higher ramp-up": 0.16,
+  "Custom scenario": 0.15,
+  "Event delayed": 0.14,
+  "Lower ramp-up": 0.12,
+  "Event cancelled": 0.1,
+  "Base case": 0.04,
+};
+
+export function intervalScaleFor(opts: {
+  eventApplied: boolean;
+  eventProbabilityPct?: number;
+  eventConfirmed?: boolean;
+  promotedScenarioTypes?: string[];
+}): number {
+  let scale = 1;
+  if (opts.eventApplied) {
+    // A confirmed, high-probability event narrows the band the most (up to ~19%).
+    const confidence = (opts.eventProbabilityPct ?? 80) / 100;
+    scale *= 1 - 0.19 * confidence * (opts.eventConfirmed ? 1 : 0.6);
+  }
+  const widenings = (opts.promotedScenarioTypes ?? []).map(
+    (type) => SCENARIO_INTERVAL_WIDENING[type] ?? 0.15,
+  );
+  if (widenings.length) scale *= 1 + Math.max(...widenings);
+  return scale;
 }
 
 /** Featured-SKU forecast snapshot for a selected header version (falls back to

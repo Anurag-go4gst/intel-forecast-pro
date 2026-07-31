@@ -8,6 +8,7 @@ import {
   DEMO_FEATURED_EVENT_ID,
   forecastForVersion,
   forecastVersions,
+  intervalScaleFor,
   nextCycle,
   seedEvents,
   seedReviewLines,
@@ -485,12 +486,20 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     const govId = `v-${cycle.replace(".", "-")}`;
     const nextGovId = `v-${nextC.replace(".", "-")}`;
 
-    // 1. Freeze the working draft's live forecast into a read-only snapshot.
-    const featuredEventApplied = intelEvents.some(
+    // 1. Freeze the working draft's live forecast — including its modulated
+    //    prediction band — into a read-only snapshot.
+    const appliedFeaturedEvent = intelEvents.find(
       (e) => e.id === DEMO_FEATURED_EVENT_ID && e.status === "Approved",
     );
+    const featuredEventApplied = Boolean(appliedFeaturedEvent);
+    const frozenScale = intervalScaleFor({
+      eventApplied: featuredEventApplied,
+      eventProbabilityPct: appliedFeaturedEvent?.probabilityPct,
+      eventConfirmed: appliedFeaturedEvent?.reliability === "Confirmed document",
+      promotedScenarioTypes: scenarioSpecs.filter((s) => s.promoted).map((s) => s.type),
+    });
     const frozen: VersionForecast = {
-      ...workingDraftForecast(featuredEventApplied),
+      ...workingDraftForecast(featuredEventApplied, frozenScale),
       versionId: pubId,
       label: `${cycleLabel} — Published`,
       status: "published",
@@ -552,7 +561,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       },
       ...log,
     ]);
-  }, [approvals, intelEvents, workingDraftVersionId]);
+  }, [approvals, intelEvents, scenarioSpecs, workingDraftVersionId]);
 
   /** Resolve the forecast snapshot for a header version id. The live working
    *  draft is computed by the caller; this returns frozen/seeded snapshots. */
