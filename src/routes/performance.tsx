@@ -59,6 +59,7 @@ import {
   formatNumber,
   formatSigned,
   HISTORY_MONTHS,
+  intervalScaleFor,
   riskBuckets,
   riskRows,
   workingDraftForecast,
@@ -119,6 +120,7 @@ function PerformanceMonitoring() {
     filters,
     modelSelections,
     intelEvents,
+    scenarioSpecs,
     approvals,
     versions,
     published,
@@ -129,7 +131,6 @@ function PerformanceMonitoring() {
   const rows = filterSkus(filters);
   const kpi = accuracyKpis();
   const aggregation = accuracyByAggregation(rows);
-  const intervalPct = avgIntervalWidthPct(demoCaseSeries);
   const finalWape = fvaAgainst("fva-naive").find((l) => l.id === "fva-final");
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -150,12 +151,28 @@ function PerformanceMonitoring() {
   // driving event is applied in-cycle — while published versions are read-only
   // saved snapshots.
   const isWorkingDraft = filters.version === workingDraftVersionId;
-  const featuredEventApplied = intelEvents.some(
+  const appliedFeaturedEvent = intelEvents.find(
     (e) => e.id === DEMO_FEATURED_EVENT_ID && e.status === "Approved",
   );
+  const featuredEventApplied = Boolean(appliedFeaturedEvent);
+
+  // The prediction band is a function of confidence: an applied confirmed event
+  // narrows it, a promoted volatile what-if scenario widens it. One base band,
+  // modulated here, so the KPI, the by-period table and the chart stay in sync.
+  const promotedScenarioTypes = scenarioSpecs.filter((s) => s.promoted).map((s) => s.type);
+  const intervalScale = intervalScaleFor({
+    eventApplied: featuredEventApplied,
+    eventProbabilityPct: appliedFeaturedEvent?.probabilityPct,
+    eventConfirmed: appliedFeaturedEvent?.reliability === "Confirmed document",
+    promotedScenarioTypes,
+  });
   const versionForecast = isWorkingDraft
-    ? workingDraftForecast(featuredEventApplied)
+    ? workingDraftForecast(featuredEventApplied, intervalScale)
     : getVersionForecast(filters.version);
+
+  const intervalPct = avgIntervalWidthPct(versionForecast.horizon);
+  const intervalHalf = Math.round((intervalPct / 2) * 10) / 10;
+  const intervalModulated = isWorkingDraft && Math.abs(intervalScale - 1) > 0.001;
 
   // The chart follows the selected version: recent actuals (version-independent)
   // spliced onto the selected version's forecast horizon, so the plotted line
@@ -391,8 +408,14 @@ function PerformanceMonitoring() {
               label="P10–P90 interval width"
               value={`${intervalPct}`}
               unit="%"
-              delta={`Avg forecast band (±${Math.round(intervalPct * 5) / 10}% each side)`}
-              deltaTone="info"
+              delta={
+                intervalModulated
+                  ? intervalScale < 1
+                    ? `±${intervalHalf}% each side · narrowed by applied event`
+                    : `±${intervalHalf}% each side · widened by what-if scenario`
+                  : `±${intervalHalf}% each side`
+              }
+              deltaTone={intervalScale > 1 ? "warning" : "info"}
               icon={Ruler}
             />
           </div>
