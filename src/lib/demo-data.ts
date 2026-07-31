@@ -665,6 +665,35 @@ export function forecastForVersion(versionId: string | undefined): VersionForeca
   return versionForecasts[versionId ?? ""] ?? versionForecasts[WORKING_DRAFT_VERSION_ID];
 }
 
+// --------------------------------------------------------- version identity
+// A cycle number ("2026.07") maps to three ids: the governance record
+// (v-2026-07), the header working-draft option (v-2026-07-wip) and the
+// published option (v-2026-07-pub). Publishing rolls a cycle forward.
+
+export type VersionOption = { id: string; label: string; status: "draft" | "published" };
+
+/** "v-2026-07-wip" | "v-2026-07-pub" | "v-2026-07" -> "2026.07". */
+export function cycleFromVersionId(id: string): string {
+  const m = id.match(/(\d{4})-(\d{2})/);
+  return m ? `${m[1]}.${m[2]}` : "2026.07";
+}
+
+export const cycleToGovId = (cycle: string) => `v-${cycle.replace(".", "-")}`;
+export const cycleToWipId = (cycle: string) => `${cycleToGovId(cycle)}-wip`;
+export const cycleToPubId = (cycle: string) => `${cycleToGovId(cycle)}-pub`;
+
+/** Next planning cycle after the given one, rolling the year past month 12. */
+export function nextCycle(cycle: string): string {
+  const m = cycle.match(/(\d{4})\.(\d{2})/);
+  let year = m ? Number(m[1]) : 2026;
+  let month = (m ? Number(m[2]) : 7) + 1;
+  if (month > 12) {
+    month = 1;
+    year += 1;
+  }
+  return `${year}.${String(month).padStart(2, "0")}`;
+}
+
 export const demoDoubleCountCheck = [
   { source: "Open orders", signal: "Clear signal", reflectedPct: 14, note: "October releases already cut by 14% versus the prior schedule." },
   { source: "OEM/customer schedules", signal: "Clear signal", reflectedPct: 12, note: "Apex EDI 830 revision R-14 confirms the October shutdown window." },
