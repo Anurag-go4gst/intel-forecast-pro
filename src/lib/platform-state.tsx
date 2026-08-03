@@ -887,7 +887,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         setStageDone(emptyStages);
         setUpload({
           name: "apex-motors-demand-history.xlsx",
-          sizeLabel: "3.4 MB workbook",
+          sizeLabel: "1.8 MB workbook",
           rows: 27_000,
           uploadedAt: "Guide · workbook imported",
         });

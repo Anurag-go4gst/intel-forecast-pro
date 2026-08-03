@@ -194,6 +194,7 @@ function expectCleanDemoSeed(api: PlatformApi) {
   expect(api.dataset).toBeNull();
   expect(api.upload).toMatchObject<Partial<UploadedFile>>({
     name: "apex-motors-demand-history.xlsx",
+    sizeLabel: "1.8 MB workbook",
     rows: 27_000,
   });
   expect(api.events).toEqual(seedEvents);
