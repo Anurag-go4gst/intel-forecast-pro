@@ -14,6 +14,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
+import readXlsxFile from "read-excel-file/browser";
 import { KpiTile, Panel, PageHeading, PrototypeNote, StatusPill } from "@/components/primitives";
 import { dataSources, formatNumber } from "@/lib/demo-data";
 import {
@@ -21,10 +22,8 @@ import {
   confidenceSummary,
   confidenceTone,
   ingestFields,
-  previewRows,
   qualityChecks,
   seriesQuality,
-  sourceColumns,
   tierLabels,
   type CheckResult,
   type FieldTier,
@@ -78,7 +77,6 @@ function DataReadiness() {
     setUpload,
     mapping,
     setMapping,
-    autoMap,
     clearMapping,
     validationRun,
     runValidation,
@@ -87,44 +85,123 @@ function DataReadiness() {
   } = usePlatform();
   const [dragActive, setDragActive] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [confidenceFilter, setConfidenceFilter] = useState<string>("all");
   const [readinessSearch, setReadinessSearch] = useState("");
   const [readinessPageRaw, setReadinessPage] = useState(1);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const acceptFile = async (file: File | null) => {
-    if (!file) return;
-    const ok = /\.(csv|txt|tsv)$/i.test(file.name);
-    if (!ok) {
-      setUploadError(
-        `${file.name} cannot be parsed in the browser. Upload a delimited .csv export so every statistic can be calculated from the real rows.`,
-      );
-      return;
-    }
-    setUploadError(null);
-    const text = await file.text();
-    const { columns, records } = parseDelimited(text);
-    if (records.length === 0) {
-      setUploadError(`${file.name} contains no data rows.`);
-      return;
-    }
+  const inferMapping = (columns: string[]) => {
     const find = (...needles: string[]) =>
-      columns.find((c) => needles.some((n) => c.toLowerCase().replace(/[^a-z]/g, "").includes(n)));
+      columns.find((column) => {
+        const normalized = column.toLowerCase().replace(/[^a-z0-9]/g, "");
+        return needles.some((needle) => normalized.includes(needle));
+      });
+    const customerDemand = find("demandqty", "demandquantity", "volume");
+    const stockoutFlag = find("stockoutflag", "stockoutind");
+    return {
+      date: find("period", "date", "month"),
+      sku: find("skuid", "material", "item", "part"),
+      itemDescription: find("skudescription", "materialdesc", "itemdescription"),
+      customer: find("customername", "soldtoname", "customerid", "account"),
+      plant: find("plantid", "plantcode", "location", "site", "depot"),
+      customerDemand,
+      confirmedOrders: find("confirmedordersqty", "openorderqty"),
+      dispatchQty: find("dispatchqty"),
+      billingQty: find("billingqty", "billedqty"),
+      backlog: find("backlogqty"),
+      lostDemand: find("lostdemandqty", "lostsalesqty"),
+      availableInventory: find("availableinventoryqty", "stockonhand"),
+      stockoutFlag,
+      promotionFlag: find("promoflag", "promoind"),
+    };
+  };
+
+  const finishImport = async (file: File, columns: string[], records: Record<string, string>[]) => {
+    if (records.length === 0) throw new Error(`${file.name} contains no data rows.`);
+    setUploadProgress(68);
+    setUploadStatus(`Validating ${formatNumber(records.length)} rows`);
+    await new Promise((resolve) => window.setTimeout(resolve, 180));
+    const inferred = inferMapping(columns);
     ingestDataset({
       fileName: file.name,
       sizeLabel: `${Math.max(1, Math.round(file.size / 1024))} KB`,
       columns,
       records,
       mapping: {
-        date: find("date", "period", "month"),
-        sku: find("sku", "item", "material", "part"),
-        customer: find("customer", "cust", "account"),
-        plant: find("plant", "location", "site", "depot"),
-        quantity: find("qty", "quantity", "demand", "volume"),
-        stockout: find("stockout", "stockedout"),
+        date: inferred.date,
+        sku: inferred.sku,
+        customer: inferred.customer,
+        plant: inferred.plant,
+        quantity: inferred.customerDemand,
+        stockout: inferred.stockoutFlag,
       },
     });
-    autoMap();
+    clearMapping();
+    Object.entries(inferred).forEach(([field, column]) => {
+      if (column) setMapping(field, column);
+    });
+    setUploadProgress(92);
+    setUploadStatus("Mapping workbook fields");
+    await new Promise((resolve) => window.setTimeout(resolve, 180));
+    setUploadProgress(100);
+    setUploadStatus("Workbook ready");
+  };
+
+  const acceptFile = async (file: File | null) => {
+    if (!file) return;
+    const ok = /\.(xlsx|csv|txt|tsv)$/i.test(file.name);
+    if (!ok) {
+      setUploadError(`${file.name} is not supported. Choose an .xlsx, .csv, .tsv or .txt file.`);
+      return;
+    }
+    setUploadError(null);
+    setUploadProgress(12);
+    setUploadStatus("Reading file");
+    try {
+      if (/\.xlsx$/i.test(file.name)) {
+        const sheets = await readXlsxFile(file);
+        const rows = sheets[0]?.data ?? [];
+        const [headerRow = [], ...dataRows] = rows;
+        const columns = headerRow.map((cell) => String(cell ?? "").trim());
+        const records = dataRows
+          .filter((row) => row.some((cell) => cell !== null && cell !== ""))
+          .map((row) =>
+            Object.fromEntries(
+              columns.map((column, index) => {
+                const value = row[index];
+                return [column, value instanceof Date ? value.toISOString().slice(0, 10) : String(value ?? "")];
+              }),
+            ),
+          );
+        await finishImport(file, columns, records);
+      } else {
+        const text = await file.text();
+        const { columns, records } = parseDelimited(text);
+        await finishImport(file, columns, records);
+      }
+    } catch (error) {
+      setUploadProgress(0);
+      setUploadStatus(null);
+      setUploadError(error instanceof Error ? error.message : `Could not read ${file.name}.`);
+    }
+  };
+
+  const importSample = async () => {
+    setUploadError(null);
+    setUploadProgress(8);
+    setUploadStatus("Loading sample workbook");
+    try {
+      const response = await fetch("/sample-data/apex-motors-demand-history.xlsx");
+      if (!response.ok) throw new Error("Could not load the sample workbook.");
+      const blob = await response.blob();
+      await acceptFile(new File([blob], "apex-motors-demand-history.xlsx", { type: blob.type }));
+    } catch (error) {
+      setUploadProgress(0);
+      setUploadStatus(null);
+      setUploadError(error instanceof Error ? error.message : "Could not load the sample workbook.");
+    }
   };
 
   const downloadTemplate = () => {
@@ -176,6 +253,9 @@ function DataReadiness() {
   const failedChecks = qualityChecks.filter((c) => c.result === "fail").length;
   const pendingTransformations = transformations.filter((t) => t.status === "Proposed").length;
   const demoWorkbookLoaded = mode === "demo" && Boolean(upload);
+  const displayedColumns = dataset?.columns ?? [];
+  const displayedPreview = dataset?.preview ?? [];
+  const importing = uploadProgress > 0 && uploadProgress < 100;
 
   return (
     <div className="space-y-5">
@@ -209,11 +289,11 @@ function DataReadiness() {
         <KpiTile
           label="Series analysed"
           value={
-            mode === "demo"
-              ? formatNumber(seriesQuality.length)
-              : dataset
-                ? formatNumber(dataset.stats.series)
-                : "—"
+            dataset
+              ? mode === "demo"
+                ? formatNumber(seriesQuality.length)
+                : formatNumber(dataset.stats.series)
+              : "—"
           }
           delta={demoWorkbookLoaded ? `${formatNumber(upload?.rows ?? 0)} workbook rows read` : dataset ? `${formatNumber(dataset.stats.rows)} rows · ${dataset.stats.periods} periods (${dataset.stats.frequency})` : "Calculated after upload"}
           deltaTone="neutral"
@@ -221,10 +301,10 @@ function DataReadiness() {
         />
         <KpiTile
           label="Avg readiness score"
-          value={`${avgScore}`}
+          value={dataset ? `${avgScore}` : "—"}
           unit="/ 100"
-          delta={avgScore >= 80 ? "Portfolio healthy" : "Improvement needed"}
-          deltaTone={avgScore >= 80 ? "positive" : "warning"}
+          delta={dataset ? (avgScore >= 80 ? "Portfolio healthy" : "Improvement needed") : "Calculated after upload"}
+          deltaTone={dataset && avgScore >= 80 ? "positive" : "neutral"}
           icon={Gauge}
         />
         <KpiTile
@@ -237,9 +317,9 @@ function DataReadiness() {
         />
         <KpiTile
           label="Transformations pending"
-          value={String(pendingTransformations)}
-          delta="Nothing applied silently"
-          deltaTone={pendingTransformations ? "warning" : "positive"}
+          value={dataset ? String(pendingTransformations) : "—"}
+          delta={dataset ? "Nothing applied silently" : "Calculated after upload"}
+          deltaTone={dataset && pendingTransformations ? "warning" : "neutral"}
           icon={ShieldAlert}
         />
       </div>
@@ -251,7 +331,7 @@ function DataReadiness() {
           description={
             demoWorkbookLoaded
               ? "The guide imports a prepared Excel workbook, reads the demand rows, and maps workbook fields before validation."
-              : "Delimited text files are parsed in the browser for this prototype and never leave the session."
+              : "Excel and delimited text files are read in the browser and never leave this session."
           }
           className="xl:col-span-2"
         >
@@ -276,7 +356,7 @@ function DataReadiness() {
               Drag and drop your demand history file here
             </p>
             <p className="text-xs text-muted-foreground">
-              Accepted formats: .csv, .tsv, .txt · Excel workbook import is simulated in the guide
+              Accepted formats: .xlsx, .csv, .tsv, .txt
             </p>
             <div className="mt-2 flex flex-wrap justify-center gap-2">
               <button
@@ -285,6 +365,14 @@ function DataReadiness() {
                 className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
               >
                 <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden /> Browse files
+              </button>
+              <button
+                type="button"
+                onClick={() => void importSample()}
+                disabled={importing}
+                className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent disabled:opacity-50"
+              >
+                <Download className="h-3.5 w-3.5" aria-hidden /> Import sample Excel
               </button>
               <button
                 type="button"
@@ -304,7 +392,7 @@ function DataReadiness() {
             <input
               ref={inputRef}
               type="file"
-              accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"
+              accept=".xlsx,.csv,.tsv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/tab-separated-values,text/plain"
               className="hidden"
               onChange={(e) => void acceptFile(e.target.files?.[0] ?? null)}
             />
@@ -314,6 +402,18 @@ function DataReadiness() {
             <p className="mt-3 rounded-md border border-risk/25 bg-risk-soft px-3 py-2 text-xs text-risk">
               {uploadError}
             </p>
+          )}
+
+          {uploadStatus && (
+            <div className="mt-3 rounded-md border border-border bg-surface-muted px-3 py-2.5" role="status" aria-live="polite">
+              <div className="flex items-center justify-between gap-3 text-xs">
+                <span className="font-medium text-foreground">{uploadStatus}</span>
+                <span className="num text-muted-foreground">{uploadProgress}%</span>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-border">
+                <div className="h-full bg-primary transition-[width] duration-300" style={{ width: `${uploadProgress}%` }} />
+              </div>
+            </div>
           )}
 
           {upload && (
@@ -331,6 +431,8 @@ function DataReadiness() {
                   onClick={() => {
                     setUpload(null);
                     clearMapping();
+                    setUploadProgress(0);
+                    setUploadStatus(null);
                   }}
                   className="rounded-md border border-input px-2 py-1 text-[11px] font-medium hover:bg-accent"
                 >
@@ -393,7 +495,7 @@ function DataReadiness() {
         description={
           upload
             ? `First rows of ${upload.name} as received from the source extract.`
-            : "Sample extract shown until a file is uploaded."
+            : "A preview will appear after a file is uploaded."
         }
         bodyClassName="p-0"
       >
@@ -402,7 +504,7 @@ function DataReadiness() {
             <thead>
               <tr className="border-b border-border bg-surface-muted text-left">
                 <th className="label-caps px-3 py-2.5">#</th>
-                {sourceColumns.map((col) => (
+                {displayedColumns.map((col) => (
                   <th key={col} className="label-caps px-3 py-2.5 whitespace-nowrap">
                     {col}
                   </th>
@@ -410,10 +512,10 @@ function DataReadiness() {
               </tr>
             </thead>
             <tbody>
-              {previewRows.map((row, index) => (
+              {displayedPreview.map((row, index) => (
                 <tr key={index} className="border-b border-border last:border-0 hover:bg-surface-muted/60">
                   <td className="num px-3 py-2 text-muted-foreground">{index + 1}</td>
-                  {sourceColumns.map((col) => {
+                  {displayedColumns.map((col) => {
                     const value = row[col] ?? "";
                     const suspect =
                       value === "" ||
@@ -433,6 +535,9 @@ function DataReadiness() {
                   })}
                 </tr>
               ))}
+              {!dataset && (
+                <tr><td colSpan={1} className="px-4 py-8 text-center text-xs text-muted-foreground">No data loaded.</td></tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -446,7 +551,13 @@ function DataReadiness() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={autoMap}
+              onClick={() => {
+                clearMapping();
+                Object.entries(inferMapping(displayedColumns)).forEach(([field, column]) => {
+                  if (column) setMapping(field, column);
+                });
+              }}
+              disabled={!dataset}
               className="inline-flex items-center gap-1.5 rounded-md border border-input px-2.5 py-1.5 text-[11px] font-medium hover:bg-accent"
             >
               <Wand2 className="h-3.5 w-3.5" aria-hidden /> Auto-map
@@ -454,6 +565,7 @@ function DataReadiness() {
             <button
               type="button"
               onClick={clearMapping}
+              disabled={!dataset}
               className="inline-flex items-center gap-1.5 rounded-md border border-input px-2.5 py-1.5 text-[11px] font-medium hover:bg-accent"
             >
               <RotateCcw className="h-3.5 w-3.5" aria-hidden /> Clear
@@ -503,7 +615,7 @@ function DataReadiness() {
                       className="h-7 w-56 rounded-md border border-input bg-surface px-2 text-xs focus:border-ring focus:ring-1 focus:ring-ring focus:outline-none"
                     >
                       <option value="">Not mapped</option>
-                      {sourceColumns.map((col) => (
+                      {displayedColumns.map((col) => (
                         <option key={col} value={col}>
                           {col}
                         </option>
@@ -518,6 +630,8 @@ function DataReadiness() {
         </div>
       </Panel>
 
+      {dataset ? (
+      <>
       <SignalRolePanel />
 
       <div id="guide-issues" tabIndex={-1} className="scroll-mt-52 outline-none">
@@ -838,11 +952,17 @@ function DataReadiness() {
           </table>
         </div>
       </Panel>
+      </>
+      ) : (
+        <Panel title="Waiting for demand history" description="Upload a workbook to unlock mapping, validation, issue resolution and series readiness.">
+          <p className="text-xs text-muted-foreground">No forecast-readiness results are available before the source rows are read.</p>
+        </Panel>
+      )}
 
       <PrototypeNote>
-        Illustrative prototype data. The guide uses a prepared workbook-shaped sample; user uploads
-        are currently CSV/TSV text exports inspected only in the browser session. Quality scores are
-        simulated, and no ingestion job or data warehouse write is performed.
+        Illustrative prototype data. Excel and delimited uploads are inspected only in the browser
+        session. Quality scores and downstream forecast results are deterministic demo outputs; no
+        ingestion job, model training or data warehouse write is performed.
       </PrototypeNote>
     </div>
   );

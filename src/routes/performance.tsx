@@ -70,8 +70,10 @@ import {
   accuracyByAggregation,
   accuracyByHorizon,
   accuracyKpis,
+  aggregateWape,
   avgIntervalWidthPct,
   buildPortfolioForecast,
+  holdoutPerformance,
 } from "@/lib/forecast-output";
 import { downloadCsv } from "@/lib/export";
 import { modelProfileFor } from "@/lib/model-lab";
@@ -173,10 +175,7 @@ function PerformanceMonitoring() {
   const intervalPct = avgIntervalWidthPct(versionForecast.horizon);
   const intervalHalf = Math.round((intervalPct / 2) * 10) / 10;
   const intervalModulated = isWorkingDraft && Math.abs(intervalScale - 1) > 0.001;
-  const sixMonthHoldoutWape =
-    Math.round(
-      (accuracyByHorizon.reduce((sum, row) => sum + row.wape, 0) / accuracyByHorizon.length) * 10,
-    ) / 10;
+  const sixMonthHoldoutWape = aggregateWape(holdoutPerformance);
   const lagOne = accuracyByHorizon[0];
   const lagSix = accuracyByHorizon[accuracyByHorizon.length - 1];
 
@@ -529,10 +528,10 @@ function PerformanceMonitoring() {
                 </p>
               </div>
               <div className="rounded-md border border-border bg-surface-muted/60 p-3">
-                <p className="label-caps">Average WAPE</p>
+                <p className="label-caps">Aggregate holdout WAPE</p>
                 <p className="num mt-1 text-sm font-semibold">{sixMonthHoldoutWape}%</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Weighted absolute percentage error across lags 1–6.
+                  Total absolute error divided by total actual demand across the six plotted months.
                 </p>
               </div>
               <div className="rounded-md border border-border bg-surface-muted/60 p-3">
@@ -545,6 +544,24 @@ function PerformanceMonitoring() {
                   and supply review.
                 </p>
               </div>
+            </div>
+            <div className="mt-4 h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={holdoutPerformance} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+                  <CartesianGrid stroke="var(--color-border)" vertical={false} />
+                  <XAxis dataKey="period" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} stroke="var(--color-neutral-line)" />
+                  <YAxis tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} stroke="var(--color-neutral-line)" width={54} tickFormatter={(value: number) => `${Math.round(value / 1000)}k`} />
+                  <Tooltip contentStyle={chartTooltipStyle} formatter={(value: number | string) => formatNumber(Number(value))} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Line type="monotone" dataKey="actual" name="Actual demand" stroke="var(--color-foreground)" strokeWidth={2.4} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="forecast" name="Holdout forecast" stroke="var(--color-primary)" strokeWidth={2.4} dot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="mt-3 rounded-md border border-accent-blue/25 bg-accent px-3 py-2 text-xs leading-relaxed text-foreground">
+              <span className="font-semibold">Why {sixMonthHoldoutWape}% and {intervalPct}% do not match:</span>{" "}
+              {sixMonthHoldoutWape}% is past forecast error on hidden actuals. {intervalPct}% is the full
+              P10–P90 uncertainty-band width around future forecasts. They answer different questions.
             </div>
           </Panel>
 
