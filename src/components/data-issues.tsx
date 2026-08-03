@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertOctagon, CheckCircle2, Info, ShieldAlert, Signal } from "lucide-react";
+import { AlertOctagon, CheckCircle2, Info, Loader2, ShieldAlert, Signal } from "lucide-react";
 import { Panel, StatusPill } from "@/components/primitives";
 import { sourceColumns } from "@/lib/forecast-domain";
 import { usePlatform } from "@/lib/platform-state";
@@ -114,9 +114,14 @@ export function IssueResolutionPanel() {
     dataQualityScore,
   } = usePlatform();
   const [open, setOpen] = useState<string | null>(null);
+  const [certifying, setCertifying] = useState(false);
 
   const resolved = dataIssues.filter((i) => issueActions[i.id]).length;
   const blockingIssues = dataIssues.filter((i) => i.severity === "Blocking");
+
+  useEffect(() => {
+    if (stageDone.dataset) setCertifying(false);
+  }, [stageDone.dataset]);
 
   useEffect(() => {
     if (mode !== "demo" || stageDone.resolve || blockingIssues.length === 0 || blockingOpen > 0) return;
@@ -164,22 +169,29 @@ export function IssueResolutionPanel() {
             <button
               type="button"
               id="guide-dataset-approval"
-              tabIndex={-1}
-              disabled={blockingOpen > 0 || stageDone.dataset}
+              disabled={blockingOpen > 0 || stageDone.dataset || certifying}
               onClick={() => {
-                completeStage("dataset");
-                logAudit({
-                  user: "You · Demand planning lead",
-                  action: "Data transformation",
-                  sku: "All",
-                  customer: "All",
-                  version: "V2026.07",
-                  detail: `Forecast-ready dataset approved with ${resolved} recorded data-quality decisions.`,
-                });
+                setCertifying(true);
+                window.setTimeout(() => {
+                  completeStage("dataset");
+                  logAudit({
+                    user: "You · Demand planning lead",
+                    action: "Data transformation",
+                    sku: "All",
+                    customer: "All",
+                    version: "V2026.07",
+                    detail: `Forecast-ready dataset approved with ${resolved} recorded data-quality decisions.`,
+                  });
+                }, 450);
               }}
-              className="scroll-mt-52 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex scroll-mt-52 items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {stageDone.dataset ? "Dataset approved" : "Approve Forecast-Ready Dataset"}
+              {certifying && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
+              {stageDone.dataset
+                ? "Dataset approved"
+                : certifying
+                  ? "Processing dataset..."
+                  : "Approve Forecast-Ready Dataset"}
             </button>
           )}
         </div>

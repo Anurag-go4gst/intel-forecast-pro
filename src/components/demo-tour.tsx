@@ -278,8 +278,8 @@ export function DemoTour() {
       {confirm === "start" && (
         <ConfirmDialog
           title="Start the Apex Motors guide?"
-          body="Start the Apex Motors guide? This will load a fictional dataset containing 500 demand series and 54 months of history. Any project or uploaded data currently in this workspace will be cleared."
-          confirmLabel="Load fictional demo dataset"
+          body="Start the Apex Motors guide? This imports the prepared Apex Motors Excel workbook, reads 27,000 rows covering 500 demand series and 54 months of history, then maps the workbook fields for review. Any project or uploaded data currently in this workspace will be cleared."
+          confirmLabel="Import demo Excel workbook"
           onConfirm={beginDemo}
           onCancel={() => setConfirm(null)}
         />

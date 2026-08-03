@@ -173,6 +173,12 @@ function PerformanceMonitoring() {
   const intervalPct = avgIntervalWidthPct(versionForecast.horizon);
   const intervalHalf = Math.round((intervalPct / 2) * 10) / 10;
   const intervalModulated = isWorkingDraft && Math.abs(intervalScale - 1) > 0.001;
+  const sixMonthHoldoutWape =
+    Math.round(
+      (accuracyByHorizon.reduce((sum, row) => sum + row.wape, 0) / accuracyByHorizon.length) * 10,
+    ) / 10;
+  const lagOne = accuracyByHorizon[0];
+  const lagSix = accuracyByHorizon[accuracyByHorizon.length - 1];
 
   // The chart follows the selected version: recent actuals (version-independent)
   // spliced onto the selected version's forecast horizon, so the plotted line
@@ -342,6 +348,10 @@ function PerformanceMonitoring() {
                     {fvaAgainst("fva-naive").find((l) => l.id === "fva-event")?.wape}% WAPE, down
                     from {fvaAgainst("fva-naive")[0]?.wape}% for a naive last-period guess.
                   </li>
+                  <li>
+                    Six-month holdout test averaged {sixMonthHoldoutWape}% WAPE; accuracy is
+                    strongest in months 1–3 and should be treated as directional by month 6.
+                  </li>
                   {(approvedOverrides > 0 || rejectedOverrides > 0) && (
                     <li>
                       Planner judgement this cycle: {approvedOverrides} approved override
@@ -503,6 +513,38 @@ function PerformanceMonitoring() {
                   />
                 </ComposedChart>
               </ResponsiveContainer>
+            </div>
+          </Panel>
+
+          <Panel
+            title="6-month backtest result"
+            description="Before trusting the 12-month forecast, the system hides the most recent six historical months, forecasts them, and compares those predictions with the actual demand that really happened."
+          >
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div className="rounded-md border border-border bg-surface-muted/60 p-3">
+                <p className="label-caps">Holdout window</p>
+                <p className="mt-1 text-sm font-semibold">6 months</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Chronological test only; the model cannot learn from these months during training.
+                </p>
+              </div>
+              <div className="rounded-md border border-border bg-surface-muted/60 p-3">
+                <p className="label-caps">Average WAPE</p>
+                <p className="num mt-1 text-sm font-semibold">{sixMonthHoldoutWape}%</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Weighted absolute percentage error across lags 1–6.
+                </p>
+              </div>
+              <div className="rounded-md border border-border bg-surface-muted/60 p-3">
+                <p className="label-caps">Planning guidance</p>
+                <p className="mt-1 text-sm font-semibold">
+                  {lagOne?.wape}% at month 1 · {lagSix?.wape}% at month 6
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Near-term months are execution-grade; month 6 is a directional signal for capacity
+                  and supply review.
+                </p>
+              </div>
             </div>
           </Panel>
 
