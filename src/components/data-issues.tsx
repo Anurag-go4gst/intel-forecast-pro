@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { AlertOctagon, CheckCircle2, Info, Loader2, ShieldAlert, Signal } from "lucide-react";
 import { Panel, StatusPill } from "@/components/primitives";
 import { sourceColumns } from "@/lib/forecast-domain";
@@ -28,8 +29,9 @@ const severityIntro: Record<IssueSeverity, string> = {
 
 /** Step 2b — semantic meaning of each demand signal, not just the column name. */
 export function SignalRolePanel() {
-  const { mapping, setMapping, rolesConfirmed, confirmRoles, logAudit, completeStage } = usePlatform();
+  const { dataset, mapping, setMapping, rolesConfirmed, confirmRoles, logAudit, completeStage } = usePlatform();
   const answered = signalRoles.filter((r) => mapping[r.fieldId]).length;
+  const availableColumns = dataset?.columns ?? sourceColumns;
 
   return (
     <Panel
@@ -81,7 +83,7 @@ export function SignalRolePanel() {
                     className="control mt-2"
                   >
                     <option value="">Not supplied</option>
-                    {sourceColumns.map((c) => (
+                    {availableColumns.map((c) => (
                       <option key={c} value={c}>
                         {c}
                       </option>
@@ -102,6 +104,7 @@ export function SignalRolePanel() {
 
 /** Step 3 and 4 — grouped issue resolution plus dataset certification. */
 export function IssueResolutionPanel() {
+  const navigate = useNavigate();
   const {
     issueActions,
     setIssueAction,
@@ -109,7 +112,6 @@ export function IssueResolutionPanel() {
     stageDone,
     completeStage,
     logAudit,
-    mode,
     activeIssues: dataIssues,
     dataQualityScore,
   } = usePlatform();
@@ -124,9 +126,9 @@ export function IssueResolutionPanel() {
   }, [stageDone.dataset]);
 
   useEffect(() => {
-    if (mode !== "demo" || stageDone.resolve || blockingIssues.length === 0 || blockingOpen > 0) return;
+    if (stageDone.resolve || blockingIssues.length === 0 || blockingOpen > 0) return;
     completeStage("resolve");
-  }, [blockingIssues.length, blockingOpen, completeStage, mode, stageDone.resolve]);
+  }, [blockingIssues.length, blockingOpen, completeStage, stageDone.resolve]);
 
   if (dataIssues.length === 0) {
     return (
@@ -182,6 +184,7 @@ export function IssueResolutionPanel() {
                     version: "V2026.07",
                     detail: `Forecast-ready dataset approved with ${resolved} recorded data-quality decisions.`,
                   });
+                  void navigate({ to: "/validation-setup" });
                 }, 450);
               }}
               className="inline-flex scroll-mt-52 items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"

@@ -885,13 +885,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         setActiveVersionId("v-2026-07");
         setAuditLog(seedAuditLog);
         setStageDone(emptyStages);
-        setUpload({
-          name: "apex-motors-demand-history.xlsx",
-          sizeLabel: "1.8 MB workbook",
-          rows: 27_000,
-          uploadedAt: "Guide · workbook imported",
-        });
-        setMappingState({ ...autoMapping });
+        // The guide supplies project context, but the workbook still has to be
+        // imported by the user so data-readiness results have a real trigger.
+        setUpload(null);
+        setMappingState({});
       } else {
         setMode("empty");
         setProject(null);
@@ -998,7 +995,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
 
   /** Issues come from the seeded demo, from the uploaded file, or nowhere. */
   const activeIssues = useMemo<DataIssue[]>(() => {
-    if (mode === "demo") return dataIssues;
+    if (mode === "demo" && dataset) return dataIssues;
     if (mode === "user" && dataset) return deriveIssues(dataset.stats);
     return [];
   }, [mode, dataset]);

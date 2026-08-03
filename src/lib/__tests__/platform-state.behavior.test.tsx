@@ -12,7 +12,7 @@ import {
 import { IssueResolutionPanel } from "@/components/data-issues";
 import { DemoTour } from "@/components/demo-tour";
 import { StageGuard } from "@/components/workflow-rail";
-import { PlatformProvider, usePlatform, type UploadedFile } from "@/lib/platform-state";
+import { PlatformProvider, usePlatform } from "@/lib/platform-state";
 import {
   computeDatasetStats,
   deriveIssues,
@@ -192,11 +192,9 @@ function expectCleanDemoSeed(api: PlatformApi) {
     source: "demo",
   });
   expect(api.dataset).toBeNull();
-  expect(api.upload).toMatchObject<Partial<UploadedFile>>({
-    name: "apex-motors-demand-history.xlsx",
-    sizeLabel: "1.8 MB workbook",
-    rows: 27_000,
-  });
+  expect(api.upload).toBeNull();
+  expect(api.mapping).toEqual({});
+  expect(api.activeIssues).toHaveLength(0);
   expect(api.events).toEqual(seedEvents);
   expect(api.scenarios).toEqual(seedScenarios);
   expect(api.reviewLines).toEqual(seedReviewLines);
@@ -325,6 +323,7 @@ function renderDemoTourHarness() {
   const utils = render(<RouterProvider router={router} />);
   return {
     ...utils,
+    router,
     get api() {
       if (!api) throw new Error("Platform API was not captured");
       return api;
@@ -520,6 +519,9 @@ describe("authoritative application behaviours", () => {
 
     await act(async () => {
       harness.api.startDemo();
+    });
+    await ingest(harness.api, monthlyRows(), "apex-motors-demand-history.xlsx");
+    await act(async () => {
       harness.api.completeStage("project");
       harness.api.completeStage("upload");
     });
@@ -557,6 +559,9 @@ describe("authoritative application behaviours", () => {
 
     await act(async () => {
       harness.api.startDemo();
+    });
+    await ingest(harness.api, monthlyRows(), "apex-motors-demand-history.xlsx");
+    await act(async () => {
       harness.api.completeStage("project");
       harness.api.completeStage("upload");
     });
@@ -586,6 +591,30 @@ describe("authoritative application behaviours", () => {
     expect(await screen.findByText(/Processing dataset/i)).toBeInTheDocument();
     await waitFor(() => expect(harness.api.stageDone.dataset).toBe(true));
     expect(await screen.findByText(/Guide · step 5 of 13/i)).toBeInTheDocument();
+  });
+
+  it("moves from dataset approval to validation setup with the guide closed", async () => {
+    const harness = renderDemoTourHarness();
+    await screen.findByTestId("tour-mode");
+
+    await act(async () => {
+      harness.api.startDemo();
+    });
+    await ingest(harness.api, monthlyRows(), "apex-motors-demand-history.xlsx");
+    await act(async () => {
+      harness.api.completeStage("project");
+      harness.api.completeStage("upload");
+      await harness.router.navigate({ to: "/data-readiness" });
+      for (const issue of harness.api.activeIssues.filter((item) => item.severity === "Blocking")) {
+        harness.api.setIssueAction(issue.id, "Accept suggested correction");
+      }
+    });
+
+    await waitFor(() => expect(harness.api.stageDone.resolve).toBe(true));
+    fireEvent.click(screen.getByRole("button", { name: /Approve Forecast-Ready Dataset/i }));
+    expect(await screen.findByText(/Processing dataset/i)).toBeInTheDocument();
+    expect(await screen.findByText("Validation setup")).toBeInTheDocument();
+    expect(harness.api.stageDone.dataset).toBe(true);
   });
 
   it("resets the open guide back to the clean seeded starting step", async () => {

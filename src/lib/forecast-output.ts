@@ -50,6 +50,29 @@ export const accuracyByHorizon: HorizonAccuracy[] = [
   { lag: 6, label: "Lag 6 · Dec", wape: 20.4, bias: -4.8 },
 ];
 
+export type HoldoutPoint = { period: string; actual: number; forecast: number };
+
+// Six historical months that were hidden from the demo model. The chart and
+// headline holdout WAPE are calculated from this same series.
+export const holdoutPerformance: HoldoutPoint[] = [
+  { period: "Jan 2026", actual: 18_240, forecast: 16_617 },
+  { period: "Feb 2026", actual: 17_410, forecast: 15_564 },
+  { period: "Mar 2026", actual: 19_120, forecast: 16_673 },
+  { period: "Apr 2026", actual: 20_500, forecast: 17_405 },
+  { period: "May 2026", actual: 19_800, forecast: 16_256 },
+  { period: "Jun 2026", actual: 21_400, forecast: 17_034 },
+];
+
+export function aggregateWape(points: HoldoutPoint[]): number {
+  const actual = points.reduce((sum, point) => sum + Math.abs(point.actual), 0);
+  if (actual === 0) return 0;
+  const absoluteError = points.reduce(
+    (sum, point) => sum + Math.abs(point.actual - point.forecast),
+    0,
+  );
+  return Math.round((absoluteError / actual) * 1000) / 10;
+}
+
 // --------------------------------------------- P3: accuracy by aggregation level
 // Error cancels as series are pooled, so the plan is far more reliable at
 // family/total level than at SKU-location. Computed from the filtered scope.
