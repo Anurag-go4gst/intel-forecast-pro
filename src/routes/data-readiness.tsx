@@ -175,6 +175,7 @@ function DataReadiness() {
   );
   const failedChecks = qualityChecks.filter((c) => c.result === "fail").length;
   const pendingTransformations = transformations.filter((t) => t.status === "Proposed").length;
+  const demoWorkbookLoaded = mode === "demo" && Boolean(upload);
 
   return (
     <div className="space-y-5">
@@ -193,6 +194,13 @@ function DataReadiness() {
             >
               <Download className="h-3.5 w-3.5" aria-hidden /> Download data template
             </button>
+            <a
+              href="/sample-data/apex-motors-demand-history.xlsx"
+              download
+              className="inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-accent"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden /> Download sample Excel
+            </a>
           </>
         }
       />
@@ -207,7 +215,7 @@ function DataReadiness() {
                 ? formatNumber(dataset.stats.series)
                 : "—"
           }
-          delta={mode === "demo" ? "Fictional demo data" : dataset ? `${formatNumber(dataset.stats.rows)} rows · ${dataset.stats.periods} periods (${dataset.stats.frequency})` : "Calculated after upload"}
+          delta={demoWorkbookLoaded ? `${formatNumber(upload?.rows ?? 0)} workbook rows read` : dataset ? `${formatNumber(dataset.stats.rows)} rows · ${dataset.stats.periods} periods (${dataset.stats.frequency})` : "Calculated after upload"}
           deltaTone="neutral"
           icon={Table2}
         />
@@ -240,7 +248,11 @@ function DataReadiness() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Panel
           title="Upload demand history"
-          description="Delimited text files are parsed in the browser for this prototype and never leave the session."
+          description={
+            demoWorkbookLoaded
+              ? "The guide imports a prepared Excel workbook, reads the demand rows, and maps workbook fields before validation."
+              : "Delimited text files are parsed in the browser for this prototype and never leave the session."
+          }
           className="xl:col-span-2"
         >
           <div
@@ -264,7 +276,7 @@ function DataReadiness() {
               Drag and drop your demand history file here
             </p>
             <p className="text-xs text-muted-foreground">
-              Accepted formats: .csv, .tsv, .txt · one row per period, SKU, customer and location
+              Accepted formats: .csv, .tsv, .txt · Excel workbook import is simulated in the guide
             </p>
             <div className="mt-2 flex flex-wrap justify-center gap-2">
               <button
@@ -281,6 +293,13 @@ function DataReadiness() {
               >
                 <Download className="h-3.5 w-3.5" aria-hidden /> Template
               </button>
+              <a
+                href="/sample-data/apex-motors-demand-history.xlsx"
+                download
+                className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden /> Sample Excel
+              </a>
             </div>
             <input
               ref={inputRef}
@@ -306,7 +325,7 @@ function DataReadiness() {
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <StatusPill tone="info">Parsed</StatusPill>
+                <StatusPill tone="info">{demoWorkbookLoaded ? "Reading complete" : "Parsed"}</StatusPill>
                 <button
                   type="button"
                   onClick={() => {
@@ -821,8 +840,9 @@ function DataReadiness() {
       </Panel>
 
       <PrototypeNote>
-        Illustrative prototype data. Uploaded files are inspected only in the browser session, quality
-        scores are simulated, and no ingestion job or data warehouse write is performed.
+        Illustrative prototype data. The guide uses a prepared workbook-shaped sample; user uploads
+        are currently CSV/TSV text exports inspected only in the browser session. Quality scores are
+        simulated, and no ingestion job or data warehouse write is performed.
       </PrototypeNote>
     </div>
   );

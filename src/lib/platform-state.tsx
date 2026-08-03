@@ -110,7 +110,7 @@ type PlatformContextValue = {
     mapping: StatsMapping;
   }) => void;
   recomputeStats: (mapping: StatsMapping) => void;
-  /** Loads the fictional Apex Motors seeded dataset. */
+  /** Imports the prepared Apex Motors workbook used by the guided demo. */
   startDemo: () => void;
   /** Restores the Apex Motors demo to its original seeded starting point. */
   resetDemo: () => void;
@@ -886,10 +886,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         setAuditLog(seedAuditLog);
         setStageDone(emptyStages);
         setUpload({
-          name: "apex-motors-demand-history.csv",
-          sizeLabel: "3.4 MB",
+          name: "apex-motors-demand-history.xlsx",
+          sizeLabel: "1.8 MB workbook",
           rows: 27_000,
-          uploadedAt: "Guide · seeded extract",
+          uploadedAt: "Guide · workbook imported",
         });
         setMappingState({ ...autoMapping });
       } else {

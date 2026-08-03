@@ -41,11 +41,11 @@ function ProjectSetup() {
 
   const demo = mode === "demo";
   const stats = dataset?.stats ?? null;
-  const sourceLabel = demo ? "Fictional demo data" : "User configured";
+  const sourceLabel = demo ? "Demo workbook import" : "User configured";
 
   const seriesValue = demo ? "500" : stats ? String(stats.series) : "—";
   const historyValue = demo ? "54" : stats ? String(stats.periods) : "—";
-  const calcNote = demo ? "Fictional demo data" : "Calculated after upload";
+  const calcNote = demo ? "Read from demo workbook" : "Calculated after upload";
 
   const canCreate = draft.name.trim().length > 1 && draft.owner.trim().length > 1;
 
@@ -65,7 +65,7 @@ function ProjectSetup() {
         <KpiTile
           label="Demand series in scope"
           value={seriesValue}
-          delta={stats || demo ? (demo ? "Fictional demo data" : "Calculated from your upload") : calcNote}
+          delta={stats || demo ? (demo ? "Read from demo workbook" : "Calculated from your upload") : calcNote}
           deltaTone="neutral"
           icon={Layers}
         />
@@ -88,7 +88,7 @@ function ProjectSetup() {
           label="History available"
           value={historyValue}
           unit={historyValue === "—" ? undefined : "periods"}
-          delta={stats || demo ? (demo ? "Fictional demo data" : "Calculated from your upload") : calcNote}
+          delta={stats || demo ? (demo ? "Read from demo workbook" : "Calculated from your upload") : calcNote}
           deltaTone={stats || demo ? "positive" : "neutral"}
           icon={FolderPlus}
         />
@@ -208,7 +208,7 @@ function ProjectSetup() {
       {project && (
         <Panel
           title="Project summary"
-          description={demo ? "Every value below is fictional demo data." : "Configured values and values calculated from your uploaded file."}
+          description={demo ? "Values below come from the prepared Apex Motors demo workbook import." : "Configured values and values calculated from your uploaded file."}
         >
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
@@ -224,24 +224,24 @@ function ProjectSetup() {
                 label="Time frequency"
                 value={
                   demo
-                    ? "Monthly · Fictional demo data"
+                    ? "Monthly · demo workbook"
                     : stats
                       ? `${stats.frequency} · detected from data`
                       : `${project.frequency} · expected, confirm after upload`
                 }
               />
-              <MetricRow label="Demand series" value={demo ? "500 · Fictional demo data" : stats ? `${stats.series} · calculated` : "Calculated after upload"} />
+              <MetricRow label="Demand series" value={demo ? "500 · demo workbook" : stats ? `${stats.series} · calculated` : "Calculated after upload"} />
               <MetricRow
                 label="History available"
                 value={
                   demo
-                    ? "54 periods · Fictional demo data"
+                    ? "54 periods · demo workbook"
                     : stats
                       ? `${stats.periods} periods · ${stats.earliest} → ${stats.latest}`
                       : "Calculated after upload"
                 }
               />
-              <MetricRow label="Uploaded rows" value={demo ? "Fictional demo data" : stats ? String(stats.rows) : "No file uploaded"} />
+              <MetricRow label="Uploaded rows" value={demo ? "27,000 · demo workbook" : stats ? String(stats.rows) : "No file uploaded"} />
             </div>
           </div>
         </Panel>

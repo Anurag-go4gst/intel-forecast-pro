@@ -193,7 +193,8 @@ function expectCleanDemoSeed(api: PlatformApi) {
   });
   expect(api.dataset).toBeNull();
   expect(api.upload).toMatchObject<Partial<UploadedFile>>({
-    name: "apex-motors-demand-history.csv",
+    name: "apex-motors-demand-history.xlsx",
+    sizeLabel: "1.8 MB workbook",
     rows: 27_000,
   });
   expect(api.events).toEqual(seedEvents);
@@ -575,6 +576,16 @@ describe("authoritative application behaviours", () => {
         .getAllByRole("button", { name: /Approve Forecast-Ready Dataset/i })
         .some((button) => button.textContent === "Approve Forecast-Ready Dataset"),
     ).toBe(true);
+
+    const approveDatasetButton = screen
+      .getAllByRole("button", { name: /Approve Forecast-Ready Dataset/i })
+      .find((button) => button.textContent === "Approve Forecast-Ready Dataset");
+    expect(approveDatasetButton).toBeDefined();
+    expect(approveDatasetButton).not.toHaveAttribute("tabindex", "-1");
+    fireEvent.click(approveDatasetButton!);
+    expect(await screen.findByText(/Processing dataset/i)).toBeInTheDocument();
+    await waitFor(() => expect(harness.api.stageDone.dataset).toBe(true));
+    expect(await screen.findByText(/Guide · step 5 of 13/i)).toBeInTheDocument();
   });
 
   it("resets the open guide back to the clean seeded starting step", async () => {
